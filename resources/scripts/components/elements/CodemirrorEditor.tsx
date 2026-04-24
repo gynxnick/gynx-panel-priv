@@ -5,7 +5,7 @@ import tw from 'twin.macro';
 import modes from '@/modes';
 
 require('codemirror/lib/codemirror.css');
-require('codemirror/theme/ayu-mirage.css');
+require('@/components/elements/codemirror-gynx.css');
 require('codemirror/addon/edit/closebrackets');
 require('codemirror/addon/edit/closetag');
 require('codemirror/addon/edit/matchbrackets');
@@ -82,15 +82,24 @@ require('codemirror/mode/yaml/yaml');
 const EditorContainer = styled.div`
     min-height: 16rem;
     height: calc(100vh - 20rem);
-    ${tw`relative`};
+    ${tw`relative rounded-xl overflow-hidden`};
+    border: 1px solid var(--gynx-edge);
+    background: #0B0B0F;
+    transition: border-color .2s ease, box-shadow .2s ease;
+
+    &:focus-within {
+        border-color: rgba(124, 58, 237, 0.45);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
 
     > div {
-        ${tw`rounded h-full`};
+        ${tw`h-full`};
     }
 
     .CodeMirror {
-        font-size: 12px;
-        line-height: 1.375rem;
+        font-size: 12.5px;
+        line-height: 1.5;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
 
     .CodeMirror-linenumber {
@@ -98,10 +107,14 @@ const EditorContainer = styled.div`
     }
 
     .CodeMirror-foldmarker {
-        color: #cbccc6;
+        color: #C4B5FD;
         text-shadow: none;
         margin-left: 0.25rem;
         margin-right: 0.25rem;
+    }
+
+    .CodeMirror-scrollbar-filler {
+        background: transparent;
     }
 `;
 
@@ -151,7 +164,7 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
 
         const e = CodeMirror.fromTextArea(node, {
             mode: 'text/plain',
-            theme: 'ayu-mirage',
+            theme: 'gynx-dark',
             indentUnit: 4,
             smartIndent: true,
             tabSize: 4,

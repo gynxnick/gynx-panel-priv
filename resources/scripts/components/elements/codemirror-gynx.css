@@ -1,0 +1,96 @@
+/*
+ * gynx-dark — CodeMirror 5 theme.
+ *
+ * Applied via `theme: 'gynx-dark'` in CodemirrorEditor.tsx. Colors
+ * follow the brand palette (Void Black base, lavender keywords, cyan
+ * strings, amber numbers, brand-cpu-blue defs).
+ */
+
+.cm-s-gynx-dark.CodeMirror {
+    background: #0B0B0F;
+    color: #E5E7EB;
+}
+
+.cm-s-gynx-dark .CodeMirror-gutters {
+    background: #0F1019;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cm-s-gynx-dark .CodeMirror-linenumber {
+    color: #4B5563;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.cm-s-gynx-dark .CodeMirror-cursor {
+    border-left: 1px solid #C4B5FD;
+}
+
+.cm-s-gynx-dark div.CodeMirror-selected,
+.cm-s-gynx-dark.CodeMirror-focused div.CodeMirror-selected,
+.cm-s-gynx-dark .CodeMirror-line::selection,
+.cm-s-gynx-dark .CodeMirror-line > span::selection,
+.cm-s-gynx-dark .CodeMirror-line > span > span::selection {
+    background: rgba(124, 58, 237, 0.28);
+}
+
+.cm-s-gynx-dark .CodeMirror-activeline-background {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.cm-s-gynx-dark .CodeMirror-matchingbracket {
+    color: #C4B5FD !important;
+    border-bottom: 1px solid #C4B5FD;
+}
+
+.cm-s-gynx-dark .CodeMirror-nonmatchingbracket {
+    color: #F87171;
+}
+
+.cm-s-gynx-dark .CodeMirror-foldgutter,
+.cm-s-gynx-dark .CodeMirror-foldgutter-open,
+.cm-s-gynx-dark .CodeMirror-foldgutter-folded {
+    color: #6B7280;
+}
+
+.cm-s-gynx-dark .CodeMirror-foldmarker {
+    color: #C4B5FD;
+    text-shadow: none;
+}
+
+.cm-s-gynx-dark .CodeMirror-guttermarker-subtle {
+    color: #4B5563;
+}
+
+/* ---- syntax tokens ---- */
+
+.cm-s-gynx-dark .cm-keyword    { color: #C4B5FD; }
+.cm-s-gynx-dark .cm-atom       { color: #C4B5FD; }
+.cm-s-gynx-dark .cm-number     { color: #F59E0B; }
+.cm-s-gynx-dark .cm-def        { color: #60A5FA; }
+.cm-s-gynx-dark .cm-variable   { color: #E5E7EB; }
+.cm-s-gynx-dark .cm-variable-2 { color: #93C5FD; }
+.cm-s-gynx-dark .cm-variable-3,
+.cm-s-gynx-dark .cm-type       { color: #67E8F9; }
+.cm-s-gynx-dark .cm-property   { color: #DDD6FE; }
+.cm-s-gynx-dark .cm-operator   { color: #9CA3AF; }
+.cm-s-gynx-dark .cm-string     { color: #22D3EE; }
+.cm-s-gynx-dark .cm-string-2   { color: #67E8F9; }
+.cm-s-gynx-dark .cm-comment    { color: #6B7280; font-style: italic; }
+.cm-s-gynx-dark .cm-meta       { color: #9CA3AF; }
+.cm-s-gynx-dark .cm-qualifier  { color: #C4B5FD; }
+.cm-s-gynx-dark .cm-builtin    { color: #34D399; }
+.cm-s-gynx-dark .cm-tag        { color: #EC4899; }
+.cm-s-gynx-dark .cm-attribute  { color: #93C5FD; }
+.cm-s-gynx-dark .cm-header     { color: #C4B5FD; font-weight: 600; }
+.cm-s-gynx-dark .cm-quote      { color: #9CA3AF; font-style: italic; }
+.cm-s-gynx-dark .cm-hr         { color: #4B5563; }
+.cm-s-gynx-dark .cm-link       { color: #22D3EE; text-decoration: underline; }
+.cm-s-gynx-dark .cm-error      { color: #F87171; }
+.cm-s-gynx-dark .cm-invalidchar { color: #F87171; }
+
+.cm-s-gynx-dark .CodeMirror-matchhighlight {
+    background: rgba(124, 58, 237, 0.15);
+}
+.cm-s-gynx-dark .CodeMirror-selection-highlight-scrollbar {
+    background: rgba(124, 58, 237, 0.4);
+}

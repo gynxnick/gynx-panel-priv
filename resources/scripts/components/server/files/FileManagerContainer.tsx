@@ -9,6 +9,7 @@ import NewDirectoryButton from '@/components/server/files/NewDirectoryButton';
 import { NavLink, useLocation } from 'react-router-dom';
 import Can from '@/components/elements/Can';
 import { ServerError } from '@/components/elements/ScreenBlock';
+import styled from 'styled-components/macro';
 import tw from 'twin.macro';
 import { Button } from '@/components/elements/button/index';
 import { ServerContext } from '@/state/server';
@@ -21,6 +22,9 @@ import { useStoreActions } from '@/state/hooks';
 import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { FileActionCheckbox } from '@/components/server/files/SelectFileCheckbox';
 import { hashToPath } from '@/helpers';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFolderOpen } from '@fortawesome/free-solid-svg-icons';
+import { EmptyState, Panel } from '@/components/gynx';
 import style from './style.module.css';
 
 const sortFiles = (files: FileObject[]): FileObject[] => {
@@ -29,6 +33,49 @@ const sortFiles = (files: FileObject[]): FileObject[] => {
         .sort((a, b) => (a.isFile === b.isFile ? 0 : a.isFile ? 1 : -1));
     return sortedFiles.filter((file, index) => index === 0 || file.name !== sortedFiles[index - 1].name);
 };
+
+const Toolbar = styled.div`
+    ${tw`flex flex-col md:flex-row md:items-center gap-3 mb-4`};
+`;
+
+const ListHeader = styled.div`
+    ${tw`hidden md:flex items-center px-3 py-2 text-xs uppercase`};
+    color: var(--gynx-text-mute);
+    border-bottom: 1px solid var(--gynx-edge);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.08em;
+`;
+
+const HeaderName = styled.div`
+    ${tw`flex-1`};
+    padding-left: 88px;
+`;
+
+const HeaderSize = styled.div`
+    ${tw`text-right mr-4 hidden sm:block`};
+    width: 16%;
+`;
+
+const HeaderModified = styled.div`
+    ${tw`text-right mr-4 hidden md:block`};
+    width: 20%;
+`;
+
+const HeaderActions = styled.div`
+    width: 40px;
+`;
+
+const TruncatedNotice = styled.div`
+    ${tw`rounded-md px-3 py-2 text-xs mb-2`};
+    background: rgba(252, 211, 77, 0.08);
+    border: 1px solid rgba(252, 211, 77, 0.3);
+    color: #FCD34D;
+    font-family: 'Inter', sans-serif;
+`;
+
+const ListBody = styled.div`
+    ${tw`p-2`};
+`;
 
 export default () => {
     const id = ServerContext.useStoreState((state) => state.server.data!.id);
@@ -62,19 +109,19 @@ export default () => {
     return (
         <ServerContentBlock title={'File Manager'} showFlashKey={'files'}>
             <ErrorBoundary>
-                <div className={'flex flex-wrap-reverse md:flex-nowrap mb-4'}>
+                <Toolbar>
                     <FileManagerBreadcrumbs
                         renderLeft={
                             <FileActionCheckbox
                                 type={'checkbox'}
-                                css={tw`mx-4`}
+                                css={tw`mx-3`}
                                 checked={selectedFilesLength === (files?.length === 0 ? -1 : files?.length)}
                                 onChange={onSelectAllClick}
                             />
                         }
                     />
                     <Can action={'file.create'}>
-                        <div className={style.manager_actions}>
+                        <div className={`${style.manager_actions} md:ml-auto`}>
                             <FileManagerStatus />
                             <NewDirectoryButton />
                             <UploadButton />
@@ -83,33 +130,43 @@ export default () => {
                             </NavLink>
                         </div>
                     </Can>
-                </div>
+                </Toolbar>
             </ErrorBoundary>
             {!files ? (
                 <Spinner size={'large'} centered />
+            ) : !files.length ? (
+                <Panel>
+                    <EmptyState
+                        size={'section'}
+                        icon={<FontAwesomeIcon icon={faFolderOpen} />}
+                        title={'Empty directory'}
+                        body={'Nothing here yet. Use the toolbar above to upload, create a new file, or make a folder.'}
+                    />
+                </Panel>
             ) : (
-                <>
-                    {!files.length ? (
-                        <p css={tw`text-sm text-neutral-400 text-center`}>This directory seems to be empty.</p>
-                    ) : (
-                        <CSSTransition classNames={'fade'} timeout={150} appear in>
-                            <div>
-                                {files.length > 250 && (
-                                    <div css={tw`rounded bg-yellow-400 mb-px p-3`}>
-                                        <p css={tw`text-yellow-900 text-sm text-center`}>
-                                            This directory is too large to display in the browser, limiting the output
-                                            to the first 250 files.
-                                        </p>
-                                    </div>
-                                )}
+                <CSSTransition classNames={'fade'} timeout={150} appear in>
+                    <div>
+                        {files.length > 250 && (
+                            <TruncatedNotice>
+                                Directory too large to fully list — showing the first 250 entries.
+                            </TruncatedNotice>
+                        )}
+                        <Panel>
+                            <ListHeader>
+                                <HeaderName>Name</HeaderName>
+                                <HeaderSize>Size</HeaderSize>
+                                <HeaderModified>Modified</HeaderModified>
+                                <HeaderActions />
+                            </ListHeader>
+                            <ListBody>
                                 {sortFiles(files.slice(0, 250)).map((file) => (
                                     <FileObjectRow key={file.key} file={file} />
                                 ))}
-                                <MassActionsBar />
-                            </div>
-                        </CSSTransition>
-                    )}
-                </>
+                            </ListBody>
+                        </Panel>
+                        <MassActionsBar />
+                    </div>
+                </CSSTransition>
             )}
         </ServerContentBlock>
     );

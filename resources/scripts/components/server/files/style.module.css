@@ -1,28 +1,83 @@
-.manager_actions {
-    @apply grid grid-cols-2 sm:grid-cols-3 w-full gap-4 mb-4;
+/*
+ * gynx — file manager surface.
+ *
+ * Rows sit on a transparent base so the containing Panel provides the
+ * dark surface. Hover dresses them up with a soft purple tint + matching
+ * border. Icon color is set inline per file-type (see FileObjectRow).
+ */
 
-    & button {
-        @apply w-full first:col-span-2 sm:first:col-span-1;
+/* ---- actions strip (right of breadcrumbs) ---- */
+.manager_actions {
+    @apply flex flex-wrap items-center justify-end gap-2;
+
+    & > * {
+        flex: 0 0 auto;
     }
 
-    @screen md {
-        @apply flex flex-1 justify-end mb-0;
+    @media (max-width: 640px) {
+        @apply grid grid-cols-2 w-full;
+        & > * { width: 100%; }
+    }
+}
 
-        & button {
-            @apply w-auto;
+/* ---- file row ---- */
+.file_row {
+    @apply flex items-center no-underline text-sm cursor-pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    transition: background .15s ease, border-color .15s ease;
+    position: relative;
+    margin: 2px 0;
+
+    &:hover {
+        background: rgba(124, 58, 237, 0.06);
+        border-color: rgba(124, 58, 237, 0.18);
+    }
+
+    & > .details {
+        @apply flex flex-1 items-center no-underline px-3 py-2.5 overflow-hidden;
+        color: var(--gynx-text);
+        min-width: 0;
+
+        &:not(a) {
+            cursor: default;
         }
     }
 }
 
-.file_row {
-    @apply flex items-center cursor-pointer bg-neutral-700 rounded-sm mb-px text-sm no-underline;
-    @apply hover:text-neutral-100 hover:bg-neutral-600;
+.file_icon {
+    @apply flex-none flex items-center justify-center ml-3 mr-3 text-lg;
+    width: 24px;
+    height: 24px;
+    transition: transform .15s ease;
 
-    & > .details {
-        @apply flex flex-1 items-center text-neutral-300 no-underline px-4 py-2 overflow-hidden truncate;
-
-        &:not(a) {
-            @apply cursor-default;
-        }
+    .file_row:hover & {
+        transform: scale(1.05);
     }
+}
+
+.file_name {
+    @apply flex-1 truncate;
+    color: var(--gynx-text);
+    font-family: 'Inter', sans-serif;
+}
+
+.file_size,
+.file_modified {
+    @apply text-right mr-4 hidden;
+    color: var(--gynx-text-dim);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.file_size {
+    @apply sm:block;
+    width: 16%;
+}
+
+.file_modified {
+    @apply md:block;
+    width: 20%;
 }
