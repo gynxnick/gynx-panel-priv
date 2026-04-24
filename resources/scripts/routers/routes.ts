@@ -14,6 +14,7 @@ import {
     faPuzzlePiece,
     faCubes,
     faBoxes,
+    faWrench,
     IconDefinition,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -30,6 +31,7 @@ import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherCont
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
+import ConfigEditorContainer from '@/components/server/configs/ConfigEditorContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
@@ -85,6 +87,7 @@ export default {
         { path: '/plugins',   permission: 'addon.plugin.*', name: 'Plugins', icon: faPuzzlePiece, group: 'management', component: PluginsContainer },
         { path: '/mods',      permission: 'addon.mod.*',    name: 'Mods',    icon: faCubes,       group: 'management', component: ModsContainer },
         { path: '/modpacks',  permission: 'addon.modpack.*', name: 'Modpacks', icon: faBoxes, group: 'management', component: ModpacksContainer },
+        { path: '/configs',   permission: 'file.*',          name: 'Configs',  icon: faWrench, group: 'management', component: ConfigEditorContainer },
 
         // Monitoring
         { path: '/schedules', permission: 'schedule.*', name: 'Schedules', icon: faClock,        group: 'monitoring', component: ScheduleContainer },

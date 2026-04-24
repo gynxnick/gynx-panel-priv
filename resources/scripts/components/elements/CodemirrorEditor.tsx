@@ -126,6 +126,8 @@ export interface Props {
     onModeChanged: (mode: string) => void;
     fetchContent: (callback: () => Promise<string>) => void;
     onContentSaved: () => void;
+    /** Fires on every keystroke with the current buffer. Optional. */
+    onChange?: (value: string) => void;
 }
 
 const findModeByFilename = (filename: string) => {
@@ -156,7 +158,7 @@ const findModeByFilename = (filename: string) => {
     return undefined;
 };
 
-export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged }: Props) => {
+export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged, onChange }: Props) => {
     const [editor, setEditor] = useState<CodeMirror.Editor>();
 
     const ref = useCallback((node) => {
@@ -220,6 +222,16 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
 
         fetchContent(() => Promise.resolve(editor.getValue()));
     }, [editor, fetchContent, onContentSaved]);
+
+    // Live change subscription — optional, used by the Config Editor for
+    // syntax validation as-you-type. Wired separately so it re-subscribes
+    // when the parent's onChange identity changes.
+    useEffect(() => {
+        if (!editor || !onChange) return;
+        const handler = (cm: CodeMirror.Editor) => onChange(cm.getValue());
+        editor.on('change', handler);
+        return () => { editor.off('change', handler); };
+    }, [editor, onChange]);
 
     return (
         <EditorContainer style={style}>
