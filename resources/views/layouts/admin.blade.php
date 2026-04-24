@@ -122,6 +122,11 @@
                                 <i class="fa fa-th-large"></i> <span>Nests</span>
                             </a>
                         </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.egg-switch') ?: 'active' }}">
+                            <a href="{{ route('admin.egg-switch.index') }}">
+                                <i class="fa fa-random"></i> <span>Egg Switch</span>
+                            </a>
+                        </li>
                     </ul>
                 </section>
             </aside>

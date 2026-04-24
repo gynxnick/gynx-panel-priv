@@ -8,6 +8,21 @@ Route::get('/', [Admin\BaseController::class, 'index'])->name('admin.index');
 
 /*
 |--------------------------------------------------------------------------
+| Egg Switch Rules
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/egg-switch
+|
+*/
+Route::group(['prefix' => 'egg-switch'], function () {
+    Route::get('/', [Admin\EggSwitchRulesController::class, 'index'])->name('admin.egg-switch.index');
+    Route::post('/', [Admin\EggSwitchRulesController::class, 'store'])->name('admin.egg-switch.store');
+    Route::post('/{rule}/toggle', [Admin\EggSwitchRulesController::class, 'toggle'])->name('admin.egg-switch.toggle');
+    Route::delete('/{rule}', [Admin\EggSwitchRulesController::class, 'destroy'])->name('admin.egg-switch.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Location Controller Routes
 |--------------------------------------------------------------------------
 |
