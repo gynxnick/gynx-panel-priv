@@ -28,7 +28,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function sources(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->authorize($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
 
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
@@ -47,7 +47,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function search(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->authorize($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
 
         $source = (string) $request->query('source', 'modrinth');
         $query = trim((string) $request->query('q', ''));
@@ -67,7 +67,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function installed(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->authorize($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
 
         return new JsonResponse([
             'data' => $this->installer->listInstalled($server),
@@ -122,7 +122,7 @@ class AddonPluginsController extends ClientApiController
         return new JsonResponse([], Response::HTTP_NO_CONTENT);
     }
 
-    private function authorize(ClientApiRequest $request, Server $server, string $permission): void
+    private function ensurePermission(ClientApiRequest $request, Server $server, string $permission): void
     {
         if (!$request->user()->can($permission, $server)) {
             abort(403, 'You do not have permission to perform this action on this server.');
