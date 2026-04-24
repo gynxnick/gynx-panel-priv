@@ -8,7 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('panel_alerts', function (Blueprint $table) {
-            $table->bigIncrements('id');
+            $table->increments('id');
             $table->enum('scope', ['panel', 'node'])->default('panel');
             $table->unsignedInteger('node_id')->nullable();
             $table->enum('severity', ['info', 'warn', 'maint', 'critical'])->default('info');
@@ -21,7 +21,8 @@ return new class extends Migration {
             $table->unsignedInteger('created_by')->nullable();
             $table->timestamps();
 
-            $table->index(['scope', 'node_id', 'starts_at', 'ends_at'], 'panel_alerts_active_window');
+            $table->index(['scope', 'node_id'], 'panel_alerts_scope_node');
+            $table->index(['starts_at', 'ends_at'], 'panel_alerts_window');
 
             $table->foreign('node_id')
                 ->references('id')->on('nodes')

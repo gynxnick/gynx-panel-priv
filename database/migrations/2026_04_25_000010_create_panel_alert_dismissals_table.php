@@ -8,8 +8,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('panel_alert_dismissals', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('alert_id');
+            $table->increments('id');
+            $table->unsignedInteger('alert_id');
             $table->unsignedInteger('user_id');
             $table->timestamp('dismissed_at')->useCurrent();
 
