@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ITerminalOptions, Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { SearchAddon } from 'xterm-addon-search';
@@ -15,6 +15,8 @@ import { usePersistedState } from '@/plugins/usePersistedState';
 import { SocketEvent, SocketRequest } from '@/components/server/events';
 import classNames from 'classnames';
 import { ChevronDoubleRightIcon } from '@heroicons/react/solid';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
 
 import 'xterm/css/xterm.css';
 import styles from './style.module.css';
@@ -91,6 +93,40 @@ export default () => {
 
     const handlePowerChangeEvent = (state: string) =>
         terminal.writeln(TERMINAL_PRELUDE + 'Server marked as ' + state + '...\u001b[0m');
+
+    // Copy-logs button — pulls every line out of xterm's buffer and pushes
+    // it to the clipboard. Async so we can use the modern Clipboard API
+    // (with a synchronous fallback for non-https contexts).
+    const [copied, setCopied] = useState(false);
+    const onCopyLogs = useCallback(async () => {
+        const buf = terminal.buffer.active;
+        const lines: string[] = [];
+        for (let i = 0; i < buf.length; i++) {
+            const line = buf.getLine(i);
+            if (line) lines.push(line.translateToString(true));
+        }
+        const text = lines.join('\n').replace(/\n+$/, '');
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for http panels — silent, works everywhere.
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1800);
+        } catch (e) {
+            console.error('copy logs failed', e);
+        }
+    }, [terminal]);
 
     const handleCommandKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'ArrowUp') {
@@ -199,6 +235,20 @@ export default () => {
             >
                 <div className={'h-full'}>
                     <div id={styles.terminal} ref={ref} />
+                </div>
+                {/* Floating toolbar — renders inside the terminal container so
+                    it absolutely positions against #05070B, not the page. */}
+                <div className={styles.toolbar} aria-label={'console actions'}>
+                    <button
+                        type={'button'}
+                        onClick={onCopyLogs}
+                        className={classNames(styles.toolbar_btn, { [styles.toolbar_btn_ok]: copied })}
+                        aria-label={copied ? 'logs copied' : 'copy console logs'}
+                        title={copied ? 'Copied!' : 'Copy console logs'}
+                    >
+                        <FontAwesomeIcon icon={copied ? faCheck : faCopy} />
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
                 </div>
             </div>
             {canSendCommands && (

@@ -7,22 +7,54 @@ import {
     LinearScale,
     LineElement,
     PointElement,
+    Tooltip,
 } from 'chart.js';
 import { DeepPartial } from 'ts-essentials';
 import { useState } from 'react';
 import { deepmerge, deepmergeCustom } from 'deepmerge-ts';
-import { theme } from 'twin.macro';
-import { hexToRgba } from '@/lib/helpers';
 
-ChartJS.register(LineElement, PointElement, Filler, LinearScale);
+ChartJS.register(LineElement, PointElement, Filler, LinearScale, Tooltip);
+
+/**
+ * gynx — chart defaults.
+ *
+ * Visual changes from stock Pterodactyl:
+ *   - tension bumped (0.15 → 0.4) for smooth curved lines
+ *   - tooltips enabled with brand-aligned styling (purple edge, glass bg)
+ *   - hover point becomes visible (radius 4); resting still hidden
+ *   - y-axis grid color is neutral edge, not slate
+ *
+ * Per-metric colors are applied at the call site (StatGraphs.tsx) so the
+ * chart core stays palette-agnostic.
+ */
 
 const options: ChartOptions<'line'> = {
     responsive: true,
     animation: false,
+    interaction: {
+        mode: 'index',
+        intersect: false,
+    },
     plugins: {
         legend: { display: false },
         title: { display: false },
-        tooltip: { enabled: false },
+        tooltip: {
+            enabled: true,
+            backgroundColor: 'rgba(11, 11, 15, 0.96)',
+            borderColor: 'rgba(124, 58, 237, 0.45)',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 10,
+            displayColors: false,
+            titleColor: '#E5E7EB',
+            titleFont: { family: 'Inter', size: 11, weight: '500' },
+            bodyColor: '#E5E7EB',
+            bodyFont: { family: 'JetBrains Mono, ui-monospace, monospace', size: 12, weight: '500' },
+            // x-axis is just an index (0..19), so swallow the title.
+            callbacks: {
+                title: () => '',
+            },
+        },
     },
     layout: {
         padding: 0,
@@ -45,15 +77,15 @@ const options: ChartOptions<'line'> = {
             type: 'linear',
             grid: {
                 display: true,
-                color: theme('colors.gray.700'),
+                color: 'rgba(255, 255, 255, 0.04)',
                 drawBorder: false,
             },
             ticks: {
                 display: true,
-                count: 3,
-                color: theme('colors.gray.200'),
+                count: 4,
+                color: '#9CA3AF',
                 font: {
-                    family: theme('fontFamily.sans'),
+                    family: 'Inter, system-ui, sans-serif',
                     size: 11,
                     weight: '400',
                 },
@@ -63,9 +95,15 @@ const options: ChartOptions<'line'> = {
     elements: {
         point: {
             radius: 0,
+            hoverRadius: 4,
+            hoverBorderWidth: 2,
+            hoverBackgroundColor: '#0B0B0F',
+            // hoverBorderColor is set per-dataset at the call site so it picks
+            // up the metric accent (CPU=blue, RAM=lavender, Net=cyan).
         },
         line: {
-            tension: 0.15,
+            tension: 0.4,
+            borderWidth: 2,
         },
     },
 };
@@ -91,8 +129,8 @@ function getEmptyData(label: string, sets = 1, callback?: ChartDatasetCallback |
                         fill: true,
                         label,
                         data: Array(20).fill(-5),
-                        borderColor: theme('colors.cyan.400'),
-                        backgroundColor: hexToRgba(theme('colors.cyan.700'), 0.5),
+                        borderColor: '#22D3EE',
+                        backgroundColor: 'rgba(34, 211, 238, 0.16)',
                     },
                     index
                 )

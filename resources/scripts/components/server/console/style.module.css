@@ -52,6 +52,55 @@
         transition: color .2s ease;
     }
 
+    & .toolbar {
+        @apply absolute z-20 flex items-center gap-1;
+        top: 8px;
+        right: 8px;
+        opacity: 0.6;
+        transition: opacity .18s ease;
+    }
+
+    & .container:hover .toolbar { opacity: 1; }
+
+    & .toolbar_btn {
+        @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium;
+        background: rgba(15, 17, 26, 0.85);
+        border: 1px solid var(--gynx-edge-2);
+        color: var(--gynx-text-dim);
+        font-family: 'Inter', sans-serif;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        cursor: pointer;
+        transition: color .18s ease, background .18s ease, border-color .18s ease;
+    }
+
+    & .toolbar_btn:hover {
+        color: #fff;
+        background: rgba(34, 211, 238, 0.12);
+        border-color: rgba(34, 211, 238, 0.4);
+    }
+
+    & .toolbar_btn:active {
+        transform: scale(0.97);
+    }
+
+    & .toolbar_btn svg {
+        width: 12px; height: 12px;
+    }
+
+    /* Success state — green accent for ~1.8s after click. */
+    & .toolbar_btn_ok {
+        color: var(--gynx-status-ok);
+        border-color: rgba(52, 211, 153, 0.45);
+        background: rgba(52, 211, 153, 0.10);
+    }
+
+    & .toolbar_btn_ok:hover {
+        color: var(--gynx-status-ok);
+        border-color: rgba(52, 211, 153, 0.6);
+        background: rgba(52, 211, 153, 0.16);
+    }
+
     & .command_input {
         @apply relative pl-10 pr-4 py-2.5 w-full font-mono text-sm text-gynx-text;
         @apply focus:ring-0 outline-none focus-visible:outline-none;

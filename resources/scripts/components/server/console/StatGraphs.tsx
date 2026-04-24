@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { keyframes, css } from 'styled-components/macro';
 import tw from 'twin.macro';
 import { Line } from 'react-chartjs-2';
+import { ScriptableContext } from 'chart.js';
 
 import { ServerContext } from '@/state/server';
 import { SocketEvent } from '@/components/server/events';
@@ -13,27 +14,46 @@ import { bytesToString } from '@/lib/formatters';
 /**
  * gynx — unified chart panel.
  *
- * Three metric series (CPU / RAM / Network) feed the same scrolling line
- * chart. The user picks the active tab; the other two series keep collecting
- * data in the background so tab-switching is instant and preserves history.
+ * One large panel with three tabs (CPU / RAM / Network). Active series gets
+ * its accent color applied to both line + gradient fill. Inactive series keep
+ * collecting data in the background so tab switches preserve history.
  *
  * Visual rules:
  *   - Flat #1F2937 panel, neutral edge at rest.
- *   - Tabs = purple pill for active, blue hover for inactive.
- *   - Chart height is larger than session 1's sparklines — readability first.
- *   - Each series uses its own metric accent (CPU=blue, RAM=purple, Net=cyan).
+ *   - Tabs: active = metric-accent pill; inactive hover = blue tint.
+ *   - Smooth curves (tension 0.4 baked in chart.ts).
+ *   - Gradient fill from accent → transparent.
+ *   - Hover surfaces a precise-value tooltip (built into chart.ts defaults).
+ *   - Activity pulse: when a value jumps >25% of its limit between samples,
+ *     the panel border briefly pulses in the accent color.
  */
 
-const Panel = styled.section`
+// ----- styled scaffolding ---------------------------------------------------
+
+const pulse = keyframes`
+    0%   { box-shadow: 0 0 0 1px var(--gynx-accent), 0 0 0 0 rgba(var(--gynx-accent-rgb), 0.45); }
+    60%  { box-shadow: 0 0 0 1px var(--gynx-accent), 0 0 0 14px rgba(var(--gynx-accent-rgb), 0); }
+    100% { box-shadow: 0 0 0 1px transparent, 0 0 0 0 transparent; }
+`;
+
+const Panel = styled.section<{ $pulsing: boolean; $accent: string; $accentRgb: string }>`
     ${tw`relative rounded-xl overflow-hidden`};
     background: var(--gynx-surface);
     border: 1px solid var(--gynx-edge);
     transition: border-color .25s ease, box-shadow .25s ease;
+    --gynx-accent: ${({ $accent }) => $accent};
+    --gynx-accent-rgb: ${({ $accentRgb }) => $accentRgb};
 
     &:hover {
         border-color: rgba(124, 58, 237, 0.35);
         box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.35), 0 10px 28px -12px rgba(124, 58, 237, 0.4);
     }
+
+    ${({ $pulsing }) =>
+        $pulsing &&
+        css`
+            animation: ${pulse} .9s ease-out;
+        `}
 `;
 
 const Header = styled.header`
@@ -57,8 +77,7 @@ const Tab = styled.button<{ $active: boolean; $accent: string }>`
 
     &:hover {
         color: ${({ $active, $accent }) => ($active ? $accent : 'var(--gynx-text)')};
-        background: ${({ $active }) =>
-            $active ? undefined : 'rgba(34, 211, 238, 0.08)'};
+        background: ${({ $active }) => ($active ? undefined : 'rgba(34, 211, 238, 0.08)')};
     }
 `;
 
@@ -71,35 +90,60 @@ const TabDot = styled.span<{ $color: string }>`
 `;
 
 const Body = styled.div`
-    ${tw`px-3 pb-3 pt-2 relative`};
-    /* Fixed height so Chart.js has something to render against. Without this,
-       a growable flex parent lets Chart.js's aspectRatio=2 stretch the canvas
-       to ~400px. */
-    height: 280px;
+    ${tw`px-3 pb-3 pt-3 relative`};
+    /* Larger than session 2 (was 280px) — readability over compactness. */
+    height: 380px;
 `;
-
-/*
- * Chart.js defaults to maintainAspectRatio: true, which means it derives
- * height from width and ignores the container's height. That was giving us
- * a ~400px tall chart in the growable flex layout. This override lets the
- * Body's fixed height drive the canvas.
- */
-const respectContainerHeight = { maintainAspectRatio: false, responsive: true } as const;
 
 const Legend = styled.div`
     ${tw`text-[11px] text-gynx-text-dim flex items-center gap-4`};
 `;
 
+// ----- metric metadata ------------------------------------------------------
+
 const metricAccents = {
-    cpu:    '#60A5FA', // blue
-    memory: '#C4B5FD', // lavender (matches StatBlock RAM tile — full purple is reserved for actions)
+    cpu:     '#60A5FA', // blue
+    memory:  '#C4B5FD', // lavender
     network: '#22D3EE', // cyan
+} as const;
+
+const metricRgb = {
+    cpu:     '96, 165, 250',
+    memory:  '196, 181, 253',
+    network: '34, 211, 238',
 } as const;
 
 type ChartTab = keyof typeof metricAccents;
 
+const respectContainerHeight = { maintainAspectRatio: false, responsive: true } as const;
+
+/**
+ * Build a Chart.js scriptable backgroundColor that paints a vertical
+ * gradient from the metric accent at the top → transparent at the bottom.
+ * Returns a plain rgba fallback while the canvas isn't ready yet.
+ */
+const gradientFill = (color: string) => (ctx: ScriptableContext<'line'>) => {
+    const { chart } = ctx;
+    const { ctx: c, chartArea } = chart;
+    if (!chartArea) {
+        return hexToRgba(color, 0.12);
+    }
+    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0, hexToRgba(color, 0.42));
+    g.addColorStop(0.7, hexToRgba(color, 0.08));
+    g.addColorStop(1, hexToRgba(color, 0));
+    return g;
+};
+
 export default () => {
     const [tab, setTab] = useState<ChartTab>('cpu');
+    const [pulsing, setPulsing] = useState(false);
+    const lastValue = useRef<Record<ChartTab, number | undefined>>({
+        cpu: undefined,
+        memory: undefined,
+        network: undefined,
+    });
+    const pulseTimer = useRef<number | undefined>(undefined);
 
     const status = ServerContext.useStoreState((state) => state.status.value);
     const limits = ServerContext.useStoreState((state) => state.server.data!.limits);
@@ -126,7 +170,7 @@ export default () => {
                 ...opts,
                 label: !index ? 'Network In' : 'Network Out',
                 borderColor: !index ? '#22D3EE' : '#67E8F9',
-                backgroundColor: hexToRgba(!index ? '#22D3EE' : '#67E8F9', 0.28),
+                backgroundColor: hexToRgba(!index ? '#22D3EE' : '#67E8F9', 0.18),
             };
         },
     });
@@ -136,6 +180,7 @@ export default () => {
             cpu.clear();
             memory.clear();
             network.clear();
+            lastValue.current = { cpu: undefined, memory: undefined, network: undefined };
         }
     }, [status]);
 
@@ -146,19 +191,50 @@ export default () => {
         } catch (e) {
             return;
         }
-        cpu.push(values.cpu_absolute);
-        memory.push(Math.floor(values.memory_bytes / 1024 / 1024));
+
+        const cpuVal = values.cpu_absolute as number;
+        const memVal = Math.floor(values.memory_bytes / 1024 / 1024);
+
+        cpu.push(cpuVal);
+        memory.push(memVal);
         network.push([
             previous.current.tx < 0 ? 0 : Math.max(0, values.network.tx_bytes - previous.current.tx),
             previous.current.rx < 0 ? 0 : Math.max(0, values.network.rx_bytes - previous.current.rx),
         ]);
 
         previous.current = { tx: values.network.tx_bytes, rx: values.network.rx_bytes };
+
+        // Activity pulse — fire when the *currently visible* metric jumps by
+        // > 25% of its hard limit since the previous sample. Network falls
+        // back to absolute-byte threshold (1 MiB delta) since limits.network
+        // doesn't exist.
+        let delta: number | undefined;
+        let threshold: number | undefined;
+        if (tab === 'cpu') {
+            delta = lastValue.current.cpu === undefined ? 0 : Math.abs(cpuVal - lastValue.current.cpu);
+            threshold = limits?.cpu ? limits.cpu * 0.25 : 25;
+            lastValue.current.cpu = cpuVal;
+        } else if (tab === 'memory') {
+            delta = lastValue.current.memory === undefined ? 0 : Math.abs(memVal - (lastValue.current.memory || 0));
+            threshold = limits?.memory ? limits.memory * 0.25 : 256;
+            lastValue.current.memory = memVal;
+        }
+        if (delta !== undefined && threshold !== undefined && delta > threshold && !pulsing) {
+            setPulsing(true);
+            window.clearTimeout(pulseTimer.current);
+            pulseTimer.current = window.setTimeout(() => setPulsing(false), 900);
+        }
     });
 
-    // Tint the active series' line/fill via the chart props object; also
-    // override maintainAspectRatio so the canvas sizes to the Body's height.
+    // Reset pulse when switching tabs so old animation doesn't bleed.
+    useEffect(() => {
+        setPulsing(false);
+        return () => window.clearTimeout(pulseTimer.current);
+    }, [tab]);
+
+    // Build the active dataset's props with metric-tinted line + gradient fill.
     const activeProps = (() => {
+        const accent = metricAccents[tab];
         switch (tab) {
             case 'cpu':
                 return {
@@ -168,8 +244,9 @@ export default () => {
                         ...cpu.props.data,
                         datasets: cpu.props.data.datasets.map((ds: any) => ({
                             ...ds,
-                            borderColor: metricAccents.cpu,
-                            backgroundColor: hexToRgba(metricAccents.cpu, 0.22),
+                            borderColor: accent,
+                            backgroundColor: gradientFill(accent),
+                            pointHoverBorderColor: accent,
                         })),
                     },
                 };
@@ -181,8 +258,9 @@ export default () => {
                         ...memory.props.data,
                         datasets: memory.props.data.datasets.map((ds: any) => ({
                             ...ds,
-                            borderColor: metricAccents.memory,
-                            backgroundColor: hexToRgba(metricAccents.memory, 0.22),
+                            borderColor: accent,
+                            backgroundColor: gradientFill(accent),
+                            pointHoverBorderColor: accent,
                         })),
                     },
                 };
@@ -190,12 +268,23 @@ export default () => {
                 return {
                     ...network.props,
                     options: { ...network.props.options, ...respectContainerHeight },
+                    data: {
+                        ...network.props.data,
+                        datasets: network.props.data.datasets.map((ds: any, i: number) => {
+                            const c = i === 0 ? '#22D3EE' : '#67E8F9';
+                            return {
+                                ...ds,
+                                backgroundColor: gradientFill(c),
+                                pointHoverBorderColor: c,
+                            };
+                        }),
+                    },
                 };
         }
     })();
 
     return (
-        <Panel>
+        <Panel $pulsing={pulsing} $accent={metricAccents[tab]} $accentRgb={metricRgb[tab]}>
             <Header>
                 <TabGroup role={'tablist'} aria-label={'metric'}>
                     <Tab
@@ -229,8 +318,12 @@ export default () => {
 
                 {tab === 'network' && (
                     <Legend>
-                        <span><TabDot $color={'#22D3EE'} /> in</span>
-                        <span><TabDot $color={'#67E8F9'} /> out</span>
+                        <span>
+                            <TabDot $color={'#22D3EE'} /> in
+                        </span>
+                        <span>
+                            <TabDot $color={'#67E8F9'} /> out
+                        </span>
                     </Legend>
                 )}
             </Header>
