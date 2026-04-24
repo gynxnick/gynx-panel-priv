@@ -15,3 +15,7 @@ export type { EmptyStateProps, EmptyStateSize } from './EmptyState';
 
 export { LineChart, Sparkline, useSeries, linearScale, smoothPath, niceTicks, extent } from './chart';
 export type { LineChartProps, SparklineProps, Series, Scale } from './chart';
+
+export { AlertBar } from './AlertBar';
+export { AlertBell } from './AlertBell';
+export { useAlertPolling, persistDismissal } from './useAlertPolling';
