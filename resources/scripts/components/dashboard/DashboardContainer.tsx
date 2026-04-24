@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Server } from '@/api/server/getServer';
 import getServers from '@/api/getServers';
-import ServerRow from '@/components/dashboard/ServerRow';
+import ServerCard from '@/components/dashboard/ServerCard';
 import Spinner from '@/components/elements/Spinner';
 import PageContentBlock from '@/components/elements/PageContentBlock';
 import useFlash from '@/plugins/useFlash';
@@ -9,10 +9,27 @@ import { useStoreState } from 'easy-peasy';
 import { usePersistedState } from '@/plugins/usePersistedState';
 import Switch from '@/components/elements/Switch';
 import tw from 'twin.macro';
+import styled from 'styled-components/macro';
 import useSWR from 'swr';
 import { PaginatedResult } from '@/api/http';
 import Pagination from '@/components/elements/Pagination';
 import { useLocation } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faServer } from '@fortawesome/free-solid-svg-icons';
+import { EmptyState } from '@/components/gynx';
+
+const Grid = styled.div`
+    ${tw`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4`};
+`;
+
+const AdminToggle = styled.div`
+    ${tw`mb-4 flex justify-end items-center gap-3`};
+    color: var(--gynx-text-dim);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+`;
 
 export default () => {
     const { search } = useLocation();
@@ -37,9 +54,6 @@ export default () => {
     }, [servers?.pagination.currentPage]);
 
     useEffect(() => {
-        // Don't use react-router to handle changing this part of the URL, otherwise it
-        // triggers a needless re-render. We just want to track this in the URL incase the
-        // user refreshes the page.
         window.history.replaceState(null, document.title, `/${page <= 1 ? '' : `?page=${page}`}`);
     }, [page]);
 
@@ -51,16 +65,14 @@ export default () => {
     return (
         <PageContentBlock title={'Dashboard'} showFlashKey={'dashboard'}>
             {rootAdmin && (
-                <div css={tw`mb-2 flex justify-end items-center`}>
-                    <p css={tw`uppercase text-xs text-neutral-400 mr-2`}>
-                        {showOnlyAdmin ? "Showing others' servers" : 'Showing your servers'}
-                    </p>
+                <AdminToggle>
+                    <span>{showOnlyAdmin ? "showing others' servers" : 'showing your servers'}</span>
                     <Switch
                         name={'show_all_servers'}
                         defaultChecked={showOnlyAdmin}
                         onChange={() => setShowOnlyAdmin((s) => !s)}
                     />
-                </div>
+                </AdminToggle>
             )}
             {!servers ? (
                 <Spinner centered size={'large'} />
@@ -68,15 +80,22 @@ export default () => {
                 <Pagination data={servers} onPageSelect={setPage}>
                     {({ items }) =>
                         items.length > 0 ? (
-                            items.map((server, index) => (
-                                <ServerRow key={server.uuid} server={server} css={index > 0 ? tw`mt-2` : undefined} />
-                            ))
+                            <Grid>
+                                {items.map((server) => (
+                                    <ServerCard key={server.uuid} server={server} />
+                                ))}
+                            </Grid>
                         ) : (
-                            <p css={tw`text-center text-sm text-neutral-400`}>
-                                {showOnlyAdmin
-                                    ? 'There are no other servers to display.'
-                                    : 'There are no servers associated with your account.'}
-                            </p>
+                            <EmptyState
+                                size={'page'}
+                                icon={<FontAwesomeIcon icon={faServer} />}
+                                title={showOnlyAdmin ? 'No other servers' : 'No servers yet'}
+                                body={
+                                    showOnlyAdmin
+                                        ? 'No other users have deployed servers on this panel.'
+                                        : 'Ask your admin for a deployment, or contact support if you expected to see one here.'
+                                }
+                            />
                         )
                     }
                 </Pagination>

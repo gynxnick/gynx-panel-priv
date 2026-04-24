@@ -5,12 +5,15 @@ import { extent, linearScale, smoothPath } from './primitives';
 
 const Svg = styled.svg`
     display: block;
+    width: 100%;
 `;
 
 export type SparklineProps = {
     data: number[];
     color: string;
+    /** Logical viewBox width. Rendered width stretches to fill parent. */
     width?: number;
+    /** CSS + viewBox height. */
     height?: number;
     /** Show a subtle filled area under the line. Default true. */
     filled?: boolean;
@@ -21,7 +24,7 @@ let counter = 0;
 export const Sparkline: React.FC<SparklineProps> = ({
     data,
     color,
-    width = 80,
+    width = 120,
     height = 24,
     filled = true,
 }) => {
@@ -40,10 +43,14 @@ export const Sparkline: React.FC<SparklineProps> = ({
         return { linePath: line, areaPath: area };
     }, [data, width, height]);
 
-    if (!linePath) return <Svg width={width} height={height} />;
+    if (!linePath) return <Svg style={{ height }} />;
 
     return (
-        <Svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}>
+        <Svg
+            viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio={'none'}
+            style={{ height }}
+        >
             <defs>
                 <linearGradient id={idRef.current} x1={'0'} y1={'0'} x2={'0'} y2={'1'}>
                     <stop offset={'0%'} stopColor={hexToRgba(color, 0.35)} />
