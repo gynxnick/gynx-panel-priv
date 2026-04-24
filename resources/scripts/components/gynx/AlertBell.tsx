@@ -4,11 +4,11 @@ import tw from 'twin.macro';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faBell,
-    faCircleInfo,
-    faTriangleExclamation,
+    faInfoCircle,
+    faExclamationTriangle,
     faWrench,
-    faCircleExclamation,
-    faXmark,
+    faExclamationCircle,
+    faTimes,
 } from '@fortawesome/free-solid-svg-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { useStoreState, useStoreActions } from '@/state/hooks';
@@ -24,10 +24,10 @@ const SEV_COLOR: Record<AlertSeverity, string> = {
 };
 
 const SEV_ICON: Record<AlertSeverity, any> = {
-    critical: faCircleExclamation,
-    warn: faTriangleExclamation,
+    critical: faExclamationCircle,
+    warn: faExclamationTriangle,
     maint: faWrench,
-    info: faCircleInfo,
+    info: faInfoCircle,
 };
 
 const pulse = keyframes`
@@ -235,7 +235,7 @@ export const AlertBell: React.FC = () => {
                                         onClick={() => onDismiss(a.id)}
                                         aria-label={'Dismiss'}
                                     >
-                                        <FontAwesomeIcon icon={faXmark} />
+                                        <FontAwesomeIcon icon={faTimes} />
                                     </RowDismiss>
                                 )}
                             </Row>

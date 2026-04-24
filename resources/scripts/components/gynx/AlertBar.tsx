@@ -3,11 +3,11 @@ import styled from 'styled-components/macro';
 import tw from 'twin.macro';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faCircleInfo,
-    faTriangleExclamation,
+    faInfoCircle,
+    faExclamationTriangle,
     faWrench,
-    faCircleExclamation,
-    faXmark,
+    faExclamationCircle,
+    faTimes,
 } from '@fortawesome/free-solid-svg-icons';
 import { useStoreState, useStoreActions } from '@/state/hooks';
 import { AlertSeverity, PanelAlert } from '@/state/alerts';
@@ -26,13 +26,13 @@ const SEVERITY_STYLE: Record<AlertSeverity, { fg: string; bg: string; border: st
         fg: '#F87171',
         bg: 'rgba(248, 113, 113, 0.10)',
         border: 'rgba(248, 113, 113, 0.35)',
-        icon: faCircleExclamation,
+        icon: faExclamationCircle,
     },
     warn: {
         fg: '#FCD34D',
         bg: 'rgba(252, 211, 77, 0.08)',
         border: 'rgba(252, 211, 77, 0.32)',
-        icon: faTriangleExclamation,
+        icon: faExclamationTriangle,
     },
     maint: {
         fg: '#C4B5FD',
@@ -44,7 +44,7 @@ const SEVERITY_STYLE: Record<AlertSeverity, { fg: string; bg: string; border: st
         fg: '#22D3EE',
         bg: 'rgba(34, 211, 238, 0.08)',
         border: 'rgba(34, 211, 238, 0.32)',
-        icon: faCircleInfo,
+        icon: faInfoCircle,
     },
 };
 
@@ -140,7 +140,7 @@ export const AlertBar: React.FC = () => {
             )}
             {top.dismissible && (
                 <Dismiss type={'button'} onClick={onDismiss} aria-label={'Dismiss alert'}>
-                    <FontAwesomeIcon icon={faXmark} />
+                    <FontAwesomeIcon icon={faTimes} />
                 </Dismiss>
             )}
         </Wrap>
