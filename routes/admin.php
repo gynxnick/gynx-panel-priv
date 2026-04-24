@@ -8,6 +8,54 @@ Route::get('/', [Admin\BaseController::class, 'index'])->name('admin.index');
 
 /*
 |--------------------------------------------------------------------------
+| Panel Alerts
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/alerts
+|
+*/
+Route::group(['prefix' => 'alerts'], function () {
+    Route::get('/',          [Admin\PanelAlertsController::class, 'index'])->name('admin.alerts.index');
+    Route::get('/new',       [Admin\PanelAlertsController::class, 'create'])->name('admin.alerts.create');
+    Route::post('/',         [Admin\PanelAlertsController::class, 'store'])->name('admin.alerts.store');
+    Route::get('/{alert}/edit', [Admin\PanelAlertsController::class, 'edit'])->name('admin.alerts.edit');
+    Route::patch('/{alert}', [Admin\PanelAlertsController::class, 'update'])->name('admin.alerts.update');
+    Route::delete('/{alert}', [Admin\PanelAlertsController::class, 'destroy'])->name('admin.alerts.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Branding / editable panel text
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/branding
+|
+*/
+Route::group(['prefix' => 'branding'], function () {
+    Route::get('/',     [Admin\BrandingController::class, 'index'])->name('admin.branding.index');
+    Route::post('/',    [Admin\BrandingController::class, 'update'])->name('admin.branding.update');
+    Route::post('/reset', [Admin\BrandingController::class, 'reset'])->name('admin.branding.reset');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Add-on observability (read + delete across all servers)
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/addons
+|
+*/
+Route::group(['prefix' => 'addons'], function () {
+    Route::get('/plugins',    [Admin\AddonAdminController::class, 'plugins'])->name('admin.addons.plugins');
+    Route::get('/mods',       [Admin\AddonAdminController::class, 'mods'])->name('admin.addons.mods');
+    Route::get('/modpacks',   [Admin\AddonAdminController::class, 'modpacks'])->name('admin.addons.modpacks');
+    Route::delete('/plugins/{plugin}',   [Admin\AddonAdminController::class, 'destroyPlugin'])->name('admin.addons.plugins.destroy');
+    Route::delete('/mods/{mod}',         [Admin\AddonAdminController::class, 'destroyMod'])->name('admin.addons.mods.destroy');
+    Route::delete('/modpacks/{modpack}', [Admin\AddonAdminController::class, 'destroyModpack'])->name('admin.addons.modpacks.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Egg Switch Rules
 |--------------------------------------------------------------------------
 |

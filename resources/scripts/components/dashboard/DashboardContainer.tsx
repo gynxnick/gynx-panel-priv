@@ -6,6 +6,7 @@ import Spinner from '@/components/elements/Spinner';
 import PageContentBlock from '@/components/elements/PageContentBlock';
 import useFlash from '@/plugins/useFlash';
 import { useStoreState } from 'easy-peasy';
+import { brand } from '@/state/settings';
 import { usePersistedState } from '@/plugins/usePersistedState';
 import Switch from '@/components/elements/Switch';
 import tw from 'twin.macro';
@@ -39,6 +40,7 @@ export default () => {
     const { clearFlashes, clearAndAddHttpError } = useFlash();
     const uuid = useStoreState((state) => state.user.data!.uuid);
     const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
+    const brandCfg = useStoreState((state) => brand(state.settings.data as any));
     const [showOnlyAdmin, setShowOnlyAdmin] = usePersistedState(`${uuid}:show_all_servers`, false);
 
     const { data: servers, error } = useSWR<PaginatedResult<Server>>(
@@ -89,11 +91,11 @@ export default () => {
                             <EmptyState
                                 size={'page'}
                                 icon={<FontAwesomeIcon icon={faServer} />}
-                                title={showOnlyAdmin ? 'No other servers' : 'No servers yet'}
+                                title={showOnlyAdmin ? 'No other servers' : brandCfg.dashboardEmptyTitle}
                                 body={
                                     showOnlyAdmin
                                         ? 'No other users have deployed servers on this panel.'
-                                        : 'Ask your admin for a deployment, or contact support if you expected to see one here.'
+                                        : brandCfg.dashboardEmptyBody
                                 }
                             />
                         )

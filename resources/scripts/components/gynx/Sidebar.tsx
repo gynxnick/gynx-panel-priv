@@ -18,6 +18,7 @@ import {
 import Can from '@/components/elements/Can';
 
 import { ApplicationStore } from '@/state';
+import { brand } from '@/state/settings';
 import http from '@/api/http';
 import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import Tooltip from '@/components/elements/tooltip/Tooltip';
@@ -255,8 +256,9 @@ export default () => {
     const inAccount = location.pathname.startsWith('/account');
 
     const rootAdmin = useStoreState((state: ApplicationStore) => state.user.data?.rootAdmin ?? false);
-    const siteName = useStoreState((state: ApplicationStore) => state.settings.data?.name || 'gynx.gg');
-    const logoUrl = useStoreState((state: ApplicationStore) => state.settings.data?.logoUrl);
+    const brandCfg = useStoreState((state: ApplicationStore) => brand(state.settings.data));
+    const siteName = brandCfg.siteName;
+    const logoUrl = brandCfg.logoUrl;
 
     const [collapsed, setCollapsed] = useState<boolean>(() => {
         try {

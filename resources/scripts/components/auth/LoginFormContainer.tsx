@@ -5,6 +5,7 @@ import tw from 'twin.macro';
 import { useStoreState } from 'easy-peasy';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import LogoMark from '@/components/gynx/LogoMark';
+import { brand } from '@/state/settings';
 
 type Props = React.DetailedHTMLProps<React.FormHTMLAttributes<HTMLFormElement>, HTMLFormElement> & {
     title?: string;
@@ -12,21 +13,14 @@ type Props = React.DetailedHTMLProps<React.FormHTMLAttributes<HTMLFormElement>, 
 
 // ----- rotating tagline ------------------------------------------------------
 
-const TAGLINES = [
-    'host smarter. play harder.',
-    'your server, fully unleashed.',
-    'performance without compromise.',
-    'where your world runs better.',
-    'powering your worlds — instantly, reliably.',
-] as const;
-
-const useRotatingTagline = (intervalMs = 5500) => {
+const useRotatingTagline = (taglines: string[], intervalMs = 5500) => {
     const [i, setI] = useState(0);
     useEffect(() => {
-        const id = window.setInterval(() => setI((n) => (n + 1) % TAGLINES.length), intervalMs);
+        if (taglines.length <= 1) return;
+        const id = window.setInterval(() => setI((n) => (n + 1) % taglines.length), intervalMs);
         return () => window.clearInterval(id);
-    }, [intervalMs]);
-    return TAGLINES[i];
+    }, [intervalMs, taglines.length]);
+    return taglines[i] ?? taglines[0] ?? '';
 };
 
 // ----- scaffolding -----------------------------------------------------------
@@ -310,30 +304,35 @@ const Footer = styled.p`
 // ----- exported component ---------------------------------------------------
 
 export default forwardRef<HTMLFormElement, Props>(({ title, children, ...props }, ref) => {
-    const tagline = useRotatingTagline();
-    const logoUrl = useStoreState((state) => (state.settings.data as any)?.logoUrl as string | null | undefined);
+    const settings = useStoreState((state) => state.settings.data as any);
+    const brandCfg = brand(settings);
+    const tagline = useRotatingTagline(brandCfg.authTaglines);
 
     return (
         <Shell>
             <BrandPanel>
                 <BrandLockup>
-                    <LogoMark size={40} url={logoUrl ?? undefined} />
-                    <BrandWord>gynx.gg</BrandWord>
+                    <LogoMark size={40} url={brandCfg.logoUrl} />
+                    <BrandWord>{brandCfg.siteName}</BrandWord>
                 </BrandLockup>
 
                 <Tagline key={tagline}>{tagline}</Tagline>
 
                 <BrandFoot>
-                    <span>© {new Date().getFullYear()} gynx.gg</span>
-                    <span aria-hidden>·</span>
-                    <a href={'https://gynx.gg'} target={'_blank'} rel={'noreferrer'}>gynx.gg</a>
+                    <span>© {new Date().getFullYear()} {brandCfg.siteName}</span>
+                    {brandCfg.footerCopy && (
+                        <>
+                            <span aria-hidden>·</span>
+                            <span>{brandCfg.footerCopy}</span>
+                        </>
+                    )}
                 </BrandFoot>
             </BrandPanel>
 
             <FormSide>
                 <FormCard>
                     {title && <Title>{title}</Title>}
-                    <Lede>manage your game servers with speed and control.</Lede>
+                    <Lede>{brandCfg.authLede}</Lede>
                     <FlashMessageRender css={tw`mb-4`} />
                     <FormFrame {...props} ref={ref}>
                         {children}

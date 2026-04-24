@@ -127,6 +127,21 @@
                                 <i class="fa fa-random"></i> <span>Egg Switch</span>
                             </a>
                         </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.addons') ?: 'active' }}">
+                            <a href="{{ route('admin.addons.plugins') }}">
+                                <i class="fa fa-puzzle-piece"></i> <span>Add-ons</span>
+                            </a>
+                        </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.alerts') ?: 'active' }}">
+                            <a href="{{ route('admin.alerts.index') }}">
+                                <i class="fa fa-bullhorn"></i> <span>Alerts</span>
+                            </a>
+                        </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.branding') ?: 'active' }}">
+                            <a href="{{ route('admin.branding.index') }}">
+                                <i class="fa fa-paint-brush"></i> <span>Branding</span>
+                            </a>
+                        </li>
                     </ul>
                 </section>
             </aside>
