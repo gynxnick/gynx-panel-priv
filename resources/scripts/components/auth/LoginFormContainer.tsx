@@ -152,14 +152,103 @@ const shimmer = keyframes`
 `;
 
 const FormFrame = styled(Form)`
-    margin: 0;
+    /* Containers (LoginContainer, ForgotPasswordContainer, etc.) pass
+       css=tw\`w-full flex\` as a legacy holdover. Force vertical stack. */
+    && {
+        margin: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px;
+        width: 100%;
+    }
 
+    /* Immediate children become full-width rows regardless of the old
+       inline wrappers (<div css={tw\`mt-6\`}> etc.). Reset their spacing
+       since the gap above already supplies rhythm. */
+    > * {
+        width: 100%;
+        margin-top: 0 !important;
+    }
+
+    /* First field has no wrapper div in some containers — patch it. */
+    > div > div > div {
+        width: 100%;
+    }
+
+    label {
+        color: var(--gynx-text-dim) !important;
+        font-family: 'Inter', sans-serif !important;
+        text-transform: none !important;
+        font-size: 12px !important;
+        letter-spacing: 0.02em !important;
+        font-weight: 500 !important;
+        margin-bottom: 6px !important;
+        display: block !important;
+    }
+
+    input[type='text'],
+    input[type='email'],
+    input[type='password'],
+    input[type='number'] {
+        display: block !important;
+        width: 100% !important;
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        background: rgba(15, 17, 26, 0.95) !important;
+        border: 1px solid var(--gynx-edge) !important;
+        color: var(--gynx-text) !important;
+        border-radius: 8px !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 14px !important;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    input[type='text']:hover,
+    input[type='email']:hover,
+    input[type='password']:hover,
+    input[type='number']:hover {
+        border-color: var(--gynx-edge-2) !important;
+    }
+
+    input[type='text']:focus,
+    input[type='email']:focus,
+    input[type='password']:focus,
+    input[type='number']:focus {
+        border-color: rgba(124, 58, 237, 0.55) !important;
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18) !important;
+        outline: none !important;
+        background: rgba(19, 21, 31, 0.98) !important;
+    }
+
+    /* The submit button — always gynx-purple gradient. Shimmer on load. */
     button[type='submit'] {
-        ${css`
-            width: 100%;
-            position: relative;
-            overflow: hidden;
-        `}
+        width: 100% !important;
+        min-height: 44px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 18px !important;
+        border-radius: 10px !important;
+        border: 0 !important;
+        background: linear-gradient(135deg, #7C3AED 0%, #9B5BFF 100%) !important;
+        color: #fff !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.02em !important;
+        cursor: pointer !important;
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow .18s ease, transform .18s ease;
+    }
+
+    button[type='submit']:hover:not([disabled]) {
+        box-shadow: 0 10px 28px -10px rgba(124, 58, 237, 0.6);
+        transform: translateY(-1px);
+    }
+
+    button[type='submit']:active:not([disabled]) {
+        transform: translateY(0);
     }
 
     button[type='submit'][disabled],
@@ -173,32 +262,34 @@ const FormFrame = styled(Form)`
         background-size: 200% 100%;
         animation: ${shimmer} 1.6s linear infinite;
         color: #fff !important;
+        cursor: wait !important;
     }
 
-    /* Inputs in the auth form should always read dark regardless of the
-       legacy 'light' prop still being passed by the containers. */
-    input[type='text'],
-    input[type='email'],
-    input[type='password'],
-    input[type='number'] {
-        background: rgba(15, 17, 26, 0.95) !important;
-        border: 1px solid var(--gynx-edge) !important;
-        color: var(--gynx-text) !important;
-        border-radius: 8px !important;
-        transition: border-color .15s ease, box-shadow .15s ease;
+    /* Trailing "Forgot password?" / "Return to Login" links get a softer
+       look and center-align — the containers wrap them in text-center. */
+    a {
+        color: var(--gynx-text-dim);
+        text-decoration: none;
+        transition: color .15s ease;
+        font-family: 'Inter', sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: none;
+    }
+    a:hover {
+        color: var(--gynx-text);
     }
 
-    input[type='text']:focus,
-    input[type='email']:focus,
-    input[type='password']:focus,
-    input[type='number']:focus {
-        border-color: rgba(124, 58, 237, 0.55) !important;
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
-        outline: none;
+    /* Error text under fields */
+    .input-help.error {
+        color: #F87171 !important;
+        font-size: 12px;
+        margin-top: 4px;
     }
-
-    label {
-        color: var(--gynx-text-dim) !important;
+    .input-help {
+        color: var(--gynx-text-mute);
+        font-size: 12px;
+        margin-top: 4px;
     }
 `;
 
