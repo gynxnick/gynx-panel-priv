@@ -90,9 +90,16 @@ class AddonPluginsController extends ClientApiController
             $request->input('game_version'),
         );
 
-        Activity::event('server:addon.plugin.install')
-            ->property(['source' => $plugin->source, 'external_id' => $plugin->external_id, 'file' => $plugin->file_name])
-            ->log();
+        try {
+            Activity::event('server:addon.plugin.install')
+                ->property('source', $plugin->source)
+                ->property('external_id', $plugin->external_id)
+                ->property('file', $plugin->file_name)
+                ->log();
+        } catch (\Throwable $e) {
+            // Never let an audit-log write kill the install response.
+            report($e);
+        }
 
         return new JsonResponse([
             'data' => [
@@ -111,13 +118,19 @@ class AddonPluginsController extends ClientApiController
      */
     public function destroy(ClientApiRequest $request, Server $server, AddonPlugin $plugin): JsonResponse
     {
-        $this->authorize($request, $server, Permission::ACTION_ADDON_PLUGIN_DELETE);
+        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_DELETE);
 
         $this->installer->remove($server, $plugin);
 
-        Activity::event('server:addon.plugin.remove')
-            ->property(['source' => $plugin->source, 'external_id' => $plugin->external_id, 'file' => $plugin->file_name])
-            ->log();
+        try {
+            Activity::event('server:addon.plugin.remove')
+                ->property('source', $plugin->source)
+                ->property('external_id', $plugin->external_id)
+                ->property('file', $plugin->file_name)
+                ->log();
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return new JsonResponse([], Response::HTTP_NO_CONTENT);
     }
