@@ -21,6 +21,9 @@ import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
 import 'xterm/css/xterm.css';
 import styles from './style.module.css';
 
+// gynx-tuned xterm palette. Reds / greens / yellows stay close to their
+// conventional terminal hues so raw server-authored ANSI output still reads
+// correctly. Blue / magenta / cyan / selection shift to the brand palette.
 const theme = {
     background: th`colors.black`.toString(),
     cursor: 'transparent',
@@ -28,19 +31,44 @@ const theme = {
     red: '#E54B4B',
     green: '#9ECE58',
     yellow: '#FAED70',
-    blue: '#396FE2',
-    magenta: '#BB80B3',
-    cyan: '#2DDAFD',
-    white: '#d0d0d0',
-    brightBlack: 'rgba(255, 255, 255, 0.2)',
+    blue: '#60A5FA',
+    magenta: '#C4B5FD',
+    cyan: '#22D3EE',
+    white: '#E5E7EB',
+    brightBlack: 'rgba(255, 255, 255, 0.25)',
     brightRed: '#FF5370',
     brightGreen: '#C3E88D',
     brightYellow: '#FFCB6B',
-    brightBlue: '#82AAFF',
-    brightMagenta: '#C792EA',
-    brightCyan: '#89DDFF',
+    brightBlue: '#93C5FD',
+    brightMagenta: '#DDD6FE',
+    brightCyan: '#67E8F9',
     brightWhite: '#ffffff',
-    selection: '#FAF089',
+    selection: 'rgba(124, 58, 237, 0.35)',
+};
+
+/**
+ * Log-level coloring.
+ *
+ * When a line doesn't already carry ANSI styling, we prefix it with an
+ * ANSI code based on the detected level. Colors route through the 8-color
+ * palette above, so any future palette tweak lands in one place.
+ */
+const LEVEL_PATTERNS: Array<{ re: RegExp; ansi: string }> = [
+    { re: /\b(ERROR|ERR|FATAL|SEVERE|Exception|Caused by)\b/i, ansi: '\u001b[1;31m' },
+    { re: /\b(WARN|WARNING)\b/i,                               ansi: '\u001b[33m'   },
+    { re: /\b(INFO|NOTICE)\b/i,                                ansi: '\u001b[36m'   },
+    { re: /\b(DEBUG|TRACE|FINE|FINER|FINEST)\b/i,              ansi: '\u001b[2;37m' },
+];
+
+const levelAnsi = (line: string): string => {
+    // Respect upstream ANSI — if the source already colored it, leave it alone.
+    if (line.includes('\u001b[')) return '';
+    // Level tags live near the start of the line in every common format.
+    const head = line.slice(0, 120);
+    for (const { re, ansi } of LEVEL_PATTERNS) {
+        if (re.test(head)) return ansi;
+    }
+    return '';
 };
 
 const terminalProps: ITerminalOptions = {
@@ -74,8 +102,11 @@ export default () => {
         z-index: 10;
     }`;
 
-    const handleConsoleOutput = (line: string, prelude = false) =>
-        terminal.writeln((prelude ? TERMINAL_PRELUDE : '') + line.replace(/(?:\r\n|\r|\n)$/im, '') + '\u001b[0m');
+    const handleConsoleOutput = (line: string, prelude = false) => {
+        const cleaned = line.replace(/(?:\r\n|\r|\n)$/im, '');
+        const color = prelude ? '' : levelAnsi(cleaned);
+        terminal.writeln((prelude ? TERMINAL_PRELUDE : '') + color + cleaned + '\u001b[0m');
+    };
 
     const handleTransferStatus = (status: string) => {
         switch (status) {

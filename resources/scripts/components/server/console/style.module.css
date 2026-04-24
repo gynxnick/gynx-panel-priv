@@ -5,8 +5,11 @@
  *   - Container: #05070B background, 1px rgba(255,255,255,0.05) edge, NO glow.
  *   - Input:     flat, neutral. Purple ring appears only on :focus.
  *
- * Log-level coloring is handled at the React layer (Console.tsx) via classes
- * declared in the global .gynx-log-* rules (see tailwind.css).
+ * Log-level coloring is handled in Console.tsx via ANSI codes (INFO/WARN/
+ * ERROR/DEBUG patterns detected per line). Colors route through the xterm
+ * theme palette, tuned to match the gynx brand (see `theme` in Console.tsx).
+ * The .gynx-log-* CSS classes in tailwind.css are reserved for a future
+ * HTML-rendered log view, not xterm output.
  */
 
 .terminal {
