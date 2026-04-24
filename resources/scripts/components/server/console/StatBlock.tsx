@@ -20,9 +20,13 @@ import tw from 'twin.macro';
 export type Metric = 'cpu' | 'ram' | 'disk' | 'net' | 'status' | 'info';
 export type Severity = 'ok' | 'warn' | 'crit';
 
+/* RAM deliberately uses a desaturated violet-lavender (#C4B5FD = Tailwind
+ * violet-300) instead of the full-saturation brand purple. Keeps passive
+ * metric accents from competing with active-state pills and primary action
+ * buttons, which own the true purple. */
 const metricColor: Record<Metric, string> = {
     cpu:    '#60A5FA', // blue
-    ram:    '#A78BFA', // purple
+    ram:    '#C4B5FD', // lavender (was brand-purple #A78BFA in session 2)
     disk:   '#FBBF24', // yellow
     net:    '#22D3EE', // cyan
     status: '#34D399', // green

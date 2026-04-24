@@ -33,20 +33,21 @@ const NavItem = styled(NavLink)`
     ${tw`flex items-center justify-center w-10 h-10 mb-2 rounded-lg text-gynx-text-dim relative`};
     transition: color .2s ease, background .2s ease;
 
-    /* Hover = blue flash, per spec */
+    /* Hover on inactive: soft neutral so cyan-for-active reads cleanly */
     &:hover {
         color: #fff;
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(255, 255, 255, 0.04);
     }
 
-    /* Active = purple pill */
+    /* Active = cyan pill. Purple is reserved for actions (buttons);
+       state uses blue. */
     &.active {
         color: #fff;
-        background: rgba(124, 58, 237, 0.18);
-        box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.4);
+        background: rgba(34, 211, 238, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.45);
     }
 
-    /* Left accent — only when active. Solid, no outer glow by default. */
+    /* Left accent — only when active. Cyan, solid, no outer glow. */
     &.active::before {
         content: '';
         position: absolute;
@@ -55,7 +56,7 @@ const NavItem = styled(NavLink)`
         bottom: 10px;
         width: 2px;
         border-radius: 2px;
-        background: var(--gynx-purple);
+        background: var(--gynx-blue);
     }
 `;
 
@@ -65,7 +66,7 @@ const NavAction = styled.button`
 
     &:hover {
         color: #fff;
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(255, 255, 255, 0.04);
     }
 `;
 
@@ -75,7 +76,7 @@ const NavExternalLink = styled.a`
 
     &:hover {
         color: #fff;
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(255, 255, 255, 0.04);
     }
 `;
 

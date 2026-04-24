@@ -28,16 +28,25 @@ const SubNavigation = styled.div`
             letter-spacing: 0.01em;
             transition: color .2s ease, background .2s ease;
 
+            /* Hover on inactive: soft neutral. Keeps the cyan-for-active
+               reading clean instead of fighting a cyan-hover. */
             &:hover {
                 color: #fff;
-                background: rgba(34, 211, 238, 0.08);
+                background: rgba(255, 255, 255, 0.04);
             }
 
+            /* Active = cyan pill. Purple is reserved for actions (buttons);
+               state uses blue. */
             &:active,
             &.active {
                 color: #fff;
-                background: rgba(124, 58, 237, 0.18);
-                box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.35);
+                background: rgba(34, 211, 238, 0.16);
+                box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.45);
+            }
+
+            &.active:hover {
+                /* Keep active state louder than inactive hover */
+                background: rgba(34, 211, 238, 0.22);
             }
         }
     }

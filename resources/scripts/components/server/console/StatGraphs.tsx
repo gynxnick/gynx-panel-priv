@@ -92,7 +92,7 @@ const Legend = styled.div`
 
 const metricAccents = {
     cpu:    '#60A5FA', // blue
-    memory: '#A78BFA', // purple
+    memory: '#C4B5FD', // lavender (matches StatBlock RAM tile — full purple is reserved for actions)
     network: '#22D3EE', // cyan
 } as const;
 
