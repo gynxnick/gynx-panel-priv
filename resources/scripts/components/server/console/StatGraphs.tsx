@@ -1,34 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components/macro';
 import tw from 'twin.macro';
-import { Line } from 'react-chartjs-2';
-import { ScriptableContext } from 'chart.js';
 
 import { ServerContext } from '@/state/server';
 import { SocketEvent } from '@/components/server/events';
 import useWebsocketEvent from '@/plugins/useWebsocketEvent';
-import { useChart, useChartTickLabel } from '@/components/server/console/chart';
-import { hexToRgba } from '@/lib/helpers';
 import { bytesToString } from '@/lib/formatters';
+import { LineChart, useSeries } from '@/components/gynx/chart';
 
 /**
- * gynx — unified chart panel.
+ * gynx — unified stat panel.
  *
- * One large panel with three tabs (CPU / RAM / Network). Active series gets
- * its accent color applied to both line + gradient fill. Inactive series keep
- * collecting data in the background so tab switches preserve history.
- *
- * Visual rules:
- *   - Flat #1F2937 panel, neutral edge at rest.
- *   - Tabs: active = metric-accent pill; inactive hover = blue tint.
- *   - Smooth curves (tension 0.4 baked in chart.ts).
- *   - Gradient fill from accent → transparent.
- *   - Hover surfaces a precise-value tooltip (built into chart.ts defaults).
- *   - Activity pulse: when a value jumps >25% of its limit between samples,
- *     the panel border briefly pulses in the accent color.
+ * Three tabs (CPU / RAM / Network) over a custom SVG LineChart. Series are
+ * kept in ring buffers via useSeries so background tabs keep collecting
+ * samples. An activity pulse briefly rings the panel when the visible
+ * metric jumps >25% of its limit between samples. The "Compare" toggle
+ * overlays the other primary metric (CPU vs RAM) on a secondary y-axis.
  */
-
-// ----- styled scaffolding ---------------------------------------------------
 
 const pulse = keyframes`
     0%   { box-shadow: 0 0 0 1px var(--gynx-accent), 0 0 0 0 rgba(var(--gynx-accent-rgb), 0.45); }
@@ -57,8 +45,12 @@ const Panel = styled.section<{ $pulsing: boolean; $accent: string; $accentRgb: s
 `;
 
 const Header = styled.header`
-    ${tw`flex items-center justify-between px-4 pt-3 pb-2`};
+    ${tw`flex items-center justify-between px-4 pt-3 pb-2 gap-3`};
     border-bottom: 1px solid var(--gynx-edge);
+`;
+
+const HeaderLeft = styled.div`
+    ${tw`flex items-center gap-3`};
 `;
 
 const TabGroup = styled.div`
@@ -89,98 +81,76 @@ const TabDot = styled.span<{ $color: string }>`
     display: inline-block;
 `;
 
+const CompareButton = styled.button<{ $active: boolean }>`
+    ${tw`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer`};
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.02em;
+    border: 1px solid ${({ $active }) => ($active ? 'rgba(124, 58, 237, 0.55)' : 'var(--gynx-edge-2)')};
+    background: ${({ $active }) => ($active ? 'rgba(124, 58, 237, 0.18)' : 'transparent')};
+    color: ${({ $active }) => ($active ? '#C4B5FD' : 'var(--gynx-text-dim)')};
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
+
+    &:hover {
+        color: ${({ $active }) => ($active ? '#DDD6FE' : 'var(--gynx-text)')};
+        border-color: rgba(124, 58, 237, 0.55);
+    }
+`;
+
 const Body = styled.div`
     ${tw`px-3 pb-3 pt-3 relative`};
-    /* Larger than session 2 (was 280px) — readability over compactness. */
     height: 380px;
 `;
 
 const Legend = styled.div`
-    ${tw`text-[11px] text-gynx-text-dim flex items-center gap-4`};
+    ${tw`text-xs flex items-center gap-4`};
+    color: var(--gynx-text-dim);
 `;
 
-// ----- metric metadata ------------------------------------------------------
+const LegendItem = styled.span`
+    ${tw`inline-flex items-center gap-1.5`};
+`;
 
 const metricAccents = {
-    cpu:     '#60A5FA', // blue
-    memory:  '#C4B5FD', // lavender
-    network: '#22D3EE', // cyan
+    cpu: '#60A5FA',
+    memory: '#C4B5FD',
+    network: '#22D3EE',
 } as const;
 
 const metricRgb = {
-    cpu:     '96, 165, 250',
-    memory:  '196, 181, 253',
+    cpu: '96, 165, 250',
+    memory: '196, 181, 253',
     network: '34, 211, 238',
 } as const;
 
 type ChartTab = keyof typeof metricAccents;
 
-const respectContainerHeight = { maintainAspectRatio: false, responsive: true } as const;
+const SAMPLE_CAPACITY = 60;
 
-/**
- * Build a Chart.js scriptable backgroundColor that paints a vertical
- * gradient from the metric accent at the top → transparent at the bottom.
- * Returns a plain rgba fallback while the canvas isn't ready yet.
- */
-const gradientFill = (color: string) => (ctx: ScriptableContext<'line'>) => {
-    const { chart } = ctx;
-    const { ctx: c, chartArea } = chart;
-    if (!chartArea) {
-        return hexToRgba(color, 0.12);
-    }
-    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    g.addColorStop(0, hexToRgba(color, 0.42));
-    g.addColorStop(0.7, hexToRgba(color, 0.08));
-    g.addColorStop(1, hexToRgba(color, 0));
-    return g;
-};
+const cpuFormat = (v: number) => `${v.toFixed(1)}%`;
+const memFormat = (v: number) => `${v.toFixed(0)} MiB`;
+const netFormat = (v: number) => bytesToString(v);
 
 export default () => {
     const [tab, setTab] = useState<ChartTab>('cpu');
+    const [compare, setCompare] = useState(false);
     const [pulsing, setPulsing] = useState(false);
-    const lastValue = useRef<Record<ChartTab, number | undefined>>({
-        cpu: undefined,
-        memory: undefined,
-        network: undefined,
-    });
     const pulseTimer = useRef<number | undefined>(undefined);
 
     const status = ServerContext.useStoreState((state) => state.status.value);
     const limits = ServerContext.useStoreState((state) => state.server.data!.limits);
     const previous = useRef<Record<'tx' | 'rx', number>>({ tx: -1, rx: -1 });
 
-    const cpu = useChartTickLabel('CPU', limits.cpu, '%', 2);
-    const memory = useChartTickLabel('Memory', limits.memory, 'MiB');
-    const network = useChart('Network', {
-        sets: 2,
-        options: {
-            scales: {
-                y: {
-                    ticks: {
-                        callback(value) {
-                            return bytesToString(typeof value === 'string' ? parseInt(value, 10) : value);
-                        },
-                    },
-                },
-            },
-        },
-        callback(opts, index) {
-            // Index 0 = inbound, index 1 = outbound.
-            return {
-                ...opts,
-                label: !index ? 'Network In' : 'Network Out',
-                borderColor: !index ? '#22D3EE' : '#67E8F9',
-                backgroundColor: hexToRgba(!index ? '#22D3EE' : '#67E8F9', 0.18),
-            };
-        },
-    });
+    const cpu = useSeries({ capacity: SAMPLE_CAPACITY });
+    const memory = useSeries({ capacity: SAMPLE_CAPACITY });
+    const netIn = useSeries({ capacity: SAMPLE_CAPACITY });
+    const netOut = useSeries({ capacity: SAMPLE_CAPACITY });
 
     useEffect(() => {
         if (status === 'offline') {
             cpu.clear();
             memory.clear();
-            network.clear();
-            lastValue.current = { cpu: undefined, memory: undefined, network: undefined };
+            netIn.clear();
+            netOut.clear();
         }
     }, [status]);
 
@@ -194,142 +164,160 @@ export default () => {
 
         const cpuVal = values.cpu_absolute as number;
         const memVal = Math.floor(values.memory_bytes / 1024 / 1024);
+        const inVal = previous.current.rx < 0
+            ? 0
+            : Math.max(0, values.network.rx_bytes - previous.current.rx);
+        const outVal = previous.current.tx < 0
+            ? 0
+            : Math.max(0, values.network.tx_bytes - previous.current.tx);
 
         cpu.push(cpuVal);
         memory.push(memVal);
-        network.push([
-            previous.current.tx < 0 ? 0 : Math.max(0, values.network.tx_bytes - previous.current.tx),
-            previous.current.rx < 0 ? 0 : Math.max(0, values.network.rx_bytes - previous.current.rx),
-        ]);
+        netIn.push(inVal);
+        netOut.push(outVal);
 
         previous.current = { tx: values.network.tx_bytes, rx: values.network.rx_bytes };
 
-        // Activity pulse — fire when the *currently visible* metric jumps by
-        // > 25% of its hard limit since the previous sample. Network falls
-        // back to absolute-byte threshold (1 MiB delta) since limits.network
-        // doesn't exist.
-        let delta: number | undefined;
-        let threshold: number | undefined;
+        let delta = 0;
+        let threshold = 0;
         if (tab === 'cpu') {
-            delta = lastValue.current.cpu === undefined ? 0 : Math.abs(cpuVal - lastValue.current.cpu);
+            delta = Math.abs(cpu.delta);
             threshold = limits?.cpu ? limits.cpu * 0.25 : 25;
-            lastValue.current.cpu = cpuVal;
         } else if (tab === 'memory') {
-            delta = lastValue.current.memory === undefined ? 0 : Math.abs(memVal - (lastValue.current.memory || 0));
+            delta = Math.abs(memory.delta);
             threshold = limits?.memory ? limits.memory * 0.25 : 256;
-            lastValue.current.memory = memVal;
         }
-        if (delta !== undefined && threshold !== undefined && delta > threshold && !pulsing) {
+        if (threshold > 0 && delta > threshold && !pulsing) {
             setPulsing(true);
             window.clearTimeout(pulseTimer.current);
             pulseTimer.current = window.setTimeout(() => setPulsing(false), 900);
         }
     });
 
-    // Reset pulse when switching tabs so old animation doesn't bleed.
     useEffect(() => {
         setPulsing(false);
+        if (tab === 'network') setCompare(false);
         return () => window.clearTimeout(pulseTimer.current);
     }, [tab]);
 
-    // Build the active dataset's props with metric-tinted line + gradient fill.
-    const activeProps = (() => {
-        const accent = metricAccents[tab];
+    const chart = (() => {
         switch (tab) {
             case 'cpu':
-                return {
-                    ...cpu.props,
-                    options: { ...cpu.props.options, ...respectContainerHeight },
-                    data: {
-                        ...cpu.props.data,
-                        datasets: cpu.props.data.datasets.map((ds: any) => ({
-                            ...ds,
-                            borderColor: accent,
-                            backgroundColor: gradientFill(accent),
-                            pointHoverBorderColor: accent,
-                        })),
-                    },
-                };
+                return (
+                    <LineChart
+                        data={cpu.data}
+                        color={metricAccents.cpu}
+                        label={'CPU'}
+                        unit={'%'}
+                        domain={limits?.cpu ? [0, limits.cpu] : undefined}
+                        yFormat={cpuFormat}
+                        compare={
+                            compare
+                                ? {
+                                      data: memory.data,
+                                      color: metricAccents.memory,
+                                      label: 'Memory',
+                                      format: memFormat,
+                                  }
+                                : undefined
+                        }
+                    />
+                );
             case 'memory':
-                return {
-                    ...memory.props,
-                    options: { ...memory.props.options, ...respectContainerHeight },
-                    data: {
-                        ...memory.props.data,
-                        datasets: memory.props.data.datasets.map((ds: any) => ({
-                            ...ds,
-                            borderColor: accent,
-                            backgroundColor: gradientFill(accent),
-                            pointHoverBorderColor: accent,
-                        })),
-                    },
-                };
+                return (
+                    <LineChart
+                        data={memory.data}
+                        color={metricAccents.memory}
+                        label={'Memory'}
+                        domain={limits?.memory ? [0, limits.memory] : undefined}
+                        yFormat={memFormat}
+                        compare={
+                            compare
+                                ? {
+                                      data: cpu.data,
+                                      color: metricAccents.cpu,
+                                      label: 'CPU',
+                                      format: cpuFormat,
+                                  }
+                                : undefined
+                        }
+                    />
+                );
             case 'network':
-                return {
-                    ...network.props,
-                    options: { ...network.props.options, ...respectContainerHeight },
-                    data: {
-                        ...network.props.data,
-                        datasets: network.props.data.datasets.map((ds: any, i: number) => {
-                            const c = i === 0 ? '#22D3EE' : '#67E8F9';
-                            return {
-                                ...ds,
-                                backgroundColor: gradientFill(c),
-                                pointHoverBorderColor: c,
-                            };
-                        }),
-                    },
-                };
+                return (
+                    <LineChart
+                        data={netIn.data}
+                        color={metricAccents.network}
+                        label={'Network In'}
+                        yFormat={netFormat}
+                        compare={{
+                            data: netOut.data,
+                            color: '#67E8F9',
+                            label: 'Network Out',
+                            format: netFormat,
+                        }}
+                    />
+                );
         }
     })();
 
     return (
         <Panel $pulsing={pulsing} $accent={metricAccents[tab]} $accentRgb={metricRgb[tab]}>
             <Header>
-                <TabGroup role={'tablist'} aria-label={'metric'}>
-                    <Tab
-                        role={'tab'}
-                        aria-selected={tab === 'cpu'}
-                        $active={tab === 'cpu'}
-                        $accent={metricAccents.cpu}
-                        onClick={() => setTab('cpu')}
-                    >
-                        <TabDot $color={metricAccents.cpu} /> CPU
-                    </Tab>
-                    <Tab
-                        role={'tab'}
-                        aria-selected={tab === 'memory'}
-                        $active={tab === 'memory'}
-                        $accent={metricAccents.memory}
-                        onClick={() => setTab('memory')}
-                    >
-                        <TabDot $color={metricAccents.memory} /> RAM
-                    </Tab>
-                    <Tab
-                        role={'tab'}
-                        aria-selected={tab === 'network'}
-                        $active={tab === 'network'}
-                        $accent={metricAccents.network}
-                        onClick={() => setTab('network')}
-                    >
-                        <TabDot $color={metricAccents.network} /> Network
-                    </Tab>
-                </TabGroup>
+                <HeaderLeft>
+                    <TabGroup role={'tablist'} aria-label={'metric'}>
+                        <Tab
+                            role={'tab'}
+                            aria-selected={tab === 'cpu'}
+                            $active={tab === 'cpu'}
+                            $accent={metricAccents.cpu}
+                            onClick={() => setTab('cpu')}
+                        >
+                            <TabDot $color={metricAccents.cpu} /> CPU
+                        </Tab>
+                        <Tab
+                            role={'tab'}
+                            aria-selected={tab === 'memory'}
+                            $active={tab === 'memory'}
+                            $accent={metricAccents.memory}
+                            onClick={() => setTab('memory')}
+                        >
+                            <TabDot $color={metricAccents.memory} /> RAM
+                        </Tab>
+                        <Tab
+                            role={'tab'}
+                            aria-selected={tab === 'network'}
+                            $active={tab === 'network'}
+                            $accent={metricAccents.network}
+                            onClick={() => setTab('network')}
+                        >
+                            <TabDot $color={metricAccents.network} /> Network
+                        </Tab>
+                    </TabGroup>
+
+                    {tab !== 'network' && (
+                        <CompareButton
+                            $active={compare}
+                            onClick={() => setCompare((v) => !v)}
+                            title={'Overlay the other metric for comparison'}
+                        >
+                            Compare {tab === 'cpu' ? 'RAM' : 'CPU'}
+                        </CompareButton>
+                    )}
+                </HeaderLeft>
 
                 {tab === 'network' && (
                     <Legend>
-                        <span>
+                        <LegendItem>
                             <TabDot $color={'#22D3EE'} /> in
-                        </span>
-                        <span>
+                        </LegendItem>
+                        <LegendItem>
                             <TabDot $color={'#67E8F9'} /> out
-                        </span>
+                        </LegendItem>
                     </Legend>
                 )}
             </Header>
-            <Body>
-                <Line {...activeProps} />
-            </Body>
+            <Body>{chart}</Body>
         </Panel>
     );
 };
