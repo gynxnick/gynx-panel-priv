@@ -71,9 +71,20 @@ const TabDot = styled.span<{ $color: string }>`
 `;
 
 const Body = styled.div`
-    ${tw`px-3 pb-3 pt-2`};
-    min-height: 260px;
+    ${tw`px-3 pb-3 pt-2 relative`};
+    /* Fixed height so Chart.js has something to render against. Without this,
+       a growable flex parent lets Chart.js's aspectRatio=2 stretch the canvas
+       to ~400px. */
+    height: 280px;
 `;
+
+/*
+ * Chart.js defaults to maintainAspectRatio: true, which means it derives
+ * height from width and ignores the container's height. That was giving us
+ * a ~400px tall chart in the growable flex layout. This override lets the
+ * Body's fixed height drive the canvas.
+ */
+const respectContainerHeight = { maintainAspectRatio: false, responsive: true } as const;
 
 const Legend = styled.div`
     ${tw`text-[11px] text-gynx-text-dim flex items-center gap-4`};
@@ -145,12 +156,14 @@ export default () => {
         previous.current = { tx: values.network.tx_bytes, rx: values.network.rx_bytes };
     });
 
-    // Tint the active series' line/fill via the chart props object.
+    // Tint the active series' line/fill via the chart props object; also
+    // override maintainAspectRatio so the canvas sizes to the Body's height.
     const activeProps = (() => {
         switch (tab) {
             case 'cpu':
                 return {
                     ...cpu.props,
+                    options: { ...cpu.props.options, ...respectContainerHeight },
                     data: {
                         ...cpu.props.data,
                         datasets: cpu.props.data.datasets.map((ds: any) => ({
@@ -163,6 +176,7 @@ export default () => {
             case 'memory':
                 return {
                     ...memory.props,
+                    options: { ...memory.props.options, ...respectContainerHeight },
                     data: {
                         ...memory.props.data,
                         datasets: memory.props.data.datasets.map((ds: any) => ({
@@ -173,7 +187,10 @@ export default () => {
                     },
                 };
             case 'network':
-                return network.props;
+                return {
+                    ...network.props,
+                    options: { ...network.props.options, ...respectContainerHeight },
+                };
         }
     })();
 
