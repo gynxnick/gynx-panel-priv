@@ -9,7 +9,7 @@ use Pterodactyl\Models\AddonPlugin;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\PluginInstallerService;
-use Pterodactyl\Services\Addons\PluginSourceRegistry;
+use Pterodactyl\Services\Addons\AddonSourceRegistry;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Pterodactyl\Http\Requests\Api\Client\ClientApiRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Addons\InstallPluginRequest;
@@ -18,7 +18,7 @@ class AddonPluginsController extends ClientApiController
 {
     public function __construct(
         private PluginInstallerService $installer,
-        private PluginSourceRegistry $sources,
+        private AddonSourceRegistry $sources,
     ) {
         parent::__construct();
     }

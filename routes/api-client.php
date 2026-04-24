@@ -154,4 +154,20 @@ Route::group([
         Route::post('/install', [Client\Servers\AddonPluginsController::class, 'install']);
         Route::delete('/{plugin}', [Client\Servers\AddonPluginsController::class, 'destroy']);
     });
+
+    Route::group(['prefix' => '/addons/mods'], function () {
+        Route::get('/sources', [Client\Servers\AddonModsController::class, 'sources']);
+        Route::get('/search', [Client\Servers\AddonModsController::class, 'search']);
+        Route::get('/', [Client\Servers\AddonModsController::class, 'installed']);
+        Route::post('/install', [Client\Servers\AddonModsController::class, 'install']);
+        Route::delete('/{mod}', [Client\Servers\AddonModsController::class, 'destroy']);
+    });
+
+    Route::group(['prefix' => '/addons/modpacks'], function () {
+        Route::get('/sources', [Client\Servers\AddonModpacksController::class, 'sources']);
+        Route::get('/search', [Client\Servers\AddonModpacksController::class, 'search']);
+        Route::get('/', [Client\Servers\AddonModpacksController::class, 'installed']);
+        Route::post('/install', [Client\Servers\AddonModpacksController::class, 'install']);
+        Route::delete('/{modpack}', [Client\Servers\AddonModpacksController::class, 'destroy']);
+    });
 });

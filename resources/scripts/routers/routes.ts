@@ -12,6 +12,8 @@ import {
     faHistory,
     faGamepad,
     faPuzzlePiece,
+    faCubes,
+    faBoxes,
     IconDefinition,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -26,6 +28,8 @@ import FileManagerContainer from '@/components/server/files/FileManagerContainer
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
+import ModsContainer from '@/components/server/mods/ModsContainer';
+import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
@@ -79,6 +83,8 @@ export default {
         { path: '/files/:action(edit|new)', permission: 'file.*', name: undefined, component: FileEditContainer },
         { path: '/databases', permission: 'database.*', name: 'Databases', icon: faDatabase,     group: 'management', component: DatabasesContainer },
         { path: '/plugins',   permission: 'addon.plugin.*', name: 'Plugins', icon: faPuzzlePiece, group: 'management', component: PluginsContainer },
+        { path: '/mods',      permission: 'addon.mod.*',    name: 'Mods',    icon: faCubes,       group: 'management', component: ModsContainer },
+        { path: '/modpacks',  permission: 'addon.modpack.*', name: 'Modpacks', icon: faBoxes, group: 'management', component: ModpacksContainer },
 
         // Monitoring
         { path: '/schedules', permission: 'schedule.*', name: 'Schedules', icon: faClock,        group: 'monitoring', component: ScheduleContainer },

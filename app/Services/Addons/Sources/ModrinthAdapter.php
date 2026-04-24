@@ -4,18 +4,22 @@ namespace Pterodactyl\Services\Addons\Sources;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
-use Pterodactyl\Services\Addons\PluginSource;
+use Pterodactyl\Services\Addons\AddonSource;
 use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Modrinth source adapter.
+ * Modrinth source adapter. Docs: https://docs.modrinth.com/api/
  *
- * Docs: https://docs.modrinth.com/api/
+ * Supports all three add-on types:
+ *   - plugin  → facet project_type:plugin  → downloads to /plugins/
+ *   - mod     → facet project_type:mod     → downloads to /mods/
+ *   - modpack → facet project_type:modpack → .mrpack archive to /modpacks/
+ *
  * No auth required for read-only endpoints. Rate limit 300 req/min.
  * User-Agent header is required per Modrinth policy.
  */
-class ModrinthAdapter implements PluginSource
+class ModrinthAdapter implements AddonSource
 {
     private Client $http;
 
@@ -41,9 +45,16 @@ class ModrinthAdapter implements PluginSource
         return true;
     }
 
-    public function search(string $query, ?string $gameVersion = null, int $limit = 20): array
+    public function supports(string $type): bool
     {
-        $facets = [['project_type:plugin']];
+        return in_array($type, [self::TYPE_PLUGIN, self::TYPE_MOD, self::TYPE_MODPACK], true);
+    }
+
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array
+    {
+        $this->assertSupports($type);
+
+        $facets = [['project_type:' . $type]];
         if ($gameVersion) $facets[] = ['versions:' . $gameVersion];
 
         try {
@@ -76,8 +87,10 @@ class ModrinthAdapter implements PluginSource
         }, $hits);
     }
 
-    public function resolveDownload(string $externalId, ?string $versionId, ?string $gameVersion = null): array
+    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null): array
     {
+        $this->assertSupports($type);
+
         try {
             $res = $this->http->get("project/{$externalId}/version");
         } catch (TransferException $e) {
@@ -86,12 +99,9 @@ class ModrinthAdapter implements PluginSource
 
         $versions = json_decode((string) $res->getBody(), true) ?: [];
         if (empty($versions)) {
-            throw new NotFoundHttpException('This plugin has no downloadable versions.');
+            throw new NotFoundHttpException('This add-on has no downloadable versions.');
         }
 
-        // If caller gave a specific version id, match that. Otherwise pick
-        // the first one that supports the requested game version, or the
-        // newest version overall.
         $pick = null;
         if ($versionId) {
             foreach ($versions as $v) {
@@ -121,5 +131,12 @@ class ModrinthAdapter implements PluginSource
             'version' => (string) ($pick['version_number'] ?? ''),
             'version_id' => (string) $pick['id'],
         ];
+    }
+
+    private function assertSupports(string $type): void
+    {
+        if (!$this->supports($type)) {
+            throw new NotFoundHttpException("Modrinth does not serve add-on type '{$type}'.");
+        }
     }
 }

@@ -8,9 +8,9 @@ use Pterodactyl\Services\Addons\Sources\ModrinthAdapter;
 use Pterodactyl\Services\Addons\Sources\SpigotAdapter;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-class PluginSourceRegistry
+class AddonSourceRegistry
 {
-    /** @var PluginSource[] */
+    /** @var AddonSource[] */
     private array $sources;
 
     public function __construct(
@@ -27,22 +27,29 @@ class PluginSourceRegistry
         ];
     }
 
-    /** @return PluginSource[] indexed by slug */
+    /** @return AddonSource[] indexed by slug */
     public function all(): array
     {
         return $this->sources;
     }
 
-    /** Available sources only. */
-    public function enabled(): array
+    /**
+     * Sources that are enabled AND support the given type.
+     *
+     * @return AddonSource[]
+     */
+    public function enabledFor(string $type): array
     {
-        return array_filter($this->sources, fn (PluginSource $s) => $s->available());
+        return array_filter(
+            $this->sources,
+            fn (AddonSource $s) => $s->available() && $s->supports($type),
+        );
     }
 
-    public function get(string $slug): PluginSource
+    public function get(string $slug): AddonSource
     {
         if (!isset($this->sources[$slug])) {
-            throw new NotFoundHttpException("Unknown plugin source: {$slug}");
+            throw new NotFoundHttpException("Unknown add-on source: {$slug}");
         }
         return $this->sources[$slug];
     }

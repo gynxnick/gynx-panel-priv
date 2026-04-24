@@ -26,6 +26,14 @@ class Permission extends Model
     public const ACTION_ADDON_PLUGIN_INSTALL = 'addon.plugin.install';
     public const ACTION_ADDON_PLUGIN_DELETE = 'addon.plugin.delete';
 
+    public const ACTION_ADDON_MOD_READ = 'addon.mod.read';
+    public const ACTION_ADDON_MOD_INSTALL = 'addon.mod.install';
+    public const ACTION_ADDON_MOD_DELETE = 'addon.mod.delete';
+
+    public const ACTION_ADDON_MODPACK_READ = 'addon.modpack.read';
+    public const ACTION_ADDON_MODPACK_INSTALL = 'addon.modpack.install';
+    public const ACTION_ADDON_MODPACK_DELETE = 'addon.modpack.delete';
+
     public const ACTION_DATABASE_READ = 'database.read';
     public const ACTION_DATABASE_CREATE = 'database.create';
     public const ACTION_DATABASE_UPDATE = 'database.update';
@@ -219,6 +227,24 @@ class Permission extends Model
                 'read' => 'Allows a user to view the plugin browser and the list of plugins installed on this server.',
                 'install' => 'Allows a user to install a plugin onto this server. Downloads the jar into the /plugins/ directory.',
                 'delete' => 'Allows a user to remove a previously installed plugin, deleting its jar from /plugins/.',
+            ],
+        ],
+
+        'addon.mod' => [
+            'description' => 'Permissions that control a user\'s ability to browse and install Minecraft mods (Forge / Fabric / Quilt / NeoForge) from curated sources.',
+            'keys' => [
+                'read' => 'Allows a user to view the mod browser and the list of mods installed on this server.',
+                'install' => 'Allows a user to install a mod onto this server. Downloads the jar into the /mods/ directory.',
+                'delete' => 'Allows a user to remove a previously installed mod, deleting its jar from /mods/.',
+            ],
+        ],
+
+        'addon.modpack' => [
+            'description' => 'Permissions that control a user\'s ability to browse and install Minecraft modpacks. Downloaded modpack archives land in /modpacks/ and require manual extraction today.',
+            'keys' => [
+                'read' => 'Allows a user to view the modpack browser and the list of downloaded modpacks on this server.',
+                'install' => 'Allows a user to download a modpack archive into /modpacks/. Does not auto-extract or overwrite current server files — that step is manual today.',
+                'delete' => 'Allows a user to remove a previously downloaded modpack archive from /modpacks/.',
             ],
         ],
     ];
