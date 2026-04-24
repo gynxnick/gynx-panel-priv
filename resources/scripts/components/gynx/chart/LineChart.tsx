@@ -146,10 +146,26 @@ export const LineChart: React.FC<LineChartProps> = ({
     }, [mainPoints, innerH]);
     const comparePath = useMemo(() => smoothPath(comparePoints), [comparePoints]);
 
-    const ticks = useMemo(() => niceTicks(dMin, dMax, 4), [dMin, dMax]);
-
     const fmt = yFormat ?? ((v: number) => `${v.toFixed(0)}${unit}`);
     const fmtCompare = compare?.format ?? fmt;
+
+    // niceTicks gives us raw numeric tick values; the formatter then maps
+    // them to display strings. When the data range is tight (CPU jittering
+    // in a 0.1% window) the formatter rounds adjacent ticks to the same
+    // string. Dedupe by formatted string before rendering so the y-axis
+    // never shows "4.7%, 4.7%, 4.6%" stacked.
+    const ticks = useMemo(() => {
+        const raw = niceTicks(dMin, dMax, 4);
+        const seen = new Set<string>();
+        const out: number[] = [];
+        for (const t of raw) {
+            const label = fmt(t);
+            if (seen.has(label)) continue;
+            seen.add(label);
+            out.push(t);
+        }
+        return out;
+    }, [dMin, dMax, fmt]);
 
     const onMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
         if (data.length === 0 || innerW === 0) return;
