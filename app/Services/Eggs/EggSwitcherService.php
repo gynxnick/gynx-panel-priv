@@ -241,13 +241,14 @@ class EggSwitcherService
                 'started_at' => Carbon::now(),
             ])->save();
 
-            // Wipe the server root when the rule says we don't preserve
-            // files. Pterodactyl's reinstall just re-runs the install
-            // script — it doesn't touch existing data on its own — so the
-            // old game's mods/configs/world would otherwise leak into the
-            // new egg.
+            // When preserves_files = false, clear out the addon directories
+            // that pollute across MC variants (Forge mods left over after a
+            // switch to Paper, etc.). We deliberately leave the server jar,
+            // worlds, and root-level configs alone — wiping them was making
+            // some eggs un-startable because the install script doesn't
+            // always re-download every file the runtime needs.
             if (!$policy->preservesFiles) {
-                $this->wipeServerRoot($server);
+                $this->wipeAddonDirs($server);
             }
 
             // Dispatch the reinstall. Wings pulls the (new) image + runs the
@@ -287,29 +288,36 @@ class EggSwitcherService
     }
 
     /**
-     * Delete every top-level entry in the server root. Wings rename/delete
-     * works on directories as a unit, so listing the root and dispatching
-     * one delete call removes the whole tree. Failures here are logged but
-     * not fatal — we'd rather complete the switch with a partial wipe than
-     * leave the server in INSTALLING-without-reinstall purgatory.
+     * Wipe the directories that pollute across MC variants — mods/, plugins/,
+     * config/ — without touching the server jar, worlds, server.properties,
+     * or anything else at the root. The earlier "delete everything" version
+     * left some eggs un-startable because their install scripts don't
+     * re-download every file the runtime needs (jar, eula, etc.).
      */
-    private function wipeServerRoot(Server $server): void
+    private function wipeAddonDirs(Server $server): void
     {
-        try {
-            $files = $this->daemonFiles->setServer($server);
-            $entries = $files->getDirectory('/');
+        $files = $this->daemonFiles->setServer($server);
+
+        foreach (['mods', 'plugins', 'config'] as $dir) {
+            try {
+                $entries = $files->getDirectory('/' . $dir);
+            } catch (\Throwable $e) {
+                continue; // dir doesn't exist on this server
+            }
+
             $names = [];
             foreach ($entries as $e) {
                 $name = is_array($e) ? ($e['name'] ?? null) : null;
                 if (is_string($name) && $name !== '') $names[] = $name;
             }
-            if (!empty($names)) {
-                $files->deleteFiles('/', $names);
+            if (empty($names)) continue;
+
+            try {
+                $files->deleteFiles('/' . $dir, $names);
+            } catch (\Throwable $e) {
+                // Log and continue — better a partial wipe than a stuck switch.
+                report($e);
             }
-        } catch (\Throwable $e) {
-            // Log but continue — the install script will still run, even if
-            // some leftover files end up coexisting with the new egg.
-            report($e);
         }
     }
 }
