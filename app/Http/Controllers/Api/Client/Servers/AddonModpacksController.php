@@ -28,11 +28,14 @@ class AddonModpacksController extends ClientApiController
     {
         $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_READ);
 
+        // Plugin-only sources (Hangar, SpigotMC) don't host modpacks at all,
+        // so don't surface them as "· soon" — they're n/a, not coming.
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
+            if (!$src->supports(AddonSource::TYPE_MODPACK)) continue;
             $data[] = [
                 'slug' => $slug,
-                'available' => $src->available() && $src->supports(AddonSource::TYPE_MODPACK),
+                'available' => $src->available(),
             ];
         }
 

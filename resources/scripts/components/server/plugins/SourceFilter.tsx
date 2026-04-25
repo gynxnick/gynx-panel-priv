@@ -48,11 +48,11 @@ export const SourceFilter: React.FC<Props> = ({ sources, selected, onSelect }) =
                 aria-selected={selected === s.slug}
                 $active={selected === s.slug}
                 $disabled={!s.available}
-                title={s.available ? `Search ${LABEL[s.slug]}` : `${LABEL[s.slug]} — not yet available`}
+                title={s.available ? `Search ${LABEL[s.slug]}` : `${LABEL[s.slug]} — admin must add an API key in the panel .env`}
                 onClick={() => s.available && onSelect(s.slug)}
             >
                 {LABEL[s.slug]}
-                {!s.available && <span style={{ opacity: 0.8 }}>· soon</span>}
+                {!s.available && <span style={{ opacity: 0.8 }}>· setup needed</span>}
             </Chip>
         ))}
     </Row>

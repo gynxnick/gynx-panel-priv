@@ -28,11 +28,15 @@ class AddonModsController extends ClientApiController
     {
         $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MOD_READ);
 
+        // Only return sources that *can* serve mods at all. Sources like
+        // Hangar / SpigotMC that are plugin-only would otherwise show up
+        // as "· soon" forever, which isn't true — they're n/a.
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
+            if (!$src->supports(AddonSource::TYPE_MOD)) continue;
             $data[] = [
                 'slug' => $slug,
-                'available' => $src->available() && $src->supports(AddonSource::TYPE_MOD),
+                'available' => $src->available(),
             ];
         }
 
