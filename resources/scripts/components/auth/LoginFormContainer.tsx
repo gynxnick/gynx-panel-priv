@@ -304,7 +304,7 @@ export default forwardRef<HTMLFormElement, Props>(({ title, children, ...props }
         <Shell>
             <BrandPanel>
                 <BrandLockup aria-label={brandCfg.siteName}>
-                    <LogoMark size={48} url={brandCfg.logoUrl} alt={brandCfg.siteName} />
+                    <LogoMark size={72} url={brandCfg.logoUrl} alt={brandCfg.siteName} />
                 </BrandLockup>
 
                 <Tagline key={tagline}>{tagline}</Tagline>

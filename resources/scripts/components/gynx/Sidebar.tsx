@@ -72,9 +72,11 @@ const Scroll = styled.div`
 `;
 
 const BrandRow = styled.div<{ $collapsed: boolean }>`
-    ${tw`flex items-center px-4 py-4`};
-    gap: 12px;
+    ${tw`flex items-center`};
+    padding: ${({ $collapsed }: { $collapsed: boolean }) => ($collapsed ? '14px 8px' : '14px 16px')};
     min-height: 64px;
+    /* Inner Link/anchor: fills the row so the logo can stretch to width */
+    > a { display: flex; align-items: center; flex: 1; min-width: 0; }
 `;
 
 const EyebrowRow = styled.div<{ $collapsed: boolean }>`
@@ -302,13 +304,13 @@ export default () => {
 
             {/* brand — full logo lockup (image already contains the wordmark) */}
             <BrandRow $collapsed={collapsed}>
-                <Link
-                    to={'/'}
-                    style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}
-                    aria-label={siteName}
-                    title={siteName}
-                >
-                    <LogoMark size={collapsed ? 28 : 32} url={logoUrl} />
+                <Link to={'/'} aria-label={siteName} title={siteName}>
+                    <LogoMark
+                        fill
+                        size={collapsed ? 28 : 40}
+                        url={logoUrl}
+                        alt={siteName}
+                    />
                 </Link>
             </BrandRow>
 
