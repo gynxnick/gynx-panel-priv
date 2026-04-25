@@ -48,21 +48,38 @@ const HYBRID_PATTERNS: RegExp[] = [
     /catserver/i,
 ];
 
+// Coarse signal that this is plausibly a Java-based Minecraft server even
+// if we can't pin down the exact platform. Pterodactyl's default Paper egg
+// uses SERVER_JARFILE=server.jar, so the specific PLUGIN_PATTERNS above
+// don't match — fall back to this so we don't accidentally hide the
+// install pages on a real MC server.
+const JAVA_MC_PATTERNS: RegExp[] = [
+    /\byolks?\b/i,            // Pterodactyl's standard Java image set
+    /\bjava[-_]?\d/i,         // ghcr.io/.../yolks:java_17, java_21, etc.
+    /minecraft/i,             // any image / invocation mentioning minecraft
+    /server\.jar/i,           // common default jarfile name
+];
+
 export function getAddonCapabilities(server: ServerLike | null | undefined): AddonCapabilities {
     if (!server) return { plugins: false, mods: false, modpacks: false };
 
     const haystack = `${server.invocation ?? ''} ${server.dockerImage ?? ''}`;
 
     const isHybrid = HYBRID_PATTERNS.some((re) => re.test(haystack));
-    const isPlugin = isHybrid || PLUGIN_PATTERNS.some((re) => re.test(haystack));
-    const isMod = isHybrid || MOD_PATTERNS.some((re) => re.test(haystack));
+    const isPluginExact = PLUGIN_PATTERNS.some((re) => re.test(haystack));
+    const isModExact = MOD_PATTERNS.some((re) => re.test(haystack));
+
+    // If we can't identify a specific platform but it looks like a Java
+    // Minecraft server, show all three addon pages. Better to show too
+    // many than to hide a legit installer because the egg's SERVER_JARFILE
+    // happens to be "server.jar".
+    const looksJavaMc = JAVA_MC_PATTERNS.some((re) => re.test(haystack));
+    const fallbackAll = looksJavaMc && !isPluginExact && !isModExact && !isHybrid;
 
     return {
-        plugins: isPlugin,
-        // Modpacks live in the same modded ecosystem; if a server can take
-        // mods it can take a modpack (which is just a manifest of mods +
-        // configs).
-        mods: isMod,
-        modpacks: isMod,
+        plugins: isHybrid || isPluginExact || fallbackAll,
+        // Modpacks live in the same modded ecosystem as mods.
+        mods: isHybrid || isModExact || fallbackAll,
+        modpacks: isHybrid || isModExact || fallbackAll,
     };
 }
