@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import tw from 'twin.macro';
@@ -148,86 +148,92 @@ const Muted = styled.span`
 const POLL_INTERVAL_MS = 15000;
 const SPARK_CAPACITY = 30; // ~5 min of history at 10s cadence
 
-// Module-level in-flight registry. Lives outside React entirely so it
-// CAN'T be reset by remounts, StrictMode double-effects, or anything else
-// that resets useRef. Without this, a remount loop in the dashboard tree
-// floods the panel with /resources requests until the rate limiter trips.
-const INFLIGHT: Set<string> = new Set();
-// Per-UUID earliest-next-call gate. Belt-and-suspenders: even if multiple
-// ServerCard instances coexist for the same UUID (shouldn't happen, but
-// has happened in practice), they share this floor and can't drive the
-// panel below the configured interval.
-const NEXT_ALLOWED: Map<string, number> = new Map();
-// Per-UUID last-known stats cache. The dashboard subtree has been observed
-// remounting in a loop (root cause still being tracked down upstream) which
-// resets useState(null) → stats wiped → "connecting" pill returned even
-// though the response was valid. Stashing the latest stats here means the
-// next remount initializes from the cache instead of null.
+// ----- module-level polling pump --------------------------------------------
+//
+// Polling lives entirely outside React so the dashboard subtree's remount
+// loop (root cause TBD, see TODO.md) can't kill it. ServerCards subscribe
+// on mount; the pump fires `getServerResourceUsage` for each subscribed
+// uuid on a steady cadence and broadcasts the result to every subscriber.
+// Remounting a ServerCard re-subscribes (instantly seeded from the cache),
+// it never resets the timer and never piles up a fetch.
+
+type StatsListener = (stats: ServerStats) => void;
+const SUBSCRIBERS: Map<string, Set<StatsListener>> = new Map();
 const STATS_CACHE: Map<string, ServerStats> = new Map();
+const INFLIGHT: Set<string> = new Set();
+
+let pumpStarted = false;
+const startPumpIfNeeded = () => {
+    if (pumpStarted) return;
+    pumpStarted = true;
+    window.setInterval(() => {
+        for (const uuid of SUBSCRIBERS.keys()) {
+            if (INFLIGHT.has(uuid)) continue;
+            INFLIGHT.add(uuid);
+            getServerResourceUsage(uuid)
+                .then((data) => {
+                    STATS_CACHE.set(uuid, data);
+                    const subs = SUBSCRIBERS.get(uuid);
+                    if (subs) for (const fn of subs) fn(data);
+                })
+                .catch(() => { /* swallow — surfaced at dashboard level */ })
+                .finally(() => { INFLIGHT.delete(uuid); });
+        }
+    }, POLL_INTERVAL_MS);
+};
+
+const subscribe = (uuid: string, fn: StatsListener): (() => void) => {
+    let set = SUBSCRIBERS.get(uuid);
+    if (!set) { set = new Set(); SUBSCRIBERS.set(uuid, set); }
+    set.add(fn);
+    startPumpIfNeeded();
+
+    // Fire one immediate request for this uuid if we have no fresh data —
+    // gives newly-mounted cards their first values without waiting a full
+    // POLL_INTERVAL_MS for the next pump tick.
+    if (!INFLIGHT.has(uuid) && !STATS_CACHE.has(uuid)) {
+        INFLIGHT.add(uuid);
+        getServerResourceUsage(uuid)
+            .then((data) => {
+                STATS_CACHE.set(uuid, data);
+                const subs = SUBSCRIBERS.get(uuid);
+                if (subs) for (const f of subs) f(data);
+            })
+            .catch(() => { /* ignore */ })
+            .finally(() => { INFLIGHT.delete(uuid); });
+    } else if (STATS_CACHE.has(uuid)) {
+        // Seed the new subscriber synchronously from the cache.
+        fn(STATS_CACHE.get(uuid)!);
+    }
+
+    return () => {
+        const s = SUBSCRIBERS.get(uuid);
+        if (!s) return;
+        s.delete(fn);
+        if (s.size === 0) SUBSCRIBERS.delete(uuid);
+    };
+};
 
 export const ServerCard: React.FC<Props> = ({ server }) => {
-    // Initialize from the module-level cache, not null. If the component
-    // remounts (which it currently does in a loop on this dashboard), the
-    // pill keeps showing the last-known stats instead of resetting to
-    // "connecting" while we wait for the next poll to land.
-    const [stats, setStatsState] = useState<ServerStats | null>(
+    const [stats, setStats] = useState<ServerStats | null>(
         () => STATS_CACHE.get(server.uuid) ?? null,
     );
-    const setStats = (s: ServerStats) => {
-        STATS_CACHE.set(server.uuid, s);
-        setStatsState(s);
-    };
     const [isSuspended, setIsSuspended] = useState(server.status === 'suspended');
     const cpuSeries = useSeries({ capacity: SPARK_CAPACITY });
     const memSeries = useSeries({ capacity: SPARK_CAPACITY });
 
-    // The previous useRef-based guard was useless when the dashboard subtree
-    // remounted (which we've observed happening in the wild — likely an
-    // upstream error boundary loop). useRef gets reset on every fresh mount,
-    // so the guard reset every time the bug fired and the request flood
-    // resumed instantly. Now both the in-flight check and the
-    // earliest-next-call floor live in module-scoped Set/Map (see top of
-    // file), so a thousand simultaneous remounts of ServerCard for the same
-    // uuid still produce at most ONE request per POLL_INTERVAL_MS.
-    const isMountedRef = useRef(true);
-    useEffect(() => {
-        isMountedRef.current = true;
-        return () => { isMountedRef.current = false; };
-    }, []);
-
+    // Subscribe to the module-level pump. The pump fires polls at a steady
+    // cadence regardless of how many times this component remounts, so a
+    // remount loop in the dashboard subtree no longer kills polling.
     useEffect(() => {
         if (isSuspended) return;
-        const uuid = server.uuid;
-
-        const poll = async () => {
-            if (!isMountedRef.current) return;
-            if (INFLIGHT.has(uuid)) return;
-            const now = Date.now();
-            const allowedAt = NEXT_ALLOWED.get(uuid) ?? 0;
-            if (now < allowedAt) return;
-
-            INFLIGHT.add(uuid);
-            // Reserve the next slot up front so even an immediate remount
-            // can't slip in another request before we've sent this one.
-            NEXT_ALLOWED.set(uuid, now + POLL_INTERVAL_MS);
-
-            try {
-                const data = await getServerResourceUsage(uuid);
-                if (!isMountedRef.current) return;
-                setStats(data);
-                if (data.isSuspended !== isSuspended) setIsSuspended(data.isSuspended);
-                cpuSeries.push(data.cpuUsagePercent);
-                memSeries.push(Math.floor(data.memoryUsageInBytes / 1024 / 1024));
-            } catch {
-                /* surfaced at the dashboard level */
-            } finally {
-                INFLIGHT.delete(uuid);
-            }
+        const onStats = (data: ServerStats) => {
+            setStats(data);
+            if (data.isSuspended !== isSuspended) setIsSuspended(data.isSuspended);
+            cpuSeries.push(data.cpuUsagePercent);
+            memSeries.push(Math.floor(data.memoryUsageInBytes / 1024 / 1024));
         };
-
-        poll();
-        const id = window.setInterval(poll, POLL_INTERVAL_MS);
-        return () => window.clearInterval(id);
+        return subscribe(server.uuid, onStats);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [server.uuid, isSuspended]);
 
