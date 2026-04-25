@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components/macro';
 import tw from 'twin.macro';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTh, faChartLine } from '@fortawesome/free-solid-svg-icons';
 
 import { ServerContext } from '@/state/server';
 import { SocketEvent } from '@/components/server/events';
@@ -9,14 +11,41 @@ import { bytesToString } from '@/lib/formatters';
 import { LineChart, useSeries } from '@/components/gynx/chart';
 
 /**
- * gynx — unified stat panel.
+ * gynx — server stat panel.
  *
- * Three tabs (CPU / RAM / Network) over a custom SVG LineChart. Series are
- * kept in ring buffers via useSeries so background tabs keep collecting
- * samples. An activity pulse briefly rings the panel when the visible
- * metric jumps >25% of its limit between samples. The "Compare" toggle
- * overlays the other primary metric (CPU vs RAM) on a secondary y-axis.
+ * Two view modes the user can toggle between (persisted in localStorage):
+ *   - 'grid': three side-by-side metric panels (CPU / RAM / Network),
+ *             at-a-glance dashboard feel. No Compare overlay.
+ *   - 'tabs': single tabbed panel, taller chart, supports the
+ *             Compare CPU↔RAM overlay. Activity pulse rings the panel
+ *             when the active metric jumps >25% of its hard limit.
+ *
+ * Series collection runs once and feeds both modes.
  */
+
+const VIEW_KEY = 'gynx.statgraphs.view';
+type ViewMode = 'grid' | 'tabs';
+
+// ---- shared styled atoms ----------------------------------------------------
+
+const ToggleStrip = styled.div`
+    ${tw`flex items-center justify-end gap-2 mb-3`};
+`;
+
+const ViewToggle = styled.button<{ $active: boolean }>`
+    ${tw`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer`};
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.02em;
+    background: ${({ $active }) => ($active ? 'rgba(124, 58, 237, 0.18)' : 'transparent')};
+    color: ${({ $active }) => ($active ? '#C4B5FD' : 'var(--gynx-text-dim)')};
+    border: 1px solid ${({ $active }) => ($active ? 'rgba(124, 58, 237, 0.55)' : 'var(--gynx-edge-2)')};
+    transition: color .15s ease, background .15s ease, border-color .15s ease;
+
+    &:hover {
+        color: ${({ $active }) => ($active ? '#DDD6FE' : 'var(--gynx-text)')};
+        border-color: rgba(124, 58, 237, 0.45);
+    }
+`;
 
 const pulse = keyframes`
     0%   { box-shadow: 0 0 0 1px var(--gynx-accent), 0 0 0 0 rgba(var(--gynx-accent-rgb), 0.45); }
@@ -24,7 +53,9 @@ const pulse = keyframes`
     100% { box-shadow: 0 0 0 1px transparent, 0 0 0 0 transparent; }
 `;
 
-const Panel = styled.section<{ $pulsing: boolean; $accent: string; $accentRgb: string }>`
+// ---- tabs-mode panel --------------------------------------------------------
+
+const TabbedPanel = styled.section<{ $pulsing: boolean; $accent: string; $accentRgb: string }>`
     ${tw`relative rounded-xl overflow-hidden`};
     background: var(--gynx-surface);
     border: 1px solid var(--gynx-edge);
@@ -44,12 +75,12 @@ const Panel = styled.section<{ $pulsing: boolean; $accent: string; $accentRgb: s
         `}
 `;
 
-const Header = styled.header`
+const TabsHeader = styled.header`
     ${tw`flex items-center justify-between px-4 pt-3 pb-2 gap-3`};
     border-bottom: 1px solid var(--gynx-edge);
 `;
 
-const HeaderLeft = styled.div`
+const TabsHeaderLeft = styled.div`
     ${tw`flex items-center gap-3`};
 `;
 
@@ -96,7 +127,7 @@ const CompareButton = styled.button<{ $active: boolean }>`
     }
 `;
 
-const Body = styled.div`
+const TabsBody = styled.div`
     ${tw`px-3 pb-3 pt-3 relative`};
     height: 380px;
 `;
@@ -109,6 +140,48 @@ const Legend = styled.div`
 const LegendItem = styled.span`
     ${tw`inline-flex items-center gap-1.5`};
 `;
+
+// ---- grid-mode panels --------------------------------------------------------
+
+const Grid = styled.div`
+    ${tw`grid gap-3`};
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    @media (max-width: 1100px) {
+        grid-template-columns: 1fr;
+    }
+`;
+
+const GridPanel = styled.section<{ $accent: string }>`
+    ${tw`relative rounded-xl overflow-hidden`};
+    background: var(--gynx-surface);
+    border: 1px solid var(--gynx-edge);
+    transition: border-color .25s ease, box-shadow .25s ease;
+
+    &:hover {
+        border-color: ${({ $accent }) => $accent}55;
+        box-shadow: 0 0 0 1px ${({ $accent }) => $accent}33, 0 10px 24px -14px ${({ $accent }) => $accent}66;
+    }
+`;
+
+const GridPanelHeader = styled.header`
+    ${tw`flex items-center justify-between px-4 pt-3 pb-2`};
+    border-bottom: 1px solid var(--gynx-edge);
+`;
+
+const GridPanelTitle = styled.span<{ $accent: string }>`
+    ${tw`inline-flex items-center gap-2 text-xs font-medium uppercase`};
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.08em;
+    color: ${({ $accent }) => $accent};
+`;
+
+const GridPanelBody = styled.div`
+    ${tw`px-2 pb-2 pt-2 relative`};
+    height: 200px;
+`;
+
+// ---- metric metadata --------------------------------------------------------
 
 const metricAccents = {
     cpu: '#60A5FA',
@@ -130,7 +203,17 @@ const cpuFormat = (v: number) => `${v.toFixed(1)}%`;
 const memFormat = (v: number) => `${v.toFixed(0)} MiB`;
 const netFormat = (v: number) => bytesToString(v);
 
+// ---- component --------------------------------------------------------------
+
 export default () => {
+    const [view, setView] = useState<ViewMode>(() => {
+        try {
+            return (localStorage.getItem(VIEW_KEY) as ViewMode) || 'grid';
+        } catch {
+            return 'grid';
+        }
+    });
+
     const [tab, setTab] = useState<ChartTab>('cpu');
     const [compare, setCompare] = useState(false);
     const [pulsing, setPulsing] = useState(false);
@@ -144,6 +227,10 @@ export default () => {
     const memory = useSeries({ capacity: SAMPLE_CAPACITY });
     const netIn = useSeries({ capacity: SAMPLE_CAPACITY });
     const netOut = useSeries({ capacity: SAMPLE_CAPACITY });
+
+    useEffect(() => {
+        try { localStorage.setItem(VIEW_KEY, view); } catch { /* ignore */ }
+    }, [view]);
 
     useEffect(() => {
         if (status === 'offline') {
@@ -178,6 +265,8 @@ export default () => {
 
         previous.current = { tx: values.network.tx_bytes, rx: values.network.rx_bytes };
 
+        // Activity pulse only fires when in tabs view (single-panel framing).
+        if (view !== 'tabs') return;
         let delta = 0;
         let threshold = 0;
         if (tab === 'cpu') {
@@ -200,124 +289,172 @@ export default () => {
         return () => window.clearTimeout(pulseTimer.current);
     }, [tab]);
 
+    // ---- shared chart factories used in both views ------------------------
+
+    const renderCpuChart = (compareEnabled: boolean) => (
+        <LineChart
+            data={cpu.data}
+            color={metricAccents.cpu}
+            label={'CPU'}
+            unit={'%'}
+            domain={limits?.cpu ? [0, limits.cpu] : undefined}
+            yFormat={cpuFormat}
+            compare={
+                compareEnabled
+                    ? { data: memory.data, color: metricAccents.memory, label: 'Memory', format: memFormat }
+                    : undefined
+            }
+        />
+    );
+
+    const renderMemoryChart = (compareEnabled: boolean) => (
+        <LineChart
+            data={memory.data}
+            color={metricAccents.memory}
+            label={'Memory'}
+            domain={limits?.memory ? [0, limits.memory] : undefined}
+            yFormat={memFormat}
+            compare={
+                compareEnabled
+                    ? { data: cpu.data, color: metricAccents.cpu, label: 'CPU', format: cpuFormat }
+                    : undefined
+            }
+        />
+    );
+
+    const renderNetworkChart = () => (
+        <LineChart
+            data={netIn.data}
+            color={metricAccents.network}
+            label={'Network In'}
+            yFormat={netFormat}
+            compare={{ data: netOut.data, color: '#67E8F9', label: 'Network Out', format: netFormat }}
+        />
+    );
+
+    // ---- render ------------------------------------------------------------
+
+    const toggle = (
+        <ToggleStrip role={'tablist'} aria-label={'view layout'}>
+            <ViewToggle
+                type={'button'}
+                $active={view === 'grid'}
+                onClick={() => setView('grid')}
+                title={'Side-by-side grid'}
+                aria-pressed={view === 'grid'}
+            >
+                <FontAwesomeIcon icon={faTh} /> grid
+            </ViewToggle>
+            <ViewToggle
+                type={'button'}
+                $active={view === 'tabs'}
+                onClick={() => setView('tabs')}
+                title={'Tabbed panel with compare overlay'}
+                aria-pressed={view === 'tabs'}
+            >
+                <FontAwesomeIcon icon={faChartLine} /> tabs
+            </ViewToggle>
+        </ToggleStrip>
+    );
+
+    if (view === 'grid') {
+        return (
+            <>
+                {toggle}
+                <Grid>
+                    <GridPanel $accent={metricAccents.cpu}>
+                        <GridPanelHeader>
+                            <GridPanelTitle $accent={metricAccents.cpu}>
+                                <TabDot $color={metricAccents.cpu} /> CPU
+                            </GridPanelTitle>
+                        </GridPanelHeader>
+                        <GridPanelBody>{renderCpuChart(false)}</GridPanelBody>
+                    </GridPanel>
+                    <GridPanel $accent={metricAccents.memory}>
+                        <GridPanelHeader>
+                            <GridPanelTitle $accent={metricAccents.memory}>
+                                <TabDot $color={metricAccents.memory} /> RAM
+                            </GridPanelTitle>
+                        </GridPanelHeader>
+                        <GridPanelBody>{renderMemoryChart(false)}</GridPanelBody>
+                    </GridPanel>
+                    <GridPanel $accent={metricAccents.network}>
+                        <GridPanelHeader>
+                            <GridPanelTitle $accent={metricAccents.network}>
+                                <TabDot $color={metricAccents.network} /> Network
+                            </GridPanelTitle>
+                            <Legend>
+                                <LegendItem><TabDot $color={'#22D3EE'} /> in</LegendItem>
+                                <LegendItem><TabDot $color={'#67E8F9'} /> out</LegendItem>
+                            </Legend>
+                        </GridPanelHeader>
+                        <GridPanelBody>{renderNetworkChart()}</GridPanelBody>
+                    </GridPanel>
+                </Grid>
+            </>
+        );
+    }
+
+    // ---- tabs view --------------------------------------------------------
+
     const chart = (() => {
         switch (tab) {
-            case 'cpu':
-                return (
-                    <LineChart
-                        data={cpu.data}
-                        color={metricAccents.cpu}
-                        label={'CPU'}
-                        unit={'%'}
-                        domain={limits?.cpu ? [0, limits.cpu] : undefined}
-                        yFormat={cpuFormat}
-                        compare={
-                            compare
-                                ? {
-                                      data: memory.data,
-                                      color: metricAccents.memory,
-                                      label: 'Memory',
-                                      format: memFormat,
-                                  }
-                                : undefined
-                        }
-                    />
-                );
-            case 'memory':
-                return (
-                    <LineChart
-                        data={memory.data}
-                        color={metricAccents.memory}
-                        label={'Memory'}
-                        domain={limits?.memory ? [0, limits.memory] : undefined}
-                        yFormat={memFormat}
-                        compare={
-                            compare
-                                ? {
-                                      data: cpu.data,
-                                      color: metricAccents.cpu,
-                                      label: 'CPU',
-                                      format: cpuFormat,
-                                  }
-                                : undefined
-                        }
-                    />
-                );
-            case 'network':
-                return (
-                    <LineChart
-                        data={netIn.data}
-                        color={metricAccents.network}
-                        label={'Network In'}
-                        yFormat={netFormat}
-                        compare={{
-                            data: netOut.data,
-                            color: '#67E8F9',
-                            label: 'Network Out',
-                            format: netFormat,
-                        }}
-                    />
-                );
+            case 'cpu':     return renderCpuChart(compare);
+            case 'memory':  return renderMemoryChart(compare);
+            case 'network': return renderNetworkChart();
         }
     })();
 
     return (
-        <Panel $pulsing={pulsing} $accent={metricAccents[tab]} $accentRgb={metricRgb[tab]}>
-            <Header>
-                <HeaderLeft>
-                    <TabGroup role={'tablist'} aria-label={'metric'}>
-                        <Tab
-                            role={'tab'}
-                            aria-selected={tab === 'cpu'}
-                            $active={tab === 'cpu'}
-                            $accent={metricAccents.cpu}
-                            onClick={() => setTab('cpu')}
-                        >
-                            <TabDot $color={metricAccents.cpu} /> CPU
-                        </Tab>
-                        <Tab
-                            role={'tab'}
-                            aria-selected={tab === 'memory'}
-                            $active={tab === 'memory'}
-                            $accent={metricAccents.memory}
-                            onClick={() => setTab('memory')}
-                        >
-                            <TabDot $color={metricAccents.memory} /> RAM
-                        </Tab>
-                        <Tab
-                            role={'tab'}
-                            aria-selected={tab === 'network'}
-                            $active={tab === 'network'}
-                            $accent={metricAccents.network}
-                            onClick={() => setTab('network')}
-                        >
-                            <TabDot $color={metricAccents.network} /> Network
-                        </Tab>
-                    </TabGroup>
+        <>
+            {toggle}
+            <TabbedPanel $pulsing={pulsing} $accent={metricAccents[tab]} $accentRgb={metricRgb[tab]}>
+                <TabsHeader>
+                    <TabsHeaderLeft>
+                        <TabGroup role={'tablist'} aria-label={'metric'}>
+                            <Tab
+                                role={'tab'} aria-selected={tab === 'cpu'}
+                                $active={tab === 'cpu'} $accent={metricAccents.cpu}
+                                onClick={() => setTab('cpu')}
+                            >
+                                <TabDot $color={metricAccents.cpu} /> CPU
+                            </Tab>
+                            <Tab
+                                role={'tab'} aria-selected={tab === 'memory'}
+                                $active={tab === 'memory'} $accent={metricAccents.memory}
+                                onClick={() => setTab('memory')}
+                            >
+                                <TabDot $color={metricAccents.memory} /> RAM
+                            </Tab>
+                            <Tab
+                                role={'tab'} aria-selected={tab === 'network'}
+                                $active={tab === 'network'} $accent={metricAccents.network}
+                                onClick={() => setTab('network')}
+                            >
+                                <TabDot $color={metricAccents.network} /> Network
+                            </Tab>
+                        </TabGroup>
 
-                    {tab !== 'network' && (
-                        <CompareButton
-                            $active={compare}
-                            onClick={() => setCompare((v) => !v)}
-                            title={'Overlay the other metric for comparison'}
-                        >
-                            Compare {tab === 'cpu' ? 'RAM' : 'CPU'}
-                        </CompareButton>
+                        {tab !== 'network' && (
+                            <CompareButton
+                                $active={compare}
+                                onClick={() => setCompare((v) => !v)}
+                                title={'Overlay the other metric for comparison'}
+                            >
+                                Compare {tab === 'cpu' ? 'RAM' : 'CPU'}
+                            </CompareButton>
+                        )}
+                    </TabsHeaderLeft>
+
+                    {tab === 'network' && (
+                        <Legend>
+                            <LegendItem><TabDot $color={'#22D3EE'} /> in</LegendItem>
+                            <LegendItem><TabDot $color={'#67E8F9'} /> out</LegendItem>
+                        </Legend>
                     )}
-                </HeaderLeft>
-
-                {tab === 'network' && (
-                    <Legend>
-                        <LegendItem>
-                            <TabDot $color={'#22D3EE'} /> in
-                        </LegendItem>
-                        <LegendItem>
-                            <TabDot $color={'#67E8F9'} /> out
-                        </LegendItem>
-                    </Legend>
-                )}
-            </Header>
-            <Body>{chart}</Body>
-        </Panel>
+                </TabsHeader>
+                <TabsBody>{chart}</TabsBody>
+            </TabbedPanel>
+        </>
     );
 };
