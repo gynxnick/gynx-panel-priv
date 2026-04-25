@@ -120,14 +120,41 @@ if [[ -f "$TARGET_DIR/.env" ]]; then
 
     if [[ -n "${DB_DATABASE:-}" && -n "${DB_USERNAME:-}" ]]; then
         step "dumping database $DB_DATABASE → $BACKUP_DIR/$DB_DATABASE.sql.gz"
-        MYSQL_PWD="$DB_PASSWORD" mysqldump \
+        # Soft-fail: a backup is nice to have, but we don't want a missing
+        # password / drifted creds to abort the whole rebuild. Try the .env
+        # creds first; if those fail and we're root, fall back to a socket
+        # auth attempt as `root` (works on most default MySQL/MariaDB
+        # installs without a password).
+        DUMP_OK=0
+        if MYSQL_PWD="$DB_PASSWORD" mysqldump \
             -h "${DB_HOST:-127.0.0.1}" \
             -P "${DB_PORT:-3306}" \
             -u "$DB_USERNAME" \
             --single-transaction --quick --lock-tables=false \
-            "$DB_DATABASE" \
+            "$DB_DATABASE" 2>/tmp/mysqldump.err \
             | gzip > "$BACKUP_DIR/$DB_DATABASE.sql.gz"
-        c_green "  $(du -h "$BACKUP_DIR/$DB_DATABASE.sql.gz" | cut -f1) saved"
+        then
+            DUMP_OK=1
+        elif sudo -n true 2>/dev/null && mysqldump --defaults-file=/etc/mysql/debian.cnf \
+            --single-transaction --quick --lock-tables=false \
+            "$DB_DATABASE" 2>/tmp/mysqldump.err \
+            | gzip > "$BACKUP_DIR/$DB_DATABASE.sql.gz"
+        then
+            DUMP_OK=1
+            warn "(used /etc/mysql/debian.cnf root creds — .env creds didn't work)"
+        fi
+
+        if [[ $DUMP_OK -eq 1 ]]; then
+            c_green "  $(du -h "$BACKUP_DIR/$DB_DATABASE.sql.gz" | cut -f1) saved"
+        else
+            warn "mysqldump failed — continuing without a DB backup."
+            warn "  reason: $(head -1 /tmp/mysqldump.err 2>/dev/null || echo 'unknown')"
+            warn "  to back up manually:  mysqldump -u root -p $DB_DATABASE > backup.sql"
+            rm -f "$BACKUP_DIR/$DB_DATABASE.sql.gz"
+            if ! confirm "Proceed without a DB backup?"; then
+                die "aborted by user"
+            fi
+        fi
     else
         warn "couldn't read DB creds from .env — skipping mysqldump"
     fi
