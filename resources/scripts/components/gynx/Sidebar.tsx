@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useRouteMatch } from 'react-router-dom';
 import styled, { css } from 'styled-components/macro';
 import tw from 'twin.macro';
@@ -68,7 +68,31 @@ const Rail = styled.aside<{ $collapsed: boolean }>`
 
 const Scroll = styled.div`
     ${tw`flex-1 overflow-y-auto overflow-x-hidden`};
+    position: relative;
     &::-webkit-scrollbar { width: 6px; }
+`;
+
+/**
+ * Single sliding rail that follows the active nav item. Replaces the per-item
+ * ::before bar so the active marker glides between sections instead of
+ * disappearing/reappearing — feels noticeably more refined.
+ */
+const SlidingRail = styled.div`
+    position: absolute;
+    left: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, var(--gynx-purple-lt), var(--gynx-purple));
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.45);
+    transform: translateY(0);
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, height;
+    transition:
+        transform .32s cubic-bezier(0.4, 0, 0.2, 1),
+        height    .32s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity   .18s ease;
 `;
 
 const BrandRow = styled.div<{ $collapsed: boolean }>`
@@ -131,17 +155,9 @@ const activeCss = css`
     color: #fff;
     opacity: 1;
     background: rgba(124, 58, 237, 0.16);
-
-    &::before {
-        content: '';
-        position: absolute;
-        left: -2px;
-        top: 8px;
-        bottom: 8px;
-        width: 3px;
-        border-radius: 3px;
-        background: var(--gynx-purple);
-    }
+    /* The left accent rail is now drawn once by <SlidingRail> in the
+       Scroll container — it slides between active items rather than
+       cutting between per-item ::before pseudo-elements. */
 `;
 
 const ItemLink = styled(NavLink)`
@@ -289,6 +305,33 @@ export default () => {
         }
     });
 
+    // ---- sliding rail ------------------------------------------------------
+    // Single accent bar that follows the .active nav item. We measure the
+    // active element's offset within the scroll container and translate the
+    // rail there; CSS handles the actual easing.
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const railRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        const scroll = scrollRef.current;
+        const rail = railRef.current;
+        if (!scroll || !rail) return;
+
+        const active = scroll.querySelector<HTMLElement>('a.active');
+        if (!active) {
+            rail.style.opacity = '0';
+            return;
+        }
+
+        // Inset by 8px top/bottom so the rail visually "fits" inside the
+        // active row's rounded background, matching the previous ::before.
+        const top = active.offsetTop + 8;
+        const height = Math.max(0, active.offsetHeight - 16);
+        rail.style.opacity = '1';
+        rail.style.height = `${height}px`;
+        rail.style.transform = `translateY(${top}px)`;
+    }, [location.pathname, collapsed, serverMatch?.url]);
+
     // Pre-filter the server tabs into their groups so we don't map the whole
     // array four times in the render.
     const serverGroupedItems = useMemo(() => {
@@ -317,7 +360,9 @@ export default () => {
                 </Link>
             </BrandRow>
 
-            <Scroll>
+            <Scroll ref={scrollRef}>
+                <SlidingRail ref={railRef} aria-hidden />
+
                 {/* global nav */}
                 <div style={{ paddingTop: 4, paddingBottom: 4 }}>
                     <InternalLink icon={faHome} label={'Dashboard'} to={'/'} exact collapsed={collapsed} />
