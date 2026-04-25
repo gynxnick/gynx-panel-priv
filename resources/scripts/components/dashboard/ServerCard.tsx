@@ -158,9 +158,25 @@ const INFLIGHT: Set<string> = new Set();
 // has happened in practice), they share this floor and can't drive the
 // panel below the configured interval.
 const NEXT_ALLOWED: Map<string, number> = new Map();
+// Per-UUID last-known stats cache. The dashboard subtree has been observed
+// remounting in a loop (root cause still being tracked down upstream) which
+// resets useState(null) → stats wiped → "connecting" pill returned even
+// though the response was valid. Stashing the latest stats here means the
+// next remount initializes from the cache instead of null.
+const STATS_CACHE: Map<string, ServerStats> = new Map();
 
 export const ServerCard: React.FC<Props> = ({ server }) => {
-    const [stats, setStats] = useState<ServerStats | null>(null);
+    // Initialize from the module-level cache, not null. If the component
+    // remounts (which it currently does in a loop on this dashboard), the
+    // pill keeps showing the last-known stats instead of resetting to
+    // "connecting" while we wait for the next poll to land.
+    const [stats, setStatsState] = useState<ServerStats | null>(
+        () => STATS_CACHE.get(server.uuid) ?? null,
+    );
+    const setStats = (s: ServerStats) => {
+        STATS_CACHE.set(server.uuid, s);
+        setStatsState(s);
+    };
     const [isSuspended, setIsSuspended] = useState(server.status === 'suspended');
     const cpuSeries = useSeries({ capacity: SPARK_CAPACITY });
     const memSeries = useSeries({ capacity: SPARK_CAPACITY });
