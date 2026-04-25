@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
+import { useStoreState } from 'easy-peasy';
 import ContentContainer from '@/components/elements/ContentContainer';
 import { CSSTransition } from 'react-transition-group';
 import tw from 'twin.macro';
 import FlashMessageRender from '@/components/FlashMessageRender';
+import { ApplicationStore } from '@/state';
+import { brand } from '@/state/settings';
 
 export interface PageContentBlockProps {
     title?: string;
@@ -27,11 +30,18 @@ const WideContainer = styled.div`
 `;
 
 const PageContentBlock: React.FC<PageContentBlockProps> = ({ title, showFlashKey, className, wide, children }) => {
+    // Always suffix the tab title with the brand siteName so the panel
+    // identifies itself in browser tabs/history. ServerContentBlock and
+    // friends pass titles like "Console" or "Files"; the suffix turns
+    // those into "Console · gynx panel".
+    const siteName = useStoreState((s: ApplicationStore) => brand(s.settings.data).siteName);
     useEffect(() => {
         if (title) {
-            document.title = title;
+            document.title = siteName ? `${title} · ${siteName}` : title;
+        } else if (siteName) {
+            document.title = siteName;
         }
-    }, [title]);
+    }, [title, siteName]);
 
     const Container: React.FC<{ children: React.ReactNode; className?: string }> = wide
         ? ({ children, className }) => (

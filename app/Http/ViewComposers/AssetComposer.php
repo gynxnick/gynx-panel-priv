@@ -25,8 +25,14 @@ class AssetComposer
             $branding[$key] = (string) $this->settings->get("settings::gynx:{$key}", $meta['default']);
         }
 
+        // Prefer the admin-set Branding siteName, falling back to APP_NAME
+        // and finally a literal 'gynx panel'. The frontend reads this as
+        // SiteConfiguration.name (legacy field — newer code reads from
+        // SiteConfiguration.branding.siteName via the brand() helper).
+        $name = $branding['site_name'] ?? config('app.name') ?? 'gynx panel';
+
         $view->with('siteConfiguration', [
-            'name' => config('app.name') ?? 'Pterodactyl',
+            'name' => $name,
             'locale' => config('app.locale') ?? 'en',
             'recaptcha' => [
                 'enabled' => config('recaptcha.enabled', false),

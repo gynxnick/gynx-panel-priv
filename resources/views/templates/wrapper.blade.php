@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>{{ config('app.name', 'Pterodactyl') }}</title>
+        <title>{{ $siteConfiguration['branding']['siteName'] ?? config('app.name', 'gynx panel') }}</title>
 
         @section('meta')
             <meta charset="utf-8">
