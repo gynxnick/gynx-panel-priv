@@ -66,39 +66,11 @@
         position: relative;
         isolation: isolate;
         min-height: 100vh;
-        /* 80% rule: subtle dark gradient from void → tilt slate, nothing more */
-        background: linear-gradient(160deg, var(--gynx-void) 0%, var(--gynx-void-tilt) 100%);
-    }
-
-    /* Isometric voxel grid — the one gaming-coded brand element on the canvas.
-       SVG tile repeats; mask-image fades it at the edges so it reads as
-       atmosphere, not wallpaper. Opacity is capped at ~3.5% per spec so it
-       doesn't fight dense content. */
-    body::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='92' viewBox='0 0 80 92'><g stroke='rgba(255,255,255,0.9)' stroke-width='1' fill='none'><path d='M 0 23 L 40 0 L 80 23 L 40 46 Z'/><line x1='0' y1='23' x2='0' y2='69'/><line x1='80' y1='23' x2='80' y2='69'/><line x1='40' y1='46' x2='40' y2='92'/><path d='M 0 69 L 40 92 L 80 69'/></g></svg>");
-        background-size: 80px 92px;
-        opacity: 0.035;
-        mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
-        -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
-        pointer-events: none;
-    }
-
-    /* Very subtle purple → blue atmospheric hint at the viewport corners.
-       Each blob is capped under 5% opacity so it doesn't dilute the dark base.
-       Admins can null this out by setting --gynx-atmos to 'none' (future hook). */
-    body::after {
-        content: '';
-        position: fixed;
-        inset: 0;
-        z-index: -2;
-        background:
-            radial-gradient(1100px 700px at 8% 110%, rgba(124, 58, 237, 0.05), transparent 65%),
-            radial-gradient(1100px 700px at 100% -10%, rgba(34, 211, 238, 0.04), transparent 65%);
-        pointer-events: none;
+        /* Flat void base — the AppShell renders the dashboard hero SVG
+           as a fixed-position <img> behind everything (atmospheric
+           gradients + pixel-art icons + corner brackets + vignette are
+           all baked into the SVG). Auth pages render their own hero. */
+        background: #0a0514;
     }
 
     h1, h2, h3, h4, h5, h6 {

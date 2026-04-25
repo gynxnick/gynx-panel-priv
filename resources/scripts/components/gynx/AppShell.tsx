@@ -5,6 +5,7 @@ import Sidebar from '@/components/gynx/Sidebar';
 import AlertBar from '@/components/gynx/AlertBar';
 import AlertBell from '@/components/gynx/AlertBell';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
+import DashboardBg from '@/assets/brand/gynx-dashboard-bg.svg';
 
 /**
  * gynx.gg — app shell
@@ -21,14 +22,34 @@ import { useAlertPolling } from '@/components/gynx/useAlertPolling';
  *
  * Alert polling is mounted here once, so every route inside AppShell
  * shares the same 60s cadence without duplicate timers.
+ *
+ * Background art is rendered as a position:fixed <img> behind the whole
+ * viewport. svg-url-loader emits a data URL; an <img> handles it
+ * cleaner than a CSS background-image (which can break on special
+ * characters inside styled-components template literals).
  */
 
 const Shell = styled.div`
     ${tw`flex min-h-screen w-full text-gynx-text`};
+    position: relative;
+    isolation: isolate;
+`;
+
+const BgArt = styled.img`
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: -1;
+    pointer-events: none;
+    user-select: none;
 `;
 
 const Main = styled.div`
     ${tw`flex-1 min-w-0 flex flex-col`};
+    position: relative;
 `;
 
 const Stuck = styled.div`
@@ -65,6 +86,7 @@ export default ({ header, children }: Props) => {
 
     return (
         <Shell>
+            <BgArt src={DashboardBg} alt={''} aria-hidden />
             <Sidebar />
             <Main>
                 <Stuck>
