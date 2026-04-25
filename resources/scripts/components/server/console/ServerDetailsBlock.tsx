@@ -1,11 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     faClock,
-    faCloudDownloadAlt,
-    faCloudUploadAlt,
     faHdd,
-    faMemory,
-    faMicrochip,
     faWifi,
 } from '@fortawesome/free-solid-svg-icons';
 import { bytesToString, ip, mbToBytes } from '@/lib/formatters';
@@ -18,17 +14,17 @@ import classNames from 'classnames';
 import { capitalize } from '@/lib/strings';
 
 /**
- * Server-side stats panel (right column of the Console page).
+ * Compact server-state strip rendered BELOW the console.
  *
- * Order, per the design spec:
- *   1. Server Status  → prominent uptime tile in status-green
- *   2. Connection     → IP:port copy pill in blue
- *   3. Metrics        → CPU (blue), RAM (purple), Disk (yellow), Net (cyan)
+ * CPU / RAM / Net In / Net Out used to live here; they're now in the
+ * StatGraphs panel underneath, so this component shows only the data
+ * that ISN'T duplicated by graphs:
+ *   - Server status (running / offline / starting / uptime)
+ *   - Primary connection (IP:port, copy-on-click)
+ *   - Disk usage (no graph, slowly-changing)
  *
- * Each metric tile exposes a progress bar when it has a defined limit.
- * Severity (ok/warn/crit) flips the accent to yellow/red when thresholds are
- * crossed — no need for custom logic per tile, the helper below normalises
- * the legacy `color` prop so upstream call patterns still work.
+ * Layout: 3 tiles in a horizontal grid. Container is responsible for
+ * placement and wrapping — this component just emits the cells.
  */
 
 type Stats = Record<'memory' | 'cpu' | 'disk' | 'uptime' | 'rx' | 'tx', number>;
@@ -58,15 +54,13 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
 
     const textLimits = useMemo(
         () => ({
-            cpu: limits?.cpu ? `${limits.cpu}%` : null,
-            memory: limits?.memory ? bytesToString(mbToBytes(limits.memory)) : null,
             disk: limits?.disk ? bytesToString(mbToBytes(limits.disk)) : null,
         }),
-        [limits]
+        [limits],
     );
 
     const allocation = ServerContext.useStoreState((state) => {
-        const match = state.server.data!.allocations.find((allocation) => allocation.isDefault);
+        const match = state.server.data!.allocations.find((a) => a.isDefault);
         return !match ? 'n/a' : `${match.alias || ip(match.ip)}:${match.port}`;
     });
 
@@ -93,21 +87,12 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
         });
     });
 
-    // Progress fractions — only set when a hard limit is defined, so ∞ tiles
-    // stay clean (no progress bar).
-    const cpuPct = limits?.cpu ? stats.cpu / limits.cpu : undefined;
-    const memPct = limits?.memory ? stats.memory / mbToBytes(limits.memory) : undefined;
     const diskPct = limits?.disk ? stats.disk / mbToBytes(limits.disk) : undefined;
 
     return (
-        <div className={classNames('flex flex-col gap-2', className)}>
-            {/* 1. Server Status */}
-            <StatBlock
-                icon={faClock}
-                title={'status'}
-                metric={'status'}
-                color={status === 'offline' ? undefined : undefined}
-            >
+        <div className={classNames('grid grid-cols-1 sm:grid-cols-3 gap-3', className)}>
+            {/* Server status — uptime when running, label otherwise */}
+            <StatBlock icon={faClock} title={'status'} metric={'status'}>
                 {status === null ? (
                     'Offline'
                 ) : stats.uptime > 0 ? (
@@ -117,40 +102,12 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
                 )}
             </StatBlock>
 
-            {/* 2. Connection */}
+            {/* Primary connection */}
             <StatBlock icon={faWifi} title={'connection'} metric={'net'} copyOnClick={allocation}>
                 <span className={'font-mono'}>{allocation}</span>
             </StatBlock>
 
-            {/* 3. Metrics — CPU / RAM / Disk / Network */}
-            <StatBlock
-                icon={faMicrochip}
-                title={'cpu load'}
-                metric={'cpu'}
-                color={severityFor(stats.cpu, limits?.cpu)}
-                progress={cpuPct}
-            >
-                {status === 'offline' ? (
-                    <span className={'text-gynx-text-mute'}>Offline</span>
-                ) : (
-                    <Limit limit={textLimits.cpu}>{stats.cpu.toFixed(2)}%</Limit>
-                )}
-            </StatBlock>
-
-            <StatBlock
-                icon={faMemory}
-                title={'memory'}
-                metric={'ram'}
-                color={severityFor(stats.memory, limits?.memory ? mbToBytes(limits.memory) : null)}
-                progress={memPct}
-            >
-                {status === 'offline' ? (
-                    <span className={'text-gynx-text-mute'}>Offline</span>
-                ) : (
-                    <Limit limit={textLimits.memory}>{bytesToString(stats.memory)}</Limit>
-                )}
-            </StatBlock>
-
+            {/* Disk — no graph for this metric */}
             <StatBlock
                 icon={faHdd}
                 title={'disk'}
@@ -160,23 +117,6 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
             >
                 <Limit limit={textLimits.disk}>{bytesToString(stats.disk)}</Limit>
             </StatBlock>
-
-            <div className={'grid grid-cols-2 gap-2'}>
-                <StatBlock icon={faCloudDownloadAlt} title={'net in'} metric={'net'}>
-                    {status === 'offline' ? (
-                        <span className={'text-gynx-text-mute'}>—</span>
-                    ) : (
-                        bytesToString(stats.rx)
-                    )}
-                </StatBlock>
-                <StatBlock icon={faCloudUploadAlt} title={'net out'} metric={'net'}>
-                    {status === 'offline' ? (
-                        <span className={'text-gynx-text-mute'}>—</span>
-                    ) : (
-                        bytesToString(stats.tx)
-                    )}
-                </StatBlock>
-            </div>
         </div>
     );
 };

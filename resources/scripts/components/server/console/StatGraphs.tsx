@@ -170,9 +170,9 @@ const GridPanelHeader = styled.header`
 `;
 
 const GridPanelTitle = styled.span<{ $accent: string }>`
-    ${tw`inline-flex items-center gap-2 text-xs font-medium uppercase`};
+    ${tw`inline-flex items-center gap-2 text-sm font-semibold uppercase`};
     font-family: 'Inter', sans-serif;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: ${({ $accent }) => $accent};
 `;
 

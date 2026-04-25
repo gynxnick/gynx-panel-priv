@@ -14,25 +14,25 @@ import { Alert } from '@/components/elements/alert';
 export type PowerAction = 'start' | 'stop' | 'restart' | 'kill';
 
 /**
- * gynx — redesigned Server Console page.
+ * gynx — Console page (console-first layout).
  *
- * New layout (desktop):
- *
- *   ┌────────────────────────────────────┐ ┌────────────────┐
- *   │                                    │ │                │
- *   │       TERMINAL (xterm)             │ │  POWER ACTIONS │
- *   │                                    │ ├────────────────┤
- *   │                                    │ │  STAT TILES    │
- *   │                                    │ │  (6 tiles      │
- *   │                                    │ │   stacked)     │
- *   └────────────────────────────────────┘ └────────────────┘
+ *   ┌────────────────────────────────────────────────────────────┐
+ *   │                                                            │
+ *   │                  TERMINAL (full width)                     │
+ *   │                                                            │
+ *   └────────────────────────────────────────────────────────────┘
+ *   ┌──────┬─────────────┬──────┐ ┌────────────────────┐
+ *   │ stat │ connection  │ disk │ │   POWER ACTIONS    │
+ *   └──────┴─────────────┴──────┘ └────────────────────┘
  *   ┌──────────┬──────────┬──────────┐
- *   │ CPU      │ MEMORY   │ NETWORK  │
- *   │ chart    │ chart    │ chart    │
+ *   │ CPU      │ MEMORY   │ NETWORK  │   (grid view default)
+ *   │ chart    │ chart    │ chart    │   (toggle to tabs in StatGraphs)
  *   └──────────┴──────────┴──────────┘
  *
- * The server name / description / status are now in the TopBar (rendered by
- * ServerRouter), so this page is all data. No duplicate heading.
+ * CPU / RAM / Net In / Net Out tiles were removed from the right rail —
+ * the StatGraphs panel underneath shows the same data as live curves,
+ * so the duplicate tiles were noise. Disk stays as a tile because there
+ * is no disk graph (it changes too slowly to plot meaningfully).
  */
 const ServerConsoleContainer = () => {
     const isInstalling = ServerContext.useStoreState((state) => state.server.isInstalling);
@@ -54,22 +54,26 @@ const ServerConsoleContainer = () => {
                 </Alert>
             )}
 
-            {/* Terminal + right-hand control column */}
+            {/* 1. Terminal — full width, primary focus. */}
+            <div className={'mb-4'}>
+                <Spinner.Suspense>
+                    <Console />
+                </Spinner.Suspense>
+            </div>
+
+            {/* 2. Compact strip beneath the console: status / connection / disk + power. */}
             <div className={'grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6'}>
                 <div className={'lg:col-span-3 min-w-0'}>
-                    <Spinner.Suspense>
-                        <Console />
-                    </Spinner.Suspense>
+                    <ServerDetailsBlock />
                 </div>
-                <div className={'lg:col-span-1 flex flex-col gap-4'}>
+                <div className={'lg:col-span-1'}>
                     <Can action={['control.start', 'control.stop', 'control.restart']} matchAny>
                         <PowerButtons className={'grid grid-cols-3 gap-2'} />
                     </Can>
-                    <ServerDetailsBlock />
                 </div>
             </div>
 
-            {/* Unified metrics panel — CPU / RAM / Network tabs */}
+            {/* 3. Metrics — CPU / RAM / Network (grid or tabs, user toggle). */}
             <div className={'mb-6'}>
                 <Spinner.Suspense>
                     <StatGraphs />
