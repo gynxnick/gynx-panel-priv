@@ -4,14 +4,24 @@
  * Rows sit on a transparent base so the containing Panel provides the
  * dark surface. Hover dresses them up with a soft purple tint + matching
  * border. Icon color is set inline per file-type (see FileObjectRow).
+ *
+ * The select-file checkbox is positioned absolute (preserves click-
+ * through on the row link), so .details has explicit left padding to
+ * keep the file icon from colliding with the checkbox visually.
  */
 
 /* ---- actions strip (right of breadcrumbs) ---- */
 .manager_actions {
     @apply flex flex-wrap items-center justify-end gap-2;
+    min-width: 0;
 
     & > * {
         flex: 0 0 auto;
+        max-width: 100%;
+    }
+
+    & button {
+        white-space: nowrap;
     }
 
     @media (max-width: 640px) {
@@ -29,6 +39,7 @@
     transition: background .15s ease, border-color .15s ease;
     position: relative;
     margin: 2px 0;
+    min-height: 44px;
 
     &:hover {
         background: rgba(124, 58, 237, 0.06);
@@ -36,9 +47,13 @@
     }
 
     & > .details {
-        @apply flex flex-1 items-center no-underline px-3 py-2.5 overflow-hidden;
+        @apply flex flex-1 items-center no-underline py-2.5 overflow-hidden;
         color: var(--gynx-text);
         min-width: 0;
+        /* Reserve room for the absolutely-positioned checkbox on the left
+           so the file icon never overlaps it. */
+        padding-left: 44px;
+        padding-right: 8px;
 
         &:not(a) {
             cursor: default;
@@ -47,7 +62,7 @@
 }
 
 .file_icon {
-    @apply flex-none flex items-center justify-center ml-3 mr-3 text-lg;
+    @apply flex-none flex items-center justify-center mr-3 text-lg;
     width: 24px;
     height: 24px;
     transition: transform .15s ease;
@@ -61,23 +76,30 @@
     @apply flex-1 truncate;
     color: var(--gynx-text);
     font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13.5px;
+    letter-spacing: 0.005em;
 }
 
 .file_size,
 .file_modified {
     @apply text-right mr-4 hidden;
-    color: var(--gynx-text-dim);
+    color: var(--gynx-text);
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 12px;
+    font-weight: 400;
     white-space: nowrap;
+    opacity: 0.88;
 }
 
 .file_size {
     @apply sm:block;
-    width: 16%;
+    width: 14%;
+    min-width: 70px;
 }
 
 .file_modified {
     @apply md:block;
-    width: 20%;
+    width: 18%;
+    min-width: 110px;
 }

@@ -29,12 +29,13 @@ const Sep = styled(FontAwesomeIcon)`
 
 const Crumb = styled(NavLink)`
     ${tw`px-2 py-1 rounded-md no-underline whitespace-nowrap`};
-    color: var(--gynx-text-dim);
-    transition: color .15s ease, background .15s ease;
+    color: var(--gynx-text);
+    opacity: 0.78;
+    transition: opacity .15s ease, background .15s ease;
     flex: 0 0 auto;
 
     &:hover {
-        color: var(--gynx-text);
+        opacity: 1;
         background: rgba(255, 255, 255, 0.04);
     }
 `;

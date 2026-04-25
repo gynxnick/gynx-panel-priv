@@ -39,26 +39,30 @@ const Toolbar = styled.div`
 `;
 
 const ListHeader = styled.div`
-    ${tw`hidden md:flex items-center px-3 py-2 text-xs uppercase`};
-    color: var(--gynx-text-mute);
+    ${tw`hidden md:flex items-center py-2 text-xs uppercase`};
+    color: var(--gynx-text-dim);
     border-bottom: 1px solid var(--gynx-edge);
     font-family: 'Inter', sans-serif;
+    font-weight: 500;
     letter-spacing: 0.08em;
 `;
 
 const HeaderName = styled.div`
-    ${tw`flex-1`};
-    padding-left: 88px;
+    ${tw`flex-1 min-w-0`};
+    /* matches .file_row .details left-padding (44) + .file_icon width (24) + mr-3 (12) */
+    padding-left: 80px;
 `;
 
 const HeaderSize = styled.div`
     ${tw`text-right mr-4 hidden sm:block`};
-    width: 16%;
+    width: 14%;
+    min-width: 70px;
 `;
 
 const HeaderModified = styled.div`
     ${tw`text-right mr-4 hidden md:block`};
-    width: 20%;
+    width: 18%;
+    min-width: 110px;
 `;
 
 const HeaderActions = styled.div`
