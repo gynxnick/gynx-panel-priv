@@ -37,14 +37,29 @@ const BrandPanel = styled.aside`
     ${tw`relative flex flex-col items-center justify-center md:items-start md:justify-between p-8 md:p-12`};
     width: 100%;
     @media (min-width: 768px) { width: 40%; min-height: 100vh; }
-
-    /* Hero background: bundled SVG (cubes + circuits + particles) over a
-       deep void base. svg-url-loader emits the asset as a data: URL, so
-       LoginBg below is a string we can drop straight into background. */
-    background:
-        url(${LoginBg}) center / cover no-repeat,
-        #0a0514;
+    background: #0a0514;
     overflow: hidden;
+    isolation: isolate;
+`;
+
+/**
+ * Hero artwork rendered as an absolutely-positioned <img> inside the
+ * brand panel. We render it as an element rather than as a CSS
+ * background-image because svg-url-loader emits a url-encoded data URL
+ * that contains characters CSS parsers don't always handle cleanly when
+ * inlined via styled-components template literals — same SVG, but as
+ * an <img> the browser parses the URL directly with no escaping risk.
+ */
+const BrandArt = styled.img`
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 0;
+    pointer-events: none;
+    user-select: none;
 `;
 
 const BrandLockup = styled.div`
@@ -293,6 +308,7 @@ export default forwardRef<HTMLFormElement, Props>(({ title, children, ...props }
     return (
         <Shell>
             <BrandPanel>
+                <BrandArt src={LoginBg} alt={''} aria-hidden />
                 <BrandLockup aria-label={brandCfg.siteName}>
                     <LogoMark size={72} url={brandCfg.logoUrl} alt={brandCfg.siteName} />
                 </BrandLockup>
