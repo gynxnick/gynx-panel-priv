@@ -58,15 +58,7 @@ const BrandPanel = styled.aside`
 `;
 
 const BrandLockup = styled.div`
-    ${tw`relative z-10 flex items-center gap-4 mb-8 md:mb-0`};
-`;
-
-const BrandWord = styled.span`
-    font-family: 'Space Grotesk', 'Inter', sans-serif;
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--gynx-text);
+    ${tw`relative z-10 flex items-center mb-8 md:mb-0`};
 `;
 
 const fadeIn = keyframes`
@@ -311,9 +303,8 @@ export default forwardRef<HTMLFormElement, Props>(({ title, children, ...props }
     return (
         <Shell>
             <BrandPanel>
-                <BrandLockup>
-                    <LogoMark size={40} url={brandCfg.logoUrl} />
-                    <BrandWord>{brandCfg.siteName}</BrandWord>
+                <BrandLockup aria-label={brandCfg.siteName}>
+                    <LogoMark size={48} url={brandCfg.logoUrl} alt={brandCfg.siteName} />
                 </BrandLockup>
 
                 <Tagline key={tagline}>{tagline}</Tagline>

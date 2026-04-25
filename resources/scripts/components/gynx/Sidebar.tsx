@@ -77,19 +77,6 @@ const BrandRow = styled.div<{ $collapsed: boolean }>`
     min-height: 64px;
 `;
 
-const BrandWordmark = styled.span<{ $collapsed: boolean }>`
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 16px;
-    letter-spacing: -0.01em;
-    color: var(--gynx-text);
-    opacity: ${({ $collapsed }) => ($collapsed ? 0 : 1)};
-    transform: ${({ $collapsed }) => ($collapsed ? 'translateX(-4px)' : 'translateX(0)')};
-    transition: opacity .18s ease, transform .2s ease;
-    white-space: nowrap;
-    pointer-events: ${({ $collapsed }) => ($collapsed ? 'none' : 'auto')};
-`;
-
 const EyebrowRow = styled.div<{ $collapsed: boolean }>`
     ${tw`px-4 pt-5 pb-1`};
     font-family: 'Space Grotesk', sans-serif;
@@ -313,12 +300,16 @@ export default () => {
         <Rail $collapsed={collapsed} aria-label={'primary navigation'}>
             <SpinnerOverlay visible={isLoggingOut} />
 
-            {/* brand */}
+            {/* brand — full logo lockup (image already contains the wordmark) */}
             <BrandRow $collapsed={collapsed}>
-                <Link to={'/'} style={{ display: 'flex', alignItems: 'center' }}>
-                    <LogoMark size={32} url={logoUrl} />
+                <Link
+                    to={'/'}
+                    style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}
+                    aria-label={siteName}
+                    title={siteName}
+                >
+                    <LogoMark size={collapsed ? 28 : 32} url={logoUrl} />
                 </Link>
-                <BrandWordmark $collapsed={collapsed}>{siteName}</BrandWordmark>
             </BrandRow>
 
             <Scroll>
