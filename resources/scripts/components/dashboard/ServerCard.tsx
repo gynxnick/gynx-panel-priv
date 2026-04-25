@@ -145,8 +145,19 @@ const Muted = styled.span`
     font-family: 'JetBrains Mono', ui-monospace, monospace;
 `;
 
-const POLL_INTERVAL_MS = 10000;
+const POLL_INTERVAL_MS = 15000;
 const SPARK_CAPACITY = 30; // ~5 min of history at 10s cadence
+
+// Module-level in-flight registry. Lives outside React entirely so it
+// CAN'T be reset by remounts, StrictMode double-effects, or anything else
+// that resets useRef. Without this, a remount loop in the dashboard tree
+// floods the panel with /resources requests until the rate limiter trips.
+const INFLIGHT: Set<string> = new Set();
+// Per-UUID earliest-next-call gate. Belt-and-suspenders: even if multiple
+// ServerCard instances coexist for the same UUID (shouldn't happen, but
+// has happened in practice), they share this floor and can't drive the
+// panel below the configured interval.
+const NEXT_ALLOWED: Map<string, number> = new Map();
 
 export const ServerCard: React.FC<Props> = ({ server }) => {
     const [stats, setStats] = useState<ServerStats | null>(null);
@@ -154,19 +165,15 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
     const cpuSeries = useSeries({ capacity: SPARK_CAPACITY });
     const memSeries = useSeries({ capacity: SPARK_CAPACITY });
 
-    // Refs scoped to the component lifetime, NOT the effect's lifetime.
-    //   isMountedRef: protects setState calls without being clobbered when
-    //     the polling effect re-runs (which it does here whenever isSuspended
-    //     toggles or the parent re-renders with an unstable server prop —
-    //     either of those was making the response handler bail with the old
-    //     closure's `mounted = false` and the UI stayed at "connecting").
-    //   inFlightRef: prevents the next 10s interval tick from firing a new
-    //     /resources fetch while the previous one is still in flight (panel
-    //     proxy to Wings is sometimes slow → pile-up → ERR_INSUFFICIENT_
-    //     RESOURCES flood).
+    // The previous useRef-based guard was useless when the dashboard subtree
+    // remounted (which we've observed happening in the wild — likely an
+    // upstream error boundary loop). useRef gets reset on every fresh mount,
+    // so the guard reset every time the bug fired and the request flood
+    // resumed instantly. Now both the in-flight check and the
+    // earliest-next-call floor live in module-scoped Set/Map (see top of
+    // file), so a thousand simultaneous remounts of ServerCard for the same
+    // uuid still produce at most ONE request per POLL_INTERVAL_MS.
     const isMountedRef = useRef(true);
-    const inFlightRef = useRef(false);
-
     useEffect(() => {
         isMountedRef.current = true;
         return () => { isMountedRef.current = false; };
@@ -174,11 +181,22 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
 
     useEffect(() => {
         if (isSuspended) return;
+        const uuid = server.uuid;
+
         const poll = async () => {
-            if (!isMountedRef.current || inFlightRef.current) return;
-            inFlightRef.current = true;
+            if (!isMountedRef.current) return;
+            if (INFLIGHT.has(uuid)) return;
+            const now = Date.now();
+            const allowedAt = NEXT_ALLOWED.get(uuid) ?? 0;
+            if (now < allowedAt) return;
+
+            INFLIGHT.add(uuid);
+            // Reserve the next slot up front so even an immediate remount
+            // can't slip in another request before we've sent this one.
+            NEXT_ALLOWED.set(uuid, now + POLL_INTERVAL_MS);
+
             try {
-                const data = await getServerResourceUsage(server.uuid);
+                const data = await getServerResourceUsage(uuid);
                 if (!isMountedRef.current) return;
                 setStats(data);
                 if (data.isSuspended !== isSuspended) setIsSuspended(data.isSuspended);
@@ -187,9 +205,10 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
             } catch {
                 /* surfaced at the dashboard level */
             } finally {
-                inFlightRef.current = false;
+                INFLIGHT.delete(uuid);
             }
         };
+
         poll();
         const id = window.setInterval(poll, POLL_INTERVAL_MS);
         return () => window.clearInterval(id);
