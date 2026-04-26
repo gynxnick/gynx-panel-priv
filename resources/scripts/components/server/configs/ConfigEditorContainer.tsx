@@ -170,20 +170,29 @@ const ActionButton = styled.button<{ $primary?: boolean; $disabled?: boolean }>`
 `;
 
 const EditorSlot = styled.div`
-    flex: 1;
+    flex: 1 1 auto;
     padding: 12px;
     min-width: 0;
+    min-height: 0;
+    display: flex;
 
     > div {
-        min-height: 600px;
-        height: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
     }
 
-    /* Codemirror lines were inheriting a small font; bump it for the
-       config editor specifically since users spend a lot of time here. */
+    /* CodeMirror needs an explicit height to fill the slot — without it
+       the editor renders at a default ~300px and the rest of the slot
+       paints as empty space. */
     .CodeMirror {
+        height: 100% !important;
+        flex: 1 1 auto;
         font-size: 14px;
         line-height: 1.55;
+    }
+    .CodeMirror-scroll {
+        height: 100%;
     }
 `;
 

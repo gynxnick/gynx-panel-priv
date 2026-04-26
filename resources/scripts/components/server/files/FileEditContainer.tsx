@@ -34,18 +34,33 @@ const EditorSurface = styled.div`
     border: 1px solid var(--gynx-edge);
     border-radius: 12px;
     overflow: hidden;
-    min-height: calc(100vh - 16rem);
+    /* Fill the available viewport height. The action row below this card
+       (~3.5rem) plus the breadcrumb above (~3rem) plus page padding gets
+       us to ~10rem of chrome to subtract. */
+    height: calc(100vh - 10rem);
+    min-height: 480px;
     display: flex;
     flex-direction: column;
 
+    /* CodemirrorEditor's outer wrapper — let it fill the surface. */
     > div {
-        flex: 1;
-        min-height: 600px;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
     }
 
+    /* Without an explicit height the CodeMirror instance falls back to its
+       default ~300px and the rest of the surface paints as empty space.
+       Force it to fill the wrapper so a 50-line file uses the same surface
+       a 5000-line file does. */
     .CodeMirror {
+        height: 100% !important;
+        flex: 1 1 auto;
         font-size: 14px;
         line-height: 1.55;
+    }
+    .CodeMirror-scroll {
+        height: 100%;
     }
 `;
 
