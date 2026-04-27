@@ -88,7 +88,10 @@
                 <a href="{{ route('admin.egg-switch.index') }}" class="sidebar__link {{ starts_with($route, 'admin.egg-switch') ? 'is-active' : '' }}">
                     <i class="fa fa-random"></i><span>Egg Switch</span>
                 </a>
-<a href="{{ route('admin.alerts.index') }}" class="sidebar__link {{ starts_with($route, 'admin.alerts') ? 'is-active' : '' }}">
+                <a href="{{ route('admin.addons.plugins') }}" class="sidebar__link {{ starts_with($route, 'admin.addons') ? 'is-active' : '' }}">
+                    <i class="fa fa-puzzle-piece"></i><span>Add-ons</span>
+                </a>
+                <a href="{{ route('admin.alerts.index') }}" class="sidebar__link {{ starts_with($route, 'admin.alerts') ? 'is-active' : '' }}">
                     <i class="fa fa-bullhorn"></i><span>Alerts</span>
                 </a>
                 <a href="{{ route('admin.branding.index') }}" class="sidebar__link {{ starts_with($route, 'admin.branding') ? 'is-active' : '' }}">
