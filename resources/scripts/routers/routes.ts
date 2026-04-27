@@ -32,6 +32,7 @@ import FileManagerContainer from '@/components/server-priv/FilesPage';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
+import InstallerPage from '@/components/server-priv/InstallerPage';
 import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import SubdomainsContainer from '@/components/server/subdomains/SubdomainsContainer';
@@ -95,6 +96,7 @@ export default {
         { path: '/files',     permission: 'file.*',     name: 'Files',     icon: faFolder,       group: 'management', component: FileManagerContainer },
         { path: '/files/:action(edit|new)', permission: 'file.*', name: undefined, component: FileEditContainer },
         { path: '/databases', permission: 'database.*', name: 'Databases', icon: faDatabase,     group: 'management', component: DatabasesContainer },
+        { path: '/install',   permission: null,             name: 'Install',  icon: faPuzzlePiece, group: 'management', component: InstallerPage },
         { path: '/plugins',   permission: 'addon.plugin.*', name: 'Plugins', icon: faPuzzlePiece, group: 'management', component: PluginsContainer,
           compatible: (s) => getAddonCapabilities(s).plugins },
         { path: '/mods',      permission: 'addon.mod.*',    name: 'Mods',    icon: faCubes,       group: 'management', component: ModsContainer,
