@@ -96,7 +96,14 @@ export const FilesPage = () => {
         setDirectory(hashToPath(location.hash));
     }, [location.hash]);
 
-    const { data: files, error, isValidating } = useFileManagerSwr();
+    const { data: files, error, isValidating, mutate } = useFileManagerSwr();
+
+    // useFileManagerSwr is configured `revalidateOnMount: false`, so the
+    // hook never fetches automatically on first mount. Trigger it manually
+    // every time the directory state changes (matches the legacy page).
+    useEffect(() => {
+        mutate();
+    }, [directory]);
 
     const sortedFiles = useMemo(() => (files ? sortFiles(files) : []), [files]);
     const folders = sortedFiles.filter((f) => !f.isFile);
