@@ -14,8 +14,7 @@ import ConflictStateRenderer from '@/components/server/ConflictStateRenderer';
 import PermissionRoute from '@/components/elements/PermissionRoute';
 import TransitionRouter from '@/TransitionRouter';
 import routes from '@/routers/routes';
-import AppShell from '@/components/gynx/AppShell';
-import TopBar from '@/components/gynx/TopBar';
+import ServerShell from '@/components/server-priv/ServerShell';
 
 export default () => {
     const match = useRouteMatch<{ id: string }>();
@@ -59,11 +58,15 @@ export default () => {
 
     // Server-not-yet-loaded state: render shell with a spinner in content slot.
     if (!uuid || !id) {
-        return <AppShell>{error ? <ServerError message={error} /> : <Spinner size={'large'} centered />}</AppShell>;
+        return (
+            <ServerShell>
+                {error ? <ServerError message={error} /> : <Spinner size={'large'} centered />}
+            </ServerShell>
+        );
     }
 
     return (
-        <AppShell header={<TopBar.Server />}>
+        <ServerShell>
             <InstallListener />
             <TransferListener />
             <WebsocketHandler />
@@ -85,6 +88,6 @@ export default () => {
                     </TransitionRouter>
                 </ErrorBoundary>
             )}
-        </AppShell>
+        </ServerShell>
     );
 };

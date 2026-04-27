@@ -21,7 +21,7 @@ import {
 
 import { Server } from '@/api/server/getServer';
 import { getAddonCapabilities } from '@/helpers/serverKind';
-import ServerConsole from '@/components/server/console/ServerConsoleContainer';
+import ServerConsole from '@/components/server-priv/ConsolePage';
 import DatabasesContainer from '@/components/server/databases/DatabasesContainer';
 import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
 import UsersContainer from '@/components/server/users/UsersContainer';
