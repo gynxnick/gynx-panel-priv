@@ -28,7 +28,7 @@ import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server/backups/BackupContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
-import FileManagerContainer from '@/components/server/files/FileManagerContainer';
+import FileManagerContainer from '@/components/server-priv/FilesPage';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
