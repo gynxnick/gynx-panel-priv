@@ -83,23 +83,6 @@ Route::group(['prefix' => 'subdomains'], function () {
 
 /*
 |--------------------------------------------------------------------------
-| Add-on observability (read + delete across all servers)
-|--------------------------------------------------------------------------
-|
-| Endpoint: /admin/addons
-|
-*/
-Route::group(['prefix' => 'addons'], function () {
-    Route::get('/plugins',    [Admin\AddonAdminController::class, 'plugins'])->name('admin.addons.plugins');
-    Route::get('/mods',       [Admin\AddonAdminController::class, 'mods'])->name('admin.addons.mods');
-    Route::get('/modpacks',   [Admin\AddonAdminController::class, 'modpacks'])->name('admin.addons.modpacks');
-    Route::delete('/plugins/{plugin}',   [Admin\AddonAdminController::class, 'destroyPlugin'])->name('admin.addons.plugins.destroy');
-    Route::delete('/mods/{mod}',         [Admin\AddonAdminController::class, 'destroyMod'])->name('admin.addons.mods.destroy');
-    Route::delete('/modpacks/{modpack}', [Admin\AddonAdminController::class, 'destroyModpack'])->name('admin.addons.modpacks.destroy');
-});
-
-/*
-|--------------------------------------------------------------------------
 | Egg Switch Rules
 |--------------------------------------------------------------------------
 |
