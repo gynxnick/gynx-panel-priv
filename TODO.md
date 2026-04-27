@@ -127,25 +127,27 @@ Single command that bootstraps either a fresh Pterodactyl + gynx-panel install O
 - Handles deps (PHP, MariaDB, Composer, Node, Redis, nginx, certbot).
 - Rough budget: 1-2 sessions.
 
-### 3. License Key System (architecture decision needed)
-Internal license/entitlement system, similar to the existing Discord bot key flow.
+### 3. License Key System
+Internal license/entitlement system, similar to the existing Discord bot key flow. **Decision: Option B — built into each panel's admin.** Each panel issues, manages, and validates its own keys; no central dashboard.
 
-**Open question**: where does this live?
-  - **Option A**: `gynx.gg` central dashboard (separate Laravel app or service). Panel calls out to validate.
-  - **Option B**: built into the gynx-panel Admin section. Each panel manages its own keys.
-  - **Option C**: hybrid — central dashboard issues keys, each panel validates against it.
-
-Need to pick before any code goes down. Once chosen: key generation/listing UI, per-feature limits, usage tracking, panel-side validation middleware.
+- DB: `license_keys` (id, key, label, status, expires_at, limits json), `license_key_usages` (key_id, timestamp, ip, ua, scope).
+- Admin: `Admin → Licenses` page with create / list / revoke / reset.
+- Per-key fields: label, expiry, optional max-servers/max-users limit, feature flag set.
+- Panel-side: middleware that validates a `License-Key` header on `/api/client/*` calls (or wherever we wire it).
+- Logging: ring-buffer per key for last N validations (DB or Redis).
 
 ### 4. Admin Theme Redesign
-Replaces the current AdminLTE-based admin UI with gynx-branded surfaces.
+Replaces the current AdminLTE-based admin UI with gynx-branded surfaces. **Decision: pragmatic path — keep AdminLTE structure, replace its CSS with our design tokens.**
 
-⚠ **This was previously a non-goal** ("Admin panel redesign (AdminLTE stays)" — see prior section). Reopening it is fine; just acknowledging the policy flip so future sessions don't get confused.
+⚠ This was previously a non-goal ("Admin panel redesign (AdminLTE stays)" — kept that wording in mind, scoping to CSS-token work only so the structural HTML stays compatible with future Pterodactyl admin updates).
 
-Two paths:
-  - **Pragmatic**: keep AdminLTE structure, replace its CSS with our design tokens (colors, fonts, spacing). 80% visual win for 20% of the work.
-  - **Full rebuild**: port admin to React + our component library. Much bigger; touches every admin Blade template.
-- Rough budget: 1 session for pragmatic, 4-6 for full rebuild.
+- Override AdminLTE's color palette via `:root` overrides — body bg, sidebar, navbar, content cards.
+- Bring in `Inter` / `Space Grotesk` over AdminLTE's default font stack.
+- Use our existing `--gynx-edge`, `--gynx-surface`, etc. tokens via cascading specificity.
+- Buttons (`.btn-primary` etc.) get the gradient + glow we use elsewhere.
+- Tables get the dark surface treatment.
+- Forms get the focus ring + 2px highlight.
+- Keep all classes / IDs / data attributes intact so behavior is unchanged.
 
 ### 5. Optimization (cross-cutting, ongoing)
 Not a single task — a quality bar applied to every other piece.
