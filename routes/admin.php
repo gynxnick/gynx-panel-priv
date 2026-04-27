@@ -68,6 +68,23 @@ Route::group(['prefix' => 'subdomains'], function () {
 
 /*
 |--------------------------------------------------------------------------
+| License Keys
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/licenses
+|
+*/
+Route::group(['prefix' => 'licenses'], function () {
+    Route::get('/', [Admin\LicenseKeysController::class, 'index'])->name('admin.licenses.index');
+    Route::post('/', [Admin\LicenseKeysController::class, 'store'])->name('admin.licenses.store');
+    Route::post('/{license}/revoke', [Admin\LicenseKeysController::class, 'revoke'])->name('admin.licenses.revoke');
+    Route::post('/{license}/reactivate', [Admin\LicenseKeysController::class, 'reactivate'])->name('admin.licenses.reactivate');
+    Route::post('/{license}/rotate', [Admin\LicenseKeysController::class, 'rotate'])->name('admin.licenses.rotate');
+    Route::delete('/{license}', [Admin\LicenseKeysController::class, 'destroy'])->name('admin.licenses.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Add-on observability (read + delete across all servers)
 |--------------------------------------------------------------------------
 |
