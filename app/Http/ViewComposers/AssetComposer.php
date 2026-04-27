@@ -6,12 +6,14 @@ use Illuminate\View\View;
 use Pterodactyl\Contracts\Repository\SettingsRepositoryInterface;
 use Pterodactyl\Http\Controllers\Admin\BrandingController;
 use Pterodactyl\Services\Helpers\AssetHashService;
+use Pterodactyl\Services\Licensing\LicenseClientService;
 
 class AssetComposer
 {
     public function __construct(
         private AssetHashService $assetHashService,
         private SettingsRepositoryInterface $settings,
+        private LicenseClientService $licenses,
     ) {
     }
 
@@ -58,6 +60,28 @@ class AssetComposer
                 'dashboardEmptyBody' => $branding['dashboard_empty_body'] ?? null,
                 'modpackInstallWarning' => $branding['modpack_install_warning'] ?? null,
             ],
+            // Surface license status to the React bundle so it can render a
+            // warning banner / lockdown UI when the panel's license is
+            // invalid. We DON'T expose the key itself — only the resolved
+            // status. status() is a pure cache read; no upstream call here.
+            'license' => $this->licenseSnapshot(),
         ]);
+    }
+
+    private function licenseSnapshot(): array
+    {
+        try {
+            $s = $this->licenses->status();
+        } catch (\Throwable $e) {
+            // Settings repo / DB hiccup at compose time shouldn't break page render.
+            return ['status' => 'unreachable', 'message' => null];
+        }
+        return [
+            'status' => $s['status'] ?? 'unlicensed',
+            'plan' => $s['plan'] ?? null,
+            'expiresAt' => $s['expires_at'] ?? null,
+            'message' => $s['message'] ?? null,
+            'reason' => $s['reason'] ?? null,
+        ];
     }
 }

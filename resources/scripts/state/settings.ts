@@ -18,6 +18,16 @@ export interface BrandingSettings {
     modpackInstallWarning?: string;
 }
 
+export type LicenseStatus = 'valid' | 'invalid' | 'unreachable' | 'unlicensed';
+
+export interface LicenseSnapshot {
+    status: LicenseStatus;
+    plan?: string | null;
+    expiresAt?: string | null;
+    message?: string | null;
+    reason?: string | null;
+}
+
 export interface SiteSettings {
     name: string;
     locale: string;
@@ -29,6 +39,8 @@ export interface SiteSettings {
     logoUrl?: string;
     /** Editable panel text / branding (admin-configured). */
     branding?: BrandingSettings;
+    /** Cached gynx.gg license check result — drives the lockdown banner. */
+    license?: LicenseSnapshot;
 }
 
 export interface SettingsStore {

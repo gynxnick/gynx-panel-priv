@@ -53,6 +53,21 @@ Route::group(['prefix' => 'integrations'], function () {
 
 /*
 |--------------------------------------------------------------------------
+| License — gynx.gg license key for this panel install
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/license
+|
+*/
+Route::group(['prefix' => 'license'], function () {
+    Route::get('/', [Admin\LicenseController::class, 'index'])->name('admin.license.index');
+    Route::post('/', [Admin\LicenseController::class, 'update'])->name('admin.license.update');
+    Route::post('/verify', [Admin\LicenseController::class, 'verify'])->name('admin.license.verify');
+    Route::delete('/', [Admin\LicenseController::class, 'destroy'])->name('admin.license.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Subdomain Manager — parent zones
 |--------------------------------------------------------------------------
 |

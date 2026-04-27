@@ -152,6 +152,11 @@
                                 <i class="fa fa-globe"></i> <span>Subdomains</span>
                             </a>
                         </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.license') ?: 'active' }}">
+                            <a href="{{ route('admin.license.index') }}">
+                                <i class="fa fa-id-badge"></i> <span>License</span>
+                            </a>
+                        </li>
                     </ul>
                 </section>
             </aside>

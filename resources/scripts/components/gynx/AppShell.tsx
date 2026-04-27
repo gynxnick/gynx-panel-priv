@@ -8,6 +8,7 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import Sidebar from '@/components/gynx/Sidebar';
 import AlertBar from '@/components/gynx/AlertBar';
 import AlertBell from '@/components/gynx/AlertBell';
+import LicenseBanner from '@/components/gynx/LicenseBanner';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import DashboardBg from '@/assets/brand/gynx-dashboard-bg.svg';
 
@@ -192,6 +193,7 @@ export default ({ header, children }: Props) => {
             <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
             <Main>
                 <Stuck>
+                    <LicenseBanner />
                     <AlertBar />
                     {header && (
                         <TopStrip $scrolled={scrolled}>
