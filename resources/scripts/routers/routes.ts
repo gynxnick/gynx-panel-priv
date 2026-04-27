@@ -25,7 +25,7 @@ import ServerConsole from '@/components/server-priv/ConsolePage';
 import DatabasesContainer from '@/components/server/databases/DatabasesContainer';
 import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
 import UsersContainer from '@/components/server/users/UsersContainer';
-import BackupContainer from '@/components/server/backups/BackupContainer';
+import BackupContainer from '@/components/server-priv/BackupsPage';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
 import FileManagerContainer from '@/components/server-priv/FilesPage';

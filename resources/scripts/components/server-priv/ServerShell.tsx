@@ -150,7 +150,7 @@ interface Props {
  * Track when the server entered the running state so we can render
  * "up 4h 12m" in the meta line. Reset whenever status leaves running.
  */
-const useUptime = (status: string | undefined): string => {
+const useUptime = (status: string | null | undefined): string => {
     const [startedAt, setStartedAt] = useState<number | null>(null);
     const [, tick] = useState(0);
 
