@@ -23,7 +23,7 @@ import { Server } from '@/api/server/getServer';
 import { getAddonCapabilities } from '@/helpers/serverKind';
 import ServerConsole from '@/components/server-priv/ConsolePage';
 import DatabasesContainer from '@/components/server/databases/DatabasesContainer';
-import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
+import ScheduleContainer from '@/components/server-priv/SchedulesPage';
 import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server-priv/BackupsPage';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
