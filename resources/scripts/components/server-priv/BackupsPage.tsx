@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useHistory, useRouteMatch } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ServerContext } from '@/state/server';
 import { ServerBackup } from '@/api/server/types';
@@ -31,6 +32,9 @@ const BackupsView = (_: BackupsViewProps) => {
     const { data, error, isValidating, mutate } = getServerBackups();
     const [busyId, setBusyId] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
+
+    const history = useHistory();
+    const match = useRouteMatch<{ id: string }>();
 
     const allBackups: ServerBackup[] = data?.items ?? [];
     const completedBackups = allBackups.filter((b) => b.completedAt !== null);
@@ -108,8 +112,12 @@ const BackupsView = (_: BackupsViewProps) => {
                     </div>
                 </div>
                 <div className={'spacer'} />
-                <button className={'btn'} disabled>
-                    <Icon name={'settings'} size={13} />Backup schedule
+                <button
+                    className={'btn'}
+                    onClick={() => history.push(`/server/${match.params.id}/schedules`)}
+                    title={'Set up an automatic backup task in Schedules'}
+                >
+                    <Icon name={'clock'} size={13} />Backup schedule
                 </button>
                 <button
                     className={'btn btn-primary'}
