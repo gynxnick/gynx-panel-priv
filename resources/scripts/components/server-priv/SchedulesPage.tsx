@@ -10,20 +10,19 @@ import { httpErrorToHuman } from '@/api/http';
 import Spinner from '@/components/elements/Spinner';
 import { Icon } from './Icon';
 
-/**
- * Schedules page — wireframe layout backed by the real schedule API.
- *
- * Schedules with a fixed numeric cron-hour ("0 4 * * *", "0 * * * *", etc.)
- * get a colored event block on the 24h timeline. Wildcards in the hour
- * field render as repeating events across all hours; non-wildcard but
- * complex expressions (e.g. */6 or 4-8) get a single block at midnight
- * with a "?" hint — exact step parsing is out of scope here, the legacy
- * edit modal handles authoring.
- *
- * Below the timeline a real tasks table renders one row per schedule
- * with toggle (isActive) + edit (jumps to the legacy schedule editor).
- * Delete / new schedule actions defer to the existing pages.
- */
+// Schedules page — wireframe layout backed by the real schedule API.
+//
+// Schedules with a fixed numeric cron-hour ("0 4 ...", "0 ...", etc.) get
+// a colored event block on the 24h timeline. Wildcards in the hour field
+// render as repeating events across all hours; step expressions (the
+// star-slash-N form) and comma lists also parse. Anything more exotic
+// (ranges, mixed) gets a single block at midnight plus a "custom cron"
+// hint — exact parsing of every cron variant is out of scope here, the
+// legacy edit page handles authoring.
+//
+// Below the timeline a real tasks table renders one row per schedule
+// with toggle (isActive) + edit (jumps to the legacy schedule editor).
+// Delete / new schedule actions defer to the existing pages.
 
 const COLORS = ['#7c3aed', '#22d3ee', '#ec4899', '#34d399', '#f59e0b'];
 const colorFor = (i: number) => COLORS[i % COLORS.length];
