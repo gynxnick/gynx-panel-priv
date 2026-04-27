@@ -44,14 +44,20 @@ const LicenseBanner: React.FC = () => {
 
     if (!license) return null;
 
-    if (license.status === 'invalid' && rootAdmin) {
+    if (license.status === 'invalid') {
+        // Loud red bar for everyone — end users hitting /api/client/* get
+        // 423s right now, so they should know it's a panel-wide issue, not
+        // user error. Admins get an action link; everyone else gets a
+        // "contact your admin" pointer.
         return (
             <Bar $variant={'err'} role={'alert'}>
                 <FontAwesomeIcon icon={faTimesCircle} />
                 <div>
                     <strong>Panel license is invalid.</strong>{' '}
-                    {license.message || 'Some features will be disabled until this is resolved.'}{' '}
-                    Fix it in <a href={'/admin/license'}>Admin → License</a>.
+                    {license.message || 'Some features are disabled until this is resolved.'}{' '}
+                    {rootAdmin
+                        ? <>Fix it in <a href={'/admin/license'}>Admin → License</a>.</>
+                        : 'Contact your panel admin.'}
                 </div>
             </Bar>
         );

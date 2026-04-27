@@ -28,6 +28,7 @@ use Illuminate\Foundation\Http\Middleware\ValidatePostSize;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Pterodactyl\Http\Middleware\Api\Daemon\DaemonAuthenticate;
 use Pterodactyl\Http\Middleware\Api\Client\RequireClientApiKey;
+use Pterodactyl\Http\Middleware\Api\Client\RequireValidLicense;
 use Pterodactyl\Http\Middleware\RequireTwoFactorAuthentication;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 use Pterodactyl\Http\Middleware\Api\Client\SubstituteClientBindings;
@@ -76,6 +77,12 @@ class Kernel extends HttpKernel
         'client-api' => [
             SubstituteClientBindings::class,
             RequireClientApiKey::class,
+            // Soft lockdown — returns 423 on /api/client/* when the panel's
+            // gynx.gg license is in an 'invalid' state. Doesn't block on
+            // 'unlicensed' (fresh install) or 'unreachable' (upstream flake);
+            // admin /admin/* routes aren't covered, so admin can always
+            // reach the License page to resolve.
+            RequireValidLicense::class,
         ],
         'daemon' => [
             SubstituteBindings::class,
