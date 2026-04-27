@@ -96,7 +96,7 @@ export const FilesPage = () => {
         setDirectory(hashToPath(location.hash));
     }, [location.hash]);
 
-    const { data: files, error, isValidating, mutate } = useFileManagerSwr();
+    const { data: files, error, mutate } = useFileManagerSwr();
 
     // useFileManagerSwr is configured `revalidateOnMount: false`, so the
     // hook never fetches automatically on first mount. Trigger it manually
@@ -174,10 +174,13 @@ export const FilesPage = () => {
                     </div>
                 </div>
 
-                {/* file list + preview */}
+                {/* file list — fills the available vertical space */}
                 <div className={'col'} style={{ gap: 12, minHeight: 0 }}>
-                    <div className={'panel'} style={{ padding: 0, overflow: 'hidden', flex: 0, maxHeight: 420 }}>
-                        <div style={{ overflow: 'auto', maxHeight: 420 }}>
+                    <div
+                        className={'panel'}
+                        style={{ padding: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                    >
+                        <div style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
                             {error ? (
                                 <div style={{ padding: 24, textAlign: 'center', color: 'var(--pink)', fontSize: 13 }}>
                                     {httpErrorToHuman(error)}
@@ -243,36 +246,6 @@ export const FilesPage = () => {
                         </div>
                     </div>
 
-                    {/* preview placeholder — real preview needs getFileContents + syntax highlighter, follow-up */}
-                    <div
-                        className={'panel'}
-                        style={{
-                            flex: 1,
-                            padding: 0,
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            minHeight: 200,
-                        }}
-                    >
-                        <div className={'console-header'} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <div className={'console-title'} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13 }}>
-                                <Icon name={'settings'} size={13} color={'var(--text-faint)'} />
-                                <span style={{ color: 'var(--text-faint)' }}>preview</span>
-                            </div>
-                            <div className={'console-meta'}>
-                                {isValidating ? 'loading…' : files ? `${directory}` : ''}
-                            </div>
-                        </div>
-                        <div
-                            className={'code-pane'}
-                            style={{ alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}
-                        >
-                            <span style={{ fontSize: 12.5, fontFamily: "'JetBrains Mono',monospace" }}>
-                                Click a file in the table to open it in the editor.
-                            </span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
