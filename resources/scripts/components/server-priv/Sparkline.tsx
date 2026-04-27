@@ -24,7 +24,9 @@ export const Sparkline = ({ points, color = '#7c3aed', fill = true, glow = true 
             return `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${py.toFixed(1)}`;
         })
         .join(' ');
-    const id = React.useId();
+    // useId() is React 18+ — priv's react types are still on 17, so generate
+    // a stable per-instance id with useState's lazy initializer instead.
+    const [id] = React.useState(() => Math.random().toString(36).slice(2, 10));
     return (
         <svg
             viewBox={`0 0 ${w} ${h}`}
