@@ -197,6 +197,27 @@ const css = `
   color: #6ee7b7;
   border: 1px solid rgba(52,211,153,0.3);
 }
+.gynx-server-priv .status-pill.starting,
+.gynx-server-priv .status-pill.stopping {
+  background: rgba(245,158,11,0.12);
+  color: #fde68a;
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.gynx-server-priv .status-pill.starting .pulse,
+.gynx-server-priv .status-pill.stopping .pulse {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+.gynx-server-priv .status-pill.offline {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-faint);
+  border: 1px solid var(--line);
+}
+.gynx-server-priv .status-pill.offline .pulse {
+  background: var(--text-faint);
+  box-shadow: none;
+  animation: none;
+}
 .gynx-server-priv .status-pill .pulse {
   width: 7px; height: 7px;
   border-radius: 50%;

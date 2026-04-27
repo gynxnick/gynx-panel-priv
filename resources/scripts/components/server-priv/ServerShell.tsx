@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { useStoreState } from 'easy-peasy';
@@ -75,19 +76,24 @@ const Topbar = ({ serverName }: { serverName: string }) => {
 interface ServerHeaderProps {
     name: string;
     statusLabel: string;
+    statusClass: string;
     metaParts: string[];
+    canStop: boolean;
     onStop?: () => void;
     onRestart?: () => void;
     onKill?: () => void;
+    killable: boolean;
 }
 
-const ServerHeader = ({ name, statusLabel, metaParts, onStop, onRestart, onKill }: ServerHeaderProps) => {
+const ServerHeader = ({
+    name, statusLabel, statusClass, metaParts, canStop, onStop, onRestart, onKill, killable,
+}: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
     return (
         <div className={'server-header'}>
             <div className={'server-title-row'}>
                 <h1 className={'server-title'}>{name}</h1>
-                <span className={'status-pill running'}>
+                <span className={`status-pill ${statusClass}`}>
                     <span className={'pulse'} />
                     {statusLabel}
                 </span>
@@ -100,8 +106,8 @@ const ServerHeader = ({ name, statusLabel, metaParts, onStop, onRestart, onKill 
                     ))}
                 </span>
                 <div className={'spacer'} />
-                <button className={'btn'} onClick={onStop}>
-                    <Icon name={'pause'} size={13} />Stop
+                <button className={'btn'} onClick={onStop} disabled={!canStop}>
+                    <Icon name={'pause'} size={13} />{killable ? 'Stop' : 'Stop'}
                 </button>
                 <button className={'btn'} onClick={onRestart}>
                     <Icon name={'restart'} size={13} />Restart
@@ -140,28 +146,81 @@ interface Props {
     fullWidth?: boolean;
 }
 
+/**
+ * Track when the server entered the running state so we can render
+ * "up 4h 12m" in the meta line. Reset whenever status leaves running.
+ */
+const useUptime = (status: string | undefined): string => {
+    const [startedAt, setStartedAt] = useState<number | null>(null);
+    const [, tick] = useState(0);
+
+    useEffect(() => {
+        if (status === 'running') {
+            setStartedAt((prev) => prev ?? Date.now());
+        } else {
+            setStartedAt(null);
+        }
+    }, [status]);
+
+    useEffect(() => {
+        if (!startedAt) return;
+        const id = window.setInterval(() => tick((n) => n + 1), 30_000);
+        return () => window.clearInterval(id);
+    }, [startedAt]);
+
+    if (!startedAt) return status === 'offline' ? 'offline' : status === 'starting' ? 'starting…' : '—';
+    const ms = Date.now() - startedAt;
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d > 0) return `up ${d}d ${h}h`;
+    if (h > 0) return `up ${h}h ${m}m`;
+    if (m > 0) return `up ${m}m`;
+    return `up ${s}s`;
+};
+
 export const ServerShell = ({ children }: Props) => {
     const server = ServerContext.useStoreState((s) => s.server.data);
     const status = ServerContext.useStoreState((s) => s.status.value);
+    const instance = ServerContext.useStoreState((s) => s.socket.instance);
+    const connected = ServerContext.useStoreState((s) => s.socket.connected);
 
     const name = server?.name ?? 'unknown';
     const eggName = server?.eggFeatures?.[0] ?? '';
     const node = server?.node ?? '';
+    const uptime = useUptime(status);
 
-    // wireframe uses "paper 1.21" / "node-fr-03" / "up 18d 4h" — pull from
-    // server context where we can; fall back to placeholders so the layout
-    // doesn't shift when data is loading.
     const metaParts = [
         eggName || 'paper 1.21',
         node ? `node-${node.toLowerCase().replace(/\s+/g, '-')}` : 'node-fr-03',
-        'up 18d 4h',
+        uptime,
     ];
 
     const statusLabel = status === 'running' ? 'Running'
         : status === 'starting' ? 'Starting'
         : status === 'stopping' ? 'Stopping'
         : status === 'offline' ? 'Offline'
-        : 'Unknown';
+        : '—';
+    const statusClass = status === 'running' ? 'running'
+        : status === 'starting' ? 'starting'
+        : status === 'stopping' ? 'stopping'
+        : status === 'offline' ? 'offline'
+        : '';
+
+    const killable = status === 'stopping';
+    const canStop = !!status && status !== 'offline';
+
+    const send = (action: 'start' | 'restart' | 'stop' | 'kill') => {
+        if (!instance || !connected) return;
+        instance.send('set state', action);
+    };
+    const onStop = () => send(killable ? 'kill' : 'stop');
+    const onRestart = () => send('restart');
+    const onKill = () => {
+        if (!confirm('Forcibly stop the server? This can corrupt data.')) return;
+        send('kill');
+    };
 
     return (
         <>
@@ -170,7 +229,17 @@ export const ServerShell = ({ children }: Props) => {
                 <div className={'app'}>
                     <div className={'layer'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                         <Topbar serverName={name} />
-                        <ServerHeader name={name} statusLabel={statusLabel} metaParts={metaParts} />
+                        <ServerHeader
+                            name={name}
+                            statusLabel={statusLabel}
+                            statusClass={statusClass}
+                            metaParts={metaParts}
+                            canStop={canStop}
+                            onStop={onStop}
+                            onRestart={onRestart}
+                            onKill={onKill}
+                            killable={killable}
+                        />
                         {children}
                     </div>
                 </div>
