@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Icon } from './Icon';
 import { Sparkline } from './Sparkline';
+import { PlayerManager } from './PlayerManager';
 
 /**
  * Console page — translated from the wireframe (~/Desktop/Gynx/wireframe/console.jsx).
@@ -201,43 +202,6 @@ const AiCard = () => (
     </div>
 );
 
-interface ActivityItem {
-    who: string;
-    verb: string;
-    evt: 'evt-join' | 'evt-leave' | 'evt-die' | 'evt-cmd';
-    t: string;
-}
-
-const ACTIVITY: ActivityItem[] = [
-    { who: 'Notch',      verb: 'joined',         evt: 'evt-join',  t: '2m' },
-    { who: 'Dinnerbone', verb: 'joined',         evt: 'evt-join',  t: '1m' },
-    { who: 'jeb_',       verb: 'joined',         evt: 'evt-join',  t: '47s' },
-    { who: 'Dinnerbone', verb: 'fell to death',  evt: 'evt-die',   t: '32s' },
-    { who: 'Notch',      verb: 'ran /weather',   evt: 'evt-cmd',   t: '20s' },
-    { who: 'herobrine',  verb: 'left',           evt: 'evt-leave', t: 'now' },
-];
-
-const ActivityFeed = () => (
-    <div className={'panel rail-card'} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <div className={'rail-title'}>
-            Player activity
-            <span className={'more'}>View all →</span>
-        </div>
-        <div className={'activity-list'} style={{ overflow: 'hidden' }}>
-            {ACTIVITY.map((a, i) => (
-                <div className={'activity-item'} key={i}>
-                    <div className={'head-avatar'}>{a.who[0].toUpperCase()}</div>
-                    <div className={`activity-text ${a.evt}`}>
-                        <span className={'name'}>{a.who}</span>
-                        <span className={'verb'}>{a.verb}</span>
-                    </div>
-                    <span className={'activity-time'}>{a.t}</span>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
 const QuickActions = () => (
     <div className={'panel rail-card'}>
         <div className={'rail-title'}>Quick actions</div>
@@ -270,7 +234,7 @@ export const ConsolePage = () => (
         </div>
         <div className={'col'}>
             <AiCard />
-            <ActivityFeed />
+            <PlayerManager />
             <QuickActions />
         </div>
     </div>

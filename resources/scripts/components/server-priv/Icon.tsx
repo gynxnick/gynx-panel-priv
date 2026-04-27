@@ -10,7 +10,7 @@ export type IconName =
     | 'play' | 'settings' | 'pause' | 'restart' | 'zap' | 'search' | 'bell'
     | 'expand' | 'filter' | 'copy' | 'trash' | 'chevron-down' | 'chevron-right'
     | 'plus' | 'send' | 'wand' | 'sparkles' | 'broadcast' | 'save' | 'download'
-    | 'skull' | 'trend-down';
+    | 'skull' | 'trend-down' | 'user-x' | 'gavel' | 'crown' | 'shield' | 'refresh';
 
 interface Props {
     name: IconName;
@@ -63,6 +63,11 @@ export const Icon = ({ name, size = 16, color = 'currentColor', style, className
         case 'download':      return <svg {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
         case 'skull':         return <svg {...props}><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><path d="M8 20v-2H6a2 2 0 0 1-2-2v-4a8 8 0 0 1 16 0v4a2 2 0 0 1-2 2h-2v2"/><path d="M10 20h4"/></svg>;
         case 'trend-down':    return <svg {...props}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>;
+        case 'user-x':        return <svg {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>;
+        case 'gavel':         return <svg {...props}><path d="M14 13l-7.5 7.5a2.121 2.121 0 0 1-3-3L11 10"/><path d="M16 16l6-6"/><path d="M8 8l6-6"/><path d="M9 7l8 8"/><path d="M21 11l-8-8"/></svg>;
+        case 'crown':         return <svg {...props}><path d="M2 17l4-10 6 7 6-7 4 10z"/><line x1="2" y1="20" x2="22" y2="20"/></svg>;
+        case 'shield':        return <svg {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
+        case 'refresh':       return <svg {...props}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
         default:              return null;
     }
 };
