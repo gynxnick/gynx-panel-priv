@@ -125,7 +125,13 @@ export const NetworkPage = () => {
                     className={'btn'}
                     onClick={() => history.push(`/server/${match.params.id}/domain`)}
                 >
-                    <Icon name={'globe'} size={13} />Manage subdomains
+                    <Icon name={'globe'} size={13} />Subdomains
+                </button>
+                <button
+                    className={'btn btn-primary'}
+                    onClick={() => history.push(`/server/${match.params.id}/domain`)}
+                >
+                    <Icon name={'plus'} size={13} />New subdomain
                 </button>
             </div>
 
