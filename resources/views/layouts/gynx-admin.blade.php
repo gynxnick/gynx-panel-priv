@@ -143,5 +143,6 @@
             </main>
         </div>
     </div>
+    @yield('footer-scripts')
 </body>
 </html>

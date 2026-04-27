@@ -1,79 +1,79 @@
-@extends('layouts.admin')
+@extends('layouts.gynx-admin')
 
-@section('title')
-    List Users
-@endsection
-
-@section('content-header')
-    <h1>Users<small>All registered users on the system.</small></h1>
-    <ol class="breadcrumb">
-        <li><a href="{{ route('admin.index') }}">Admin</a></li>
-        <li class="active">Users</li>
-    </ol>
-@endsection
+@section('title', 'Users')
+@section('header-title', 'Users')
+@section('header-sub', 'All registered users on the system.')
 
 @section('content')
-<div class="row">
-    <div class="col-xs-12">
-        <div class="box box-primary">
-            <div class="box-header with-border">
-                <h3 class="box-title">User List</h3>
-                <div class="box-tools search01">
-                    <form action="{{ route('admin.users') }}" method="GET">
-                        <div class="input-group input-group-sm">
-                            <input type="text" name="filter[email]" class="form-control pull-right" value="{{ request()->input('filter.email') }}" placeholder="Search">
-                            <div class="input-group-btn">
-                                <button type="submit" class="btn btn-default"><i class="fa fa-search"></i></button>
-                                <a href="{{ route('admin.users.new') }}"><button type="button" class="btn btn-sm btn-primary" style="border-radius: 0 3px 3px 0;margin-left:-1px;">Create New</button></a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            <div class="box-body table-responsive no-padding">
-                <table class="table table-hover">
+    <div class="card">
+        <div class="card__header">
+            <h3 class="card__title">User list</h3>
+            <form action="{{ route('admin.users') }}" method="GET" class="search-form">
+                <input type="text" name="filter[email]"
+                       value="{{ request()->input('filter.email') }}"
+                       placeholder="Search by email">
+                <button type="submit" class="btn btn--ghost btn--sm">
+                    <i class="fa fa-search"></i>
+                </button>
+                <a href="{{ route('admin.users.new') }}" class="btn btn--primary btn--sm">Create new</a>
+            </form>
+        </div>
+        <div class="card__body" style="padding: 0;">
+            <div class="table-wrap" style="border: 0; border-radius: 0;">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Email</th>
-                            <th>Client Name</th>
-                            <th>Username</th>
-                            <th class="text-center">2FA</th>
-                            <th class="text-center"><span data-toggle="tooltip" data-placement="top" title="Servers that this user is marked as the owner of.">Servers Owned</span></th>
-                            <th class="text-center"><span data-toggle="tooltip" data-placement="top" title="Servers that this user can access because they are marked as a subuser.">Can Access</span></th>
                             <th></th>
+                            <th>Email</th>
+                            <th>Client name</th>
+                            <th>Username</th>
+                            <th>2FA</th>
+                            <th title="Servers this user owns">Owned</th>
+                            <th title="Servers this user is a subuser of">Access</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($users as $user)
-                            <tr class="align-middle">
+                        @forelse($users as $user)
+                            <tr>
                                 <td><code>{{ $user->id }}</code></td>
-                                <td><a href="{{ route('admin.users.view', $user->id) }}">{{ $user->email }}</a> @if($user->root_admin)<i class="fa fa-star text-yellow"></i>@endif</td>
-                                <td>{{ $user->name_last }}, {{ $user->name_first }}</td>
-                                <td>{{ $user->username }}</td>
-                                <td class="text-center">
-                                    @if($user->use_totp)
-                                        <i class="fa fa-lock text-green"></i>
-                                    @else
-                                        <i class="fa fa-unlock text-red"></i>
+                                <td style="width: 1%;">
+                                    <img src="https://www.gravatar.com/avatar/{{ md5(strtolower($user->email)) }}?s=48"
+                                         alt="" style="width: 24px; height: 24px; border-radius: 50%; display:block;">
+                                </td>
+                                <td>
+                                    <a href="{{ route('admin.users.view', $user->id) }}">{{ $user->email }}</a>
+                                    @if($user->root_admin)
+                                        <span class="pill pill--warning" title="Administrator" style="margin-left: 6px;">admin</span>
                                     @endif
                                 </td>
-                                <td class="text-center">
+                                <td>{{ $user->name_last }}, {{ $user->name_first }}</td>
+                                <td>{{ $user->username }}</td>
+                                <td>
+                                    @if($user->use_totp)
+                                        <span class="pill pill--success"><span class="pill__dot"></span>on</span>
+                                    @else
+                                        <span class="pill pill--danger">off</span>
+                                    @endif
+                                </td>
+                                <td>
                                     <a href="{{ route('admin.servers', ['filter[owner_id]' => $user->id]) }}">{{ $user->servers_count }}</a>
                                 </td>
-                                <td class="text-center">{{ $user->subuser_of_count }}</td>
-                                <td class="text-center"><img src="https://www.gravatar.com/avatar/{{ md5(strtolower($user->email)) }}?s=100" style="height:20px;" class="img-circle" /></td>
+                                <td>{{ $user->subuser_of_count }}</td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="8" class="table-empty">No users match.</td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
             @if($users->hasPages())
-                <div class="box-footer with-border">
-                    <div class="col-md-12 text-center">{!! $users->appends(['query' => Request::input('query')])->render() !!}</div>
+                <div style="padding: 8px 18px 16px;">
+                    {!! $users->appends(['query' => Request::input('query')])->render() !!}
                 </div>
             @endif
         </div>
     </div>
-</div>
 @endsection
