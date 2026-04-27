@@ -1,99 +1,19 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ServerContext } from '@/state/server';
-import { SocketEvent } from '@/components/server/events';
-import { detectGameCommands, GameCommandSet } from '@/helpers/gameCommands';
 import { Icon } from './Icon';
+import { useServerRoster } from './useServerRoster';
 
 /**
- * Right-rail player manager — wireframe-styled (panel + rail-card + rail-title)
- * with real roster + game-aware kick/ban/op/deop actions. Replaces the mock
- * activity feed on the new console page.
- *
- * Logic mirrors the legacy components/server/console/PlayerManagerPanel.tsx
- * but with the gynx-server-priv visual classes instead of styled-components +
- * twin.macro, so this card sits cleanly inside the new console rail.
+ * Right-rail player manager — wireframe-styled with real roster + game-aware
+ * kick/ban/op/deop actions. Roster tracking lives in useServerRoster so the
+ * Players stat tile on ConsolePage shares the same source.
  */
 
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
-
-/** "There are X of a max of Y players online: A, B, C" → ["A","B","C"] */
-const parseMinecraftList = (line: string): string[] => {
-    const m = stripAnsi(line).match(/players online:\s*(.+)$/i);
-    if (!m) return [];
-    return m[1]
-        .split(/[,\s]+/)
-        .map((n) => n.trim())
-        .filter((n) => /^[A-Za-z0-9_]{2,16}$/.test(n));
-};
-
 export const PlayerManager: React.FC = () => {
-    const server = ServerContext.useStoreState((s) => s.server.data);
     const { connected, instance } = ServerContext.useStoreState((s) => s.socket);
-
-    const game = useMemo<GameCommandSet | null>(() => detectGameCommands(server || undefined), [server]);
-
-    const [players, setPlayers] = useState<Set<string>>(new Set());
+    const { players, game, refresh } = useServerRoster();
     const [busy, setBusy] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!instance || !connected || !game) return;
-
-        const onLine = (raw: string) => {
-            const line = stripAnsi(raw);
-
-            if (game.label === 'minecraft') {
-                const names = parseMinecraftList(line);
-                if (names.length > 0) {
-                    setPlayers(new Set(names));
-                    return;
-                }
-                if (/players online:\s*$/i.test(line)) {
-                    setPlayers(new Set());
-                    return;
-                }
-            }
-
-            const join = game.joinPattern && line.match(game.joinPattern);
-            if (join && join[1]) {
-                const name = join[1];
-                setPlayers((prev) => {
-                    if (prev.has(name)) return prev;
-                    const next = new Set(prev);
-                    next.add(name);
-                    return next;
-                });
-                return;
-            }
-            const leave = game.leavePattern && line.match(game.leavePattern);
-            if (leave && leave[1]) {
-                const name = leave[1];
-                setPlayers((prev) => {
-                    if (!prev.has(name)) return prev;
-                    const next = new Set(prev);
-                    next.delete(name);
-                    return next;
-                });
-            }
-        };
-
-        instance.addListener(SocketEvent.CONSOLE_OUTPUT, onLine);
-        instance.addListener(SocketEvent.DAEMON_MESSAGE, onLine);
-
-        if (game.listPlayers) {
-            instance.send('send command', game.listPlayers);
-        }
-
-        return () => {
-            instance.removeListener(SocketEvent.CONSOLE_OUTPUT, onLine);
-            instance.removeListener(SocketEvent.DAEMON_MESSAGE, onLine);
-        };
-    }, [instance, connected, game?.label]);
-
-    const refresh = useCallback(() => {
-        if (!instance || !connected || !game?.listPlayers) return;
-        instance.send('send command', game.listPlayers);
-    }, [instance, connected, game?.label]);
 
     const sendCommand = useCallback(
         (cmd: string, key: string) => {

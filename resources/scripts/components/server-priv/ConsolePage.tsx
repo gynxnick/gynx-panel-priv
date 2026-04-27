@@ -8,6 +8,7 @@ import LegacyConsole from '@/components/server/console/Console';
 import { Icon } from './Icon';
 import { Sparkline } from './Sparkline';
 import { PlayerManager } from './PlayerManager';
+import { useServerRoster } from './useServerRoster';
 
 /**
  * Console page — wireframe layout backed by real WebSocket data.
@@ -116,12 +117,26 @@ const StatRow = () => {
     const { cpuPct, memBytes, netRate, cpuHistory, memHistory, netHistory } = useStats();
     const limits = ServerContext.useStoreState((s) => s.server.data!.limits);
     const status = ServerContext.useStoreState((s) => s.status.value);
+    const { players, game } = useServerRoster();
+
+    // Track player count over time for the sparkline. Pushes a new sample
+    // whenever the roster size actually changes — rather than on a fixed
+    // interval, since join/leave is the only meaningful change driver.
+    const [playerHistory, setPlayerHistory] = useState<number[]>([]);
+    useEffect(() => {
+        setPlayerHistory((prev) => [...prev, players.size].slice(-SAMPLE_WINDOW));
+    }, [players.size]);
 
     const isOffline = status === 'offline' || !status;
     const memLimitBytes = mbToBytes(limits.memory);
     const memDisplay = isOffline ? '—' : (memBytes > 0 ? bytesToString(memBytes) : '0 B');
     const memUnit = limits.memory ? ` / ${bytesToString(memLimitBytes)}` : '';
     const netDisplay = isOffline ? '—' : (netRate >= 1024 ? bytesToString(netRate) : `${netRate} B`);
+
+    // Players is only meaningful when we can detect the game and the server is
+    // running. Display "—" otherwise so we don't show 0 for unknown game types
+    // (e.g. servers we don't have join/leave patterns for).
+    const playersDisplay = (!game || isOffline) ? '—' : String(players.size);
 
     return (
         <div className={'stat-row'}>
@@ -141,7 +156,8 @@ const StatRow = () => {
                 label={'TPS'} value={'—'} icon={'trend-down'} color={NEON} spark={[]}
             />
             <Stat
-                label={'Players'} value={'—'} icon={'users'} color={PURPLE} spark={[]}
+                label={'Players'} value={playersDisplay} icon={'users'} color={PURPLE}
+                spark={(!game || isOffline) ? [] : playerHistory}
             />
         </div>
     );
