@@ -43,7 +43,7 @@ import AccountSSHContainer from '@/components/account-priv/SshKeysPage';
 import ActivityLogContainer from '@/components/account-priv/ActivityPage';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 
-const FileEditContainer = lazy(() => import('@/components/server/files/FileEditContainer'));
+const FileEditContainer = lazy(() => import('@/components/server-priv/FileEditPage'));
 const ScheduleEditContainer = lazy(() => import('@/components/server/schedules/ScheduleEditContainer'));
 
 /**
