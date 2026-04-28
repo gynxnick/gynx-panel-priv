@@ -12,6 +12,8 @@ import deleteFiles from '@/api/server/files/deleteFiles';
 import renameFiles from '@/api/server/files/renameFiles';
 import createDirectory from '@/api/server/files/createDirectory';
 import getFileUploadUrl from '@/api/server/files/getFileUploadUrl';
+import decompressFiles from '@/api/server/files/decompressFiles';
+import compressFiles from '@/api/server/files/compressFiles';
 import Spinner from '@/components/elements/Spinner';
 import { Icon, IconName } from './Icon';
 
@@ -252,6 +254,33 @@ export const FilesPage = () => {
         }
     };
 
+    const handleUnzip = async (f: FileObject) => {
+        if (!confirm(`Extract "${f.name}" into this directory?`)) return;
+        try {
+            setBusy(true);
+            await decompressFiles(uuid, directory, f.name);
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleCompressSelected = async () => {
+        if (selected.size === 0) return;
+        try {
+            setBusy(true);
+            await compressFiles(uuid, directory, Array.from(selected));
+            setSelected(new Set());
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleDeleteSelected = async () => {
         if (selected.size === 0) return;
         if (!confirm(
@@ -395,6 +424,15 @@ export const FilesPage = () => {
                         Clear
                     </button>
                     <button
+                        className={'btn btn-sm'}
+                        onClick={handleCompressSelected}
+                        disabled={busy}
+                        title={'Compress selection into a .tar.gz archive in this directory'}
+                    >
+                        <Icon name={'archive'} size={11} />
+                        Compress
+                    </button>
+                    <button
                         className={'btn btn-sm btn-danger'}
                         onClick={handleDeleteSelected}
                         disabled={busy}
@@ -527,6 +565,17 @@ export const FilesPage = () => {
                                                             style={{ gap: 4, justifyContent: 'flex-end' }}
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
+                                                            {f.isFile && f.isArchiveType && f.isArchiveType() && (
+                                                                <button
+                                                                    className={'icon-btn'}
+                                                                    onClick={() => handleUnzip(f)}
+                                                                    disabled={busy}
+                                                                    title={'Extract archive here'}
+                                                                    style={{ width: 26, height: 26 }}
+                                                                >
+                                                                    <Icon name={'archive'} size={11} />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 className={'icon-btn'}
                                                                 onClick={() => handleRename(f)}
