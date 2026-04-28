@@ -27,7 +27,7 @@ import ScheduleContainer from '@/components/server-priv/SchedulesPage';
 import UsersContainer from '@/components/server-priv/UsersPage';
 import BackupContainer from '@/components/server-priv/BackupsPage';
 import NetworkContainer from '@/components/server-priv/NetworkPage';
-import StartupContainer from '@/components/server/startup/StartupContainer';
+import StartupContainer from '@/components/server-priv/StartupPage';
 import FileManagerContainer from '@/components/server-priv/FilesPage';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
