@@ -222,13 +222,16 @@ export const FilesPage = () => {
         if (!filesList.length) return;
         try {
             setBusy(true);
-            const uploadUrl = await getFileUploadUrl(uuid);
             for (let i = 0; i < filesList.length; i++) {
                 const file = filesList[i];
                 setUploading({ name: file.name, pct: 0 });
-                const form = new FormData();
-                form.append('files', file, file.name);
-                await axios.post(uploadUrl, form, {
+                // Match the legacy UploadButton signature exactly: pass
+                // { files: file } and let axios serialize as multipart.
+                // Manual FormData with 'files' field caused wings to
+                // 422 on some uploads.
+                const url = await getFileUploadUrl(uuid);
+                await axios.post(url, { files: file }, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
                     params: { directory },
                     onUploadProgress: (e) => {
                         const total = e.total ?? file.size;
@@ -243,7 +246,7 @@ export const FilesPage = () => {
             await mutate();
         } catch (e) {
             setUploading(null);
-            alert(httpErrorToHuman(e as Error));
+            alert(`Upload failed: ${httpErrorToHuman(e as Error)}`);
         } finally {
             setBusy(false);
         }

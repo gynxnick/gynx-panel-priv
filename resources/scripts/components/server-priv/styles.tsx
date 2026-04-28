@@ -18,8 +18,10 @@ const css = `
   --void-2: #0e0e14;
   --slate: #1f2937;
   --slate-2: #161b24;
-  --line: rgba(255,255,255,0.07);
-  --line-2: rgba(255,255,255,0.12);
+  --surface: #131319;
+  --surface-2: #1a1a22;
+  --line: rgba(255,255,255,0.04);
+  --line-2: rgba(255,255,255,0.07);
   --text: #e9e9ef;
   --text-soft: #9ca3af;
   --text-faint: #6b7280;
@@ -42,35 +44,16 @@ const css = `
 .gynx-server-priv * { box-sizing: border-box; }
 .gynx-server-priv .app {
   width: 100%; min-height: 100vh;
-  background:
-    radial-gradient(circle at 80% -10%, rgba(124,58,237,0.18) 0, transparent 50%),
-    radial-gradient(circle at -10% 100%, rgba(34,211,238,0.1) 0, transparent 50%),
-    var(--void);
+  background: var(--void);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.gynx-server-priv .app::before {
-  content: "";
-  position: fixed; inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.18'/></svg>");
-  opacity: 0.35;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  z-index: 1;
-}
-.gynx-server-priv .app::after {
-  content: "";
-  position: fixed; inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 32px 32px;
-  pointer-events: none;
-  z-index: 0;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-}
+/* Removed the radial-gradient corner glows, the SVG film-grain
+   ::before overlay, and the ::after grid mask. Each was a small
+   contributor to the "vibecoded" decoration layer. Plain black-void
+   background reads cleaner. */
 .gynx-server-priv .layer { position: relative; z-index: 2; }
 
 .gynx-server-priv .font-head { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
@@ -262,7 +245,6 @@ const css = `
 .gynx-server-priv .btn-danger:hover {
   background: rgba(236,72,153,0.15);
   border-color: rgba(236,72,153,0.55);
-  box-shadow: 0 0 16px rgba(236,72,153,0.25);
 }
 .gynx-server-priv .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
 
@@ -325,10 +307,9 @@ const css = `
 .gynx-server-priv .col { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
 
 .gynx-server-priv .panel {
-  background: linear-gradient(180deg, rgba(31,41,55,0.55) 0%, rgba(22,27,36,0.55) 100%);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  backdrop-filter: blur(14px);
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
 }
@@ -933,13 +914,12 @@ const css = `
   box-shadow: 0 2px 12px rgba(0,0,0,0.4);
   cursor: pointer;
 }
-.gynx-server-priv .tl-event.next { box-shadow: 0 0 0 2px rgba(124,58,237,0.5), 0 4px 16px rgba(124,58,237,0.4); }
+.gynx-server-priv .tl-event.next { box-shadow: inset 0 0 0 1px rgba(124,58,237,0.6); }
 .gynx-server-priv .tl-marker {
   position: absolute;
   top: 0; bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, transparent, var(--blue), transparent);
-  box-shadow: 0 0 8px var(--blue);
+  background: var(--blue);
   z-index: 5;
 }
 
@@ -947,7 +927,7 @@ const css = `
 .gynx-server-priv .backup-row {
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   padding: 14px 16px;
   display: grid;
   grid-template-columns: 50px 1fr 110px 100px 110px auto;
@@ -970,7 +950,7 @@ const css = `
 .gynx-server-priv .user-row {
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   padding: 12px 16px;
   display: grid;
   grid-template-columns: 44px 1fr 130px 130px auto;
@@ -1039,7 +1019,7 @@ const css = `
 .gynx-server-priv .section-card {
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.45), rgba(22,27,36,0.45));
+  background: var(--surface);
   overflow: hidden;
 }
 .gynx-server-priv .section-head {
@@ -1068,7 +1048,7 @@ const css = `
   border: 1px solid var(--line);
   flex-shrink: 0;
 }
-.gynx-server-priv .switch.on { background: var(--purple); border-color: var(--purple); box-shadow: 0 0 8px rgba(124,58,237,0.5); }
+.gynx-server-priv .switch.on { background: var(--purple); border-color: var(--purple); }
 .gynx-server-priv .switch::after {
   content: "";
   position: absolute;
@@ -1084,7 +1064,7 @@ const css = `
 .gynx-server-priv .db-card {
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   padding: 18px;
   display: flex; flex-direction: column; gap: 12px;
 }
@@ -1139,8 +1119,7 @@ const css = `
 }
 .gynx-server-priv .stripe-progress > div {
   height: 100%;
-  background: linear-gradient(90deg, var(--purple), var(--blue));
-  box-shadow: 0 0 8px rgba(124,58,237,0.5);
+  background: var(--purple);
   position: relative;
 }
 .gynx-server-priv .stripe-progress > div::after {
@@ -1169,7 +1148,7 @@ const css = `
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.4), rgba(22,27,36,0.4));
+  background: var(--surface);
   display: block;
   min-height: 0;
 }
@@ -1231,7 +1210,7 @@ const css = `
 .gynx-server-priv .item-card {
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   padding: 14px;
   display: flex; flex-direction: column;
   gap: 10px;
@@ -1240,14 +1219,12 @@ const css = `
   position: relative;
 }
 .gynx-server-priv .item-card:hover {
-  border-color: rgba(124,58,237,0.45);
-  background: linear-gradient(180deg, rgba(40,30,60,0.6), rgba(22,27,36,0.6));
-  box-shadow: 0 4px 20px rgba(124,58,237,0.15);
+  border-color: rgba(124,58,237,0.35);
+  background: var(--surface-2);
 }
 .gynx-server-priv .item-card.selected {
   border-color: var(--purple);
-  background: linear-gradient(180deg, rgba(50,30,80,0.7), rgba(22,27,36,0.7));
-  box-shadow: 0 0 0 1px rgba(124,58,237,0.5), 0 4px 24px rgba(124,58,237,0.3);
+  background: var(--surface-2);
 }
 .gynx-server-priv .item-head { display: flex; gap: 12px; align-items: flex-start; }
 .gynx-server-priv .item-icon {
@@ -1303,7 +1280,7 @@ const css = `
   display: flex; flex-direction: column;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   overflow: hidden;
   min-height: 0;
 }
@@ -1402,7 +1379,7 @@ const css = `
 .gynx-server-priv .sd-row {
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(31,41,55,0.55), rgba(22,27,36,0.55));
+  background: var(--surface);
   padding: 14px 16px;
   display: grid;
   grid-template-columns: 1fr 130px 110px 90px;
