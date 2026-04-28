@@ -4,6 +4,7 @@ import { NavLink, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
+import LogoMark from '@/components/gynx/LogoMark';
 import GynxServerStyles from './styles';
 import { Icon, IconName } from './Icon';
 
@@ -48,9 +49,9 @@ const Topbar = ({ serverName }: { serverName: string }) => {
     });
     return (
         <div className={'topbar'}>
-            <div className={'logo'}>
-                gynx<span className={'logo-dot'} />gg
-            </div>
+            <a href={'/'} className={'logo'} aria-label={'gynx.gg home'}>
+                <LogoMark size={26} alt={'gynx.gg'} />
+            </a>
             <div className={'divider-v'} />
             <div className={'server-pill'} title={'Switch server'}>
                 <span className={'status-pill running'} style={{ padding: '2px 6px 2px 5px' }}>

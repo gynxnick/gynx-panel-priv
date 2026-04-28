@@ -89,13 +89,12 @@ const css = `
   z-index: 10;
 }
 .gynx-server-priv .logo {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.03em;
-  display: flex; align-items: center; gap: 2px;
+  display: inline-flex; align-items: center;
   color: var(--text);
+  text-decoration: none;
+  flex-shrink: 0;
 }
+.gynx-server-priv .logo:hover { filter: brightness(1.1); }
 .gynx-server-priv .logo-dot {
   width: 6px; height: 6px;
   background: var(--purple);
