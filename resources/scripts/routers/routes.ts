@@ -29,7 +29,7 @@ import BackupContainer from '@/components/server-priv/BackupsPage';
 import NetworkContainer from '@/components/server-priv/NetworkPage';
 import StartupContainer from '@/components/server-priv/StartupPage';
 import FileManagerContainer from '@/components/server-priv/FilesPage';
-import SettingsContainer from '@/components/server/settings/SettingsContainer';
+import SettingsContainer from '@/components/server-priv/SettingsPage';
 import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import InstallerPage from '@/components/server-priv/InstallerPage';
