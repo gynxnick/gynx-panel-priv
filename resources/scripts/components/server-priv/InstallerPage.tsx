@@ -1,101 +1,63 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ServerContext } from '@/state/server';
+import {
+    PluginSourceInfo,
+    PluginSourceSlug,
+    PluginSearchHit,
+    listPluginSources,
+    searchPlugins,
+    listInstalledPlugins,
+    installPlugin,
+    InstalledPlugin,
+} from '@/api/server/plugins';
+import {
+    listModSources,
+    searchMods,
+    listInstalledMods,
+    installMod,
+    InstalledMod,
+    ModSearchHit,
+} from '@/api/server/mods';
+import {
+    listModpackSources,
+    searchModpacks,
+    listInstalledModpacks,
+    installModpack,
+    InstalledModpack,
+    ModpackSearchHit,
+} from '@/api/server/modpacks';
+import { httpErrorToHuman } from '@/api/http';
+import Spinner from '@/components/elements/Spinner';
 import { Icon } from './Icon';
 
-/**
- * Unified Install browser — plugins / mods / modpacks. Wireframe says
- * this is the gynx-only headline feature; visual recreation here, with
- * mock catalog data. Real Modrinth / CurseForge / Hangar API integration
- * is a separate backend effort (registry choices need to be coordinated
- * with the gynx backend before wiring).
- */
+// Unified installer — plugins / mods / modpacks. Same API shape across
+// all three (listSources / search / listInstalled / install / remove)
+// so we collapse the per-tab branching into a single fetch driver
+// keyed on the tab. Real catalog data, real install action.
 
 type Tab = 'plugins' | 'mods' | 'modpacks';
 
-interface Item {
-    name: string;
-    author: string;
-    desc: string;
-    icon: string;
-    dl: string;
-    v: string;
-    mc: string;
-    tags: string[];
-    sourceLogo: 'M' | 'C' | 'H' | 'S';
-    loader?: string;
-    count?: string;
-}
-
-interface CatalogTab {
-    categories: Array<[string, string, number]>;
-    sources: Array<[string, string, number]>;
-    items: Item[];
-}
-
-const CATALOG: Record<Tab, CatalogTab> = {
-    plugins: {
-        categories: [
-            ['all', 'All', 482], ['admin', 'Admin tools', 84], ['chat', 'Chat', 61],
-            ['economy', 'Economy', 47], ['world', 'World mgmt', 58], ['protection', 'Protection', 42],
-            ['fun', 'Fun & games', 73], ['dev', 'Developer', 38],
-        ],
-        sources: [['modrinth', 'Modrinth', 182], ['hangar', 'Hangar', 147], ['spigot', 'SpigotMC', 153]],
-        items: [
-            { name: 'EssentialsX', author: 'EssentialsX Team', desc: 'The essential plugin suite for Minecraft servers, including over 130 commands and countless features.', icon: 'EX', dl: '12.4M', v: '2.20.1', mc: '1.21', tags: ['featured', 'compat', 'admin'], sourceLogo: 'M' },
-            { name: 'LuckPerms', author: 'lucko', desc: 'A permissions plugin for Minecraft servers. Fast, reliable, and feature-rich.', icon: 'LP', dl: '8.1M', v: '5.4.140', mc: '1.21', tags: ['compat', 'admin'], sourceLogo: 'M' },
-            { name: 'WorldEdit', author: 'EngineHub', desc: 'WorldEdit is an in-game map editor for Minecraft.', icon: 'WE', dl: '6.7M', v: '7.3.5', mc: '1.21', tags: ['compat', 'world'], sourceLogo: 'H' },
-            { name: 'Vault', author: 'MilkBowl', desc: 'Vault is a Permissions, Chat, & Economy API.', icon: 'VA', dl: '4.9M', v: '1.7.3', mc: '1.21', tags: ['compat', 'dev'], sourceLogo: 'S' },
-            { name: 'PlaceholderAPI', author: 'PlaceholderAPI', desc: 'Allows server administrators to use placeholders in plugins.', icon: 'PA', dl: '5.2M', v: '2.11.6', mc: '1.21', tags: ['compat', 'dev'], sourceLogo: 'M' },
-            { name: 'Chunky', author: 'pop4959', desc: 'Pre-generates chunks, quickly, efficiently, and safely.', icon: 'CH', dl: '2.1M', v: '1.4.16', mc: '1.21', tags: ['featured', 'compat', 'world'], sourceLogo: 'M' },
-            { name: 'Citizens', author: 'fullwall', desc: 'Powerful, modern NPC plugin with hundreds of features.', icon: 'CT', dl: '3.4M', v: '2.0.36', mc: '1.21', tags: ['compat', 'fun'], sourceLogo: 'S' },
-            { name: 'GriefDefender', author: 'bloodmc', desc: 'Land claim & protection with extensive flag system.', icon: 'GD', dl: '1.2M', v: '2.4.6', mc: '1.21', tags: ['compat', 'protection'], sourceLogo: 'S' },
-            { name: 'Dynmap', author: 'webbukkit', desc: 'Pan/zoom Google Maps-like view of your server, in real time.', icon: 'DM', dl: '3.8M', v: '3.7-beta-9', mc: '1.21', tags: ['compat', 'world'], sourceLogo: 'S' },
-        ],
-    },
-    mods: {
-        categories: [
-            ['all', 'All', 2104], ['tech', 'Tech', 340], ['magic', 'Magic', 182],
-            ['adventure', 'Adventure', 287], ['world', 'Worldgen', 214], ['qol', 'QoL', 612],
-            ['perf', 'Performance', 94],
-        ],
-        sources: [['modrinth', 'Modrinth', 1640], ['curseforge', 'CurseForge', 1872]],
-        items: [
-            { name: 'Sodium', author: 'JellySquid', desc: 'A modern rendering engine for Minecraft which improves frame rates and reduces micro-stutter.', icon: 'SO', dl: '94M', v: '0.6.13', mc: '1.21', tags: ['featured', 'compat', 'perf'], sourceLogo: 'M', loader: 'fabric' },
-            { name: 'Lithium', author: 'JellySquid', desc: 'No-compromises game logic & server optimization mod.', icon: 'LI', dl: '62M', v: '0.13.4', mc: '1.21', tags: ['compat', 'perf'], sourceLogo: 'M', loader: 'fabric' },
-            { name: 'Create', author: 'simibubi', desc: 'Building Tools and Aesthetic Technology — kinetic contraptions galore.', icon: 'CR', dl: '82M', v: '6.0.4', mc: '1.21', tags: ['featured', 'compat', 'tech'], sourceLogo: 'C', loader: 'forge' },
-            { name: 'Iris Shaders', author: 'coderbot', desc: 'A modern shader pack loader for Minecraft Java Edition.', icon: 'IR', dl: '44M', v: '1.8.1', mc: '1.21', tags: ['compat', 'perf'], sourceLogo: 'M', loader: 'fabric' },
-            { name: 'Botania', author: 'Vazkii', desc: 'Tech mod themed around natural magic.', icon: 'BO', dl: '31M', v: '1.21-450', mc: '1.21', tags: ['compat', 'magic'], sourceLogo: 'C', loader: 'forge' },
-            { name: 'JEI', author: 'mezz', desc: 'Just Enough Items — item & recipe viewing mod for Minecraft.', icon: 'JE', dl: '412M', v: '19.21.0', mc: '1.21', tags: ['compat', 'qol'], sourceLogo: 'C', loader: 'forge' },
-        ],
-    },
-    modpacks: {
-        categories: [
-            ['all', 'All', 214], ['tech', 'Tech', 58], ['magic', 'Magic', 24],
-            ['adventure', 'Adventure', 47], ['kitchen', 'Kitchen sink', 36], ['light', 'Lightweight', 18],
-        ],
-        sources: [['modrinth', 'Modrinth', 98], ['curseforge', 'CurseForge', 214]],
-        items: [
-            { name: 'All The Mods 9', author: 'ATMTeam', desc: 'Kitchen-sink modpack with over 400 mods. Tech, magic, exploration — everything.', icon: 'A9', dl: '8.4M', v: '0.3.10', mc: '1.20.1', tags: ['featured', 'kitchen'], sourceLogo: 'C', count: '412 mods' },
-            { name: 'Better MC', author: 'Lunar Studio', desc: 'An adventure-focused enhancement modpack with quests, new biomes, and progression.', icon: 'BM', dl: '6.2M', v: 'v32', mc: '1.20.1', tags: ['featured', 'adventure'], sourceLogo: 'C', count: '286 mods' },
-            { name: 'Create: Above and Beyond', author: 'simibubi', desc: 'A Create-focused modpack with custom progression and an end-game goal.', icon: 'CA', dl: '3.1M', v: '1.5', mc: '1.16.5', tags: ['tech'], sourceLogo: 'C', count: '94 mods' },
-            { name: 'Prominence II RPG', author: 'ChoiceTheorem', desc: 'Adventure RPG modpack with classes, quests, and dungeons.', icon: 'PR', dl: '2.4M', v: '3.1.30', mc: '1.20.1', tags: ['adventure'], sourceLogo: 'M', count: '168 mods' },
-            { name: 'Vault Hunters 3rd Edition', author: 'Iskall85', desc: 'Compete in procedurally-generated vault dungeons. Roguelike progression.', icon: 'VH', dl: '5.7M', v: 'Update 13', mc: '1.18.2', tags: ['featured', 'adventure'], sourceLogo: 'C', count: '210 mods' },
-            { name: 'RLCraft', author: 'Shivaxi', desc: 'Brutally hard survival modpack. You will die.', icon: 'RL', dl: '12.1M', v: '2.9.4', mc: '1.12.2', tags: ['adventure'], sourceLogo: 'C', count: '148 mods' },
-        ],
-    },
-};
+type AnyHit = PluginSearchHit | ModSearchHit | ModpackSearchHit;
+type AnyInstalled = InstalledPlugin | InstalledMod | InstalledModpack;
 
 const SOURCE_BG: Record<string, string> = {
-    modrinth: '#1bd96a', curseforge: '#f16436', hangar: '#005c9c', spigot: '#ee8a18',
-    M: '#1bd96a', C: '#f16436', H: '#005c9c', S: '#ee8a18',
+    modrinth: '#1bd96a',
+    curseforge: '#f16436',
+    hangar: '#005c9c',
+    spigot: '#ee8a18',
 };
-const SOURCE_FULL: Record<string, string> = {
-    M: 'Modrinth', C: 'CurseForge', H: 'Hangar', S: 'SpigotMC',
+const SOURCE_LABEL: Record<string, string> = {
+    modrinth: 'Modrinth',
+    curseforge: 'CurseForge',
+    hangar: 'Hangar',
+    spigot: 'SpigotMC',
 };
-const TAB_LOADERS: Record<Tab, Array<[string, string]>> = {
-    plugins: [['paper', 'Paper'], ['spigot', 'Spigot'], ['bukkit', 'Bukkit']],
-    mods: [['fabric', 'Fabric'], ['forge', 'Forge'], ['neoforge', 'NeoForge'], ['quilt', 'Quilt']],
-    modpacks: [['forge', 'Forge'], ['fabric', 'Fabric'], ['neoforge', 'NeoForge']],
+const SOURCE_INITIAL: Record<string, string> = {
+    modrinth: 'M',
+    curseforge: 'C',
+    hangar: 'H',
+    spigot: 'S',
 };
 
 const ICON_GRADIENT = (i: number): string =>
@@ -103,27 +65,139 @@ const ICON_GRADIENT = (i: number): string =>
     : i % 3 === 1 ? 'linear-gradient(135deg, #831843, #4c1d95)'
     : 'linear-gradient(135deg, #0e7490, #1e3a8a)';
 
+const fmtCount = (n: number): string => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+};
+
+interface ApiSet {
+    listSources: (uuid: string) => Promise<PluginSourceInfo[]>;
+    search: (uuid: string, source: PluginSourceSlug, q: string, mc?: string) => Promise<AnyHit[]>;
+    listInstalled: (uuid: string) => Promise<AnyInstalled[]>;
+    install: (
+        uuid: string,
+        body: { source: PluginSourceSlug; external_id: string; version_id?: string; game_version?: string },
+    ) => Promise<unknown>;
+}
+
+const APIS: Record<Tab, ApiSet> = {
+    plugins: {
+        listSources: listPluginSources,
+        search: (uuid, source, q, mc) => searchPlugins(uuid, source, q, mc),
+        listInstalled: listInstalledPlugins as (uuid: string) => Promise<AnyInstalled[]>,
+        install: installPlugin,
+    },
+    mods: {
+        listSources: listModSources,
+        search: (uuid, source, q, mc) => searchMods(uuid, source, q, mc),
+        listInstalled: listInstalledMods as (uuid: string) => Promise<AnyInstalled[]>,
+        install: installMod,
+    },
+    modpacks: {
+        listSources: listModpackSources,
+        search: (uuid, source, q, mc) => searchModpacks(uuid, source, q, mc),
+        listInstalled: listInstalledModpacks as (uuid: string) => Promise<AnyInstalled[]>,
+        install: installModpack,
+    },
+};
+
 export const InstallerPage = () => {
+    const uuid = ServerContext.useStoreState((s) => s.server.data!.uuid);
     const [tab, setTab] = useState<Tab>('plugins');
-    const [selected, setSelected] = useState(0);
-    const [category, setCategory] = useState('all');
+    const [sources, setSources] = useState<PluginSourceInfo[]>([]);
+    const [activeSource, setActiveSource] = useState<PluginSourceSlug | null>(null);
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<AnyHit[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedIdx, setSelectedIdx] = useState(0);
     const [installing, setInstalling] = useState<string | null>(null);
+    const [installError, setInstallError] = useState<string | null>(null);
+    const [justInstalledIds, setJustInstalledIds] = useState<Set<string>>(new Set());
 
-    const cur = CATALOG[tab];
-    const items = cur.items;
-    const sel = items[selected % items.length];
+    const api = APIS[tab];
 
-    const handleInstall = (item: Item) => {
-        setInstalling(item.name);
-        setTimeout(() => setInstalling(null), 2400);
+    // Fetch the source list whenever the tab changes; pick the first
+    // available source as the active one.
+    useEffect(() => {
+        let alive = true;
+        api.listSources(uuid)
+            .then((s) => {
+                if (!alive) return;
+                setSources(s);
+                const firstAvailable = s.find((x) => x.available) ?? s[0];
+                setActiveSource(firstAvailable ? firstAvailable.slug : null);
+                setSelectedIdx(0);
+                setJustInstalledIds(new Set());
+            })
+            .catch((e) => alive && setError(httpErrorToHuman(e as Error)));
+        return () => {
+            alive = false;
+        };
+    }, [tab, uuid]);
+
+    // Search whenever activeSource or query changes (debounced).
+    useEffect(() => {
+        if (!activeSource) {
+            setResults([]);
+            return;
+        }
+        let alive = true;
+        const id = window.setTimeout(() => {
+            setLoading(true);
+            setError(null);
+            api.search(uuid, activeSource, query)
+                .then((hits) => {
+                    if (!alive) return;
+                    setResults(hits);
+                    setSelectedIdx(0);
+                })
+                .catch((e) => alive && setError(httpErrorToHuman(e as Error)))
+                .finally(() => alive && setLoading(false));
+        }, query ? 350 : 0);
+        return () => {
+            alive = false;
+            window.clearTimeout(id);
+        };
+    }, [tab, activeSource, query, uuid]);
+
+    const sel = results[Math.min(selectedIdx, Math.max(results.length - 1, 0))];
+
+    const isInstalledHit = (h: AnyHit): boolean =>
+        h.installed || justInstalledIds.has(h.external_id);
+
+    const handleInstall = async () => {
+        if (!sel || !activeSource) return;
+        setInstalling(sel.name);
+        setInstallError(null);
+        try {
+            await api.install(uuid, {
+                source: activeSource,
+                external_id: sel.external_id,
+            });
+            setJustInstalledIds((prev) => {
+                const next = new Set(prev);
+                next.add(sel.external_id);
+                return next;
+            });
+        } catch (e) {
+            setInstallError(httpErrorToHuman(e as Error));
+        } finally {
+            setInstalling(null);
+        }
     };
+
+    const visibleSources = sources.filter((s) => s.available);
 
     return (
         <div className={'sub-main'}>
             <div className={'page-header'}>
                 <div>
                     <div className={'page-title'}>Install content</div>
-                    <div className={'page-sub'}>Browse plugins, mods, and modpacks from trusted registries — auto-configured for your server.</div>
+                    <div className={'page-sub'}>
+                        Plugins, mods, and modpacks from supported registries — installed straight to this server.
+                    </div>
                 </div>
                 <div className={'spacer'} />
                 <div className={'seg'}>
@@ -131,216 +205,323 @@ export const InstallerPage = () => {
                         <button
                             key={id}
                             className={`seg-btn ${tab === id ? 'active' : ''}`}
-                            onClick={() => { setTab(id); setSelected(0); setCategory('all'); }}
+                            onClick={() => { setTab(id); setSelectedIdx(0); }}
                         >
                             <Icon name={ic} size={13} />{lbl}
-                            <span className={'count'}>{CATALOG[id].items.length}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
-            {tab === 'modpacks' ? (
-                <div className={'notice warn'}>
-                    <Icon name={'zap'} size={14} />
-                    <span>
-                        Installing a modpack <strong style={{ color: 'white', margin: '0 4px' }}>replaces your server jar and world</strong>.
-                        We&apos;ll back up your current state automatically before switching.
-                    </span>
-                </div>
-            ) : (
-                <div className={'notice purple'}>
-                    <Icon name={'sparkles'} size={14} />
-                    <span>
-                        gynx ai will check compatibility with your server (
-                        <span style={{ color: 'white', fontFamily: "'JetBrains Mono',monospace" }}>paper 1.21</span>
-                        ) and configure each install for you.
-                    </span>
-                </div>
-            )}
-
             <div className={'row gap-8'} style={{ gap: 10 }}>
                 <div className={'search-lg'}>
                     <Icon name={'search'} size={15} />
-                    <input placeholder={`Search ${tab}…`} defaultValue={''} />
-                    <span
-                        className={'kbd'}
-                        style={{
-                            fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)',
-                            fontFamily: "'JetBrains Mono',monospace", color: 'var(--text-faint)',
-                        }}
-                    >/</span>
-                </div>
-                <div className={'row gap-6'} style={{ gap: 6 }}>
-                    {['Featured', 'Most downloaded', 'Recently updated', 'A → Z'].map((s, i) => (
-                        <span key={i} className={`chip ${i === 0 ? 'active' : ''}`}>{s}</span>
-                    ))}
+                    <input
+                        placeholder={`Search ${tab}…`}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                    />
+                    {query && (
+                        <button
+                            className={'icon-btn'}
+                            onClick={() => setQuery('')}
+                            title={'Clear'}
+                            style={{ width: 22, height: 22 }}
+                        >
+                            <Icon name={'plus'} size={11} style={{ transform: 'rotate(45deg)' }} />
+                        </button>
+                    )}
                 </div>
             </div>
 
             <div className={'install-layout'}>
                 <div className={'install-side'}>
                     <div className={'side-section'}>
-                        <div className={'side-label'}>Category</div>
-                        {cur.categories.map(([id, lbl, ct]) => (
-                            <div
-                                key={id}
-                                className={`side-item ${category === id ? 'active' : ''}`}
-                                onClick={() => setCategory(id)}
-                            >
-                                <span style={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    background: category === id ? 'var(--purple)' : 'rgba(255,255,255,0.15)',
-                                }} />
-                                {lbl}
-                                <span className={'ct'}>{ct}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div className={'side-section'} style={{ marginTop: 8 }}>
                         <div className={'side-label'}>Source</div>
-                        {cur.sources.map(([id, lbl, ct]) => (
-                            <div key={id} className={'side-item'}>
-                                <span style={{
-                                    width: 18, height: 18, borderRadius: 4,
-                                    background: SOURCE_BG[id] || '#888',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 9, fontWeight: 700, color: '#0b0b0f',
-                                    fontFamily: "'Space Grotesk',sans-serif",
-                                }}>{lbl[0]}</span>
-                                {lbl}
-                                <span className={'ct'}>{ct}</span>
+                        {sources.length === 0 ? (
+                            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-faint)' }}>
+                                Loading…
                             </div>
-                        ))}
+                        ) : (
+                            sources.map((s) => (
+                                <div
+                                    key={s.slug}
+                                    className={`side-item ${activeSource === s.slug ? 'active' : ''}`}
+                                    onClick={() => s.available && setActiveSource(s.slug)}
+                                    style={!s.available ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+                                    title={!s.available ? 'Source unavailable on this server' : undefined}
+                                >
+                                    <span
+                                        style={{
+                                            width: 18, height: 18, borderRadius: 4,
+                                            background: SOURCE_BG[s.slug] ?? '#666',
+                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 9, fontWeight: 700, color: '#0b0b0f',
+                                            fontFamily: "'Space Grotesk',sans-serif",
+                                        }}
+                                    >
+                                        {SOURCE_INITIAL[s.slug] ?? s.slug[0].toUpperCase()}
+                                    </span>
+                                    {SOURCE_LABEL[s.slug] ?? s.slug}
+                                    {!s.available && (
+                                        <span className={'ct'} style={{ fontSize: 9 }}>off</span>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </div>
-                    <div className={'side-section'} style={{ marginTop: 8 }}>
-                        <div className={'side-label'}>Loader</div>
-                        {TAB_LOADERS[tab].map(([id, lbl]) => (
-                            <div key={id} className={'side-item'}>
-                                <span style={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    background: 'rgba(255,255,255,0.15)',
-                                }} />
-                                {lbl}
-                            </div>
-                        ))}
-                    </div>
+                    {visibleSources.length > 0 && (
+                        <div
+                            style={{
+                                marginTop: 8, padding: '8px 10px',
+                                fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.5,
+                            }}
+                        >
+                            {tab === 'modpacks'
+                                ? 'Installing a modpack stops the server, swaps the jar, and may overwrite the world.'
+                                : 'Installs land in the appropriate folder and load on the next restart.'}
+                        </div>
+                    )}
                 </div>
 
                 <div className={'item-grid'}>
-                    {items.map((it, i) => (
+                    {error ? (
                         <div
-                            key={i}
-                            className={`item-card ${i === selected ? 'selected' : ''}`}
-                            onClick={() => setSelected(i)}
+                            style={{
+                                gridColumn: '1 / -1', padding: 24,
+                                color: 'var(--pink)', fontSize: 13, textAlign: 'center',
+                            }}
                         >
-                            <div className={'item-head'}>
-                                <div className={'item-icon'} style={{ background: ICON_GRADIENT(i) }}>{it.icon}</div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div className={'item-name'}>{it.name}</div>
-                                    <div className={'item-author'}>by {it.author}</div>
-                                </div>
-                                <span
-                                    title={SOURCE_FULL[it.sourceLogo]}
-                                    style={{
-                                        width: 22, height: 22, borderRadius: 4,
-                                        background: SOURCE_BG[it.sourceLogo],
-                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 10, fontWeight: 700, color: '#0b0b0f',
-                                        fontFamily: "'Space Grotesk',sans-serif",
-                                        flexShrink: 0,
-                                    }}
-                                >{it.sourceLogo}</span>
-                            </div>
-                            <div className={'item-desc'}>{it.desc}</div>
-                            <div className={'item-tags'}>
-                                {it.tags.includes('featured') && <span className={'tag featured'}>★ featured</span>}
-                                {it.tags.includes('compat') && <span className={'tag compat'}>✓ {it.mc}</span>}
-                                {it.loader && <span className={'tag'}>{it.loader}</span>}
-                                {it.count && <span className={'tag'}>{it.count}</span>}
-                            </div>
-                            <div className={'item-meta'}>
-                                <span className={'m'}><Icon name={'download'} size={11} />{it.dl}</span>
-                                <span className={'m'}><Icon name={'clock'} size={11} />{it.v}</span>
-                            </div>
+                            {error}
                         </div>
-                    ))}
+                    ) : loading ? (
+                        <div
+                            style={{
+                                gridColumn: '1 / -1', padding: 32, textAlign: 'center',
+                            }}
+                        >
+                            <Spinner size={'large'} />
+                        </div>
+                    ) : !activeSource ? (
+                        <div
+                            style={{
+                                gridColumn: '1 / -1', padding: 24, textAlign: 'center',
+                                color: 'var(--text-faint)', fontSize: 13,
+                            }}
+                        >
+                            No registries are enabled for this server.
+                        </div>
+                    ) : results.length === 0 ? (
+                        <div
+                            style={{
+                                gridColumn: '1 / -1', padding: 24, textAlign: 'center',
+                                color: 'var(--text-faint)', fontSize: 13,
+                            }}
+                        >
+                            {query
+                                ? `No ${tab} match "${query}" on ${SOURCE_LABEL[activeSource]}.`
+                                : `Type a query to search ${SOURCE_LABEL[activeSource]} for ${tab}.`}
+                        </div>
+                    ) : (
+                        results.map((it, i) => {
+                            const installed = isInstalledHit(it);
+                            return (
+                                <div
+                                    key={`${it.source}-${it.external_id}`}
+                                    className={`item-card ${i === selectedIdx ? 'selected' : ''}`}
+                                    onClick={() => setSelectedIdx(i)}
+                                >
+                                    <div className={'item-head'}>
+                                        <div
+                                            className={'item-icon'}
+                                            style={
+                                                it.icon_url
+                                                    ? {
+                                                          background: `url(${it.icon_url}) center/cover, ${ICON_GRADIENT(i)}`,
+                                                      }
+                                                    : { background: ICON_GRADIENT(i) }
+                                            }
+                                        >
+                                            {!it.icon_url && it.name.slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className={'item-name'}>{it.name}</div>
+                                            <div className={'item-author'}>by {it.author}</div>
+                                        </div>
+                                        <span
+                                            title={SOURCE_LABEL[it.source]}
+                                            style={{
+                                                width: 22, height: 22, borderRadius: 4,
+                                                background: SOURCE_BG[it.source] ?? '#666',
+                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 10, fontWeight: 700, color: '#0b0b0f',
+                                                fontFamily: "'Space Grotesk',sans-serif", flexShrink: 0,
+                                            }}
+                                        >
+                                            {SOURCE_INITIAL[it.source] ?? it.source[0].toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div className={'item-desc'}>{it.description}</div>
+                                    <div className={'item-tags'}>
+                                        {installed && (
+                                            <span className={'tag compat'}>✓ installed</span>
+                                        )}
+                                        {it.latest_version && (
+                                            <span className={'tag'}>v{it.latest_version}</span>
+                                        )}
+                                    </div>
+                                    <div className={'item-meta'}>
+                                        <span className={'m'}>
+                                            <Icon name={'download'} size={11} />
+                                            {fmtCount(it.downloads)}
+                                        </span>
+                                        {it.latest_version && (
+                                            <span className={'m'}>
+                                                <Icon name={'clock'} size={11} />
+                                                {it.latest_version}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
 
                 <div className={'detail-panel'}>
-                    <div className={'detail-hero'}>
-                        <div className={'row gap-8'} style={{ alignItems: 'flex-start', gap: 10 }}>
-                            <div
-                                className={'item-icon'}
-                                style={{ width: 56, height: 56, fontSize: 22, background: 'linear-gradient(135deg, #7c3aed, #22d3ee)' }}
-                            >{sel.icon}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div className={'item-name'} style={{ fontSize: 17 }}>{sel.name}</div>
-                                <div className={'item-author'}>by {sel.author}</div>
-                                <div className={'row gap-6'} style={{ marginTop: 8, gap: 6 }}>
-                                    {sel.tags.includes('featured') && <span className={'tag featured'}>★ featured</span>}
-                                    {sel.tags.includes('compat') && <span className={'tag compat'}>✓ compatible</span>}
+                    {!sel ? (
+                        <div
+                            style={{
+                                padding: 24, textAlign: 'center',
+                                color: 'var(--text-faint)', fontSize: 13,
+                            }}
+                        >
+                            {results.length === 0
+                                ? 'Search a registry to see results.'
+                                : 'Select a result to see details.'}
+                        </div>
+                    ) : (
+                        <>
+                            <div className={'detail-hero'}>
+                                <div
+                                    className={'row gap-8'}
+                                    style={{ alignItems: 'flex-start', gap: 10 }}
+                                >
+                                    <div
+                                        className={'item-icon'}
+                                        style={{
+                                            width: 56, height: 56, fontSize: 22,
+                                            background: sel.icon_url
+                                                ? `url(${sel.icon_url}) center/cover, linear-gradient(135deg, #7c3aed, #22d3ee)`
+                                                : 'linear-gradient(135deg, #7c3aed, #22d3ee)',
+                                        }}
+                                    >
+                                        {!sel.icon_url && sel.name.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className={'item-name'} style={{ fontSize: 17 }}>
+                                            {sel.name}
+                                        </div>
+                                        <div className={'item-author'}>by {sel.author}</div>
+                                        <div
+                                            className={'row gap-6'}
+                                            style={{ marginTop: 8, gap: 6 }}
+                                        >
+                                            {isInstalledHit(sel) && (
+                                                <span className={'tag compat'}>✓ installed</span>
+                                            )}
+                                            <span
+                                                className={'tag'}
+                                                style={{
+                                                    background: SOURCE_BG[sel.source]
+                                                        ? `${SOURCE_BG[sel.source]}20`
+                                                        : 'transparent',
+                                                }}
+                                            >
+                                                {SOURCE_LABEL[sel.source] ?? sel.source}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div className={'detail-body'}>
-                        <h4>About</h4>
-                        <p>
-                            {sel.desc}{' '}
-                            {tab === 'modpacks'
-                                ? 'Selecting this modpack will provision a new world and switch your server software.'
-                                : 'This package will be added to your /plugins directory and loaded on next restart.'}
-                        </p>
-                        <h4>Details</h4>
-                        <ul>
-                            <li><span className={'k'}>Latest version</span><span className={'v'}>{sel.v}</span></li>
-                            <li><span className={'k'}>Minecraft</span><span className={'v'}>{sel.mc}</span></li>
-                            <li><span className={'k'}>Downloads</span><span className={'v'}>{sel.dl}</span></li>
-                            {sel.loader && <li><span className={'k'}>Loader</span><span className={'v'}>{sel.loader}</span></li>}
-                            {sel.count && <li><span className={'k'}>Includes</span><span className={'v'}>{sel.count}</span></li>}
-                            <li><span className={'k'}>License</span><span className={'v'}>MIT</span></li>
-                        </ul>
-                        {tab === 'plugins' && (
-                            <>
-                                <h4>Dependencies</h4>
+                            <div className={'detail-body'}>
+                                <h4>About</h4>
+                                <p>{sel.description}</p>
+                                <h4>Details</h4>
                                 <ul>
+                                    {sel.latest_version && (
+                                        <li>
+                                            <span className={'k'}>Latest version</span>
+                                            <span className={'v'}>{sel.latest_version}</span>
+                                        </li>
+                                    )}
                                     <li>
-                                        <span className={'k'}>
-                                            Vault <span style={{ color: 'var(--green)' }}>· already installed</span>
-                                        </span>
-                                        <span className={'v'}>≥ 1.7</span>
+                                        <span className={'k'}>Downloads</span>
+                                        <span className={'v'}>{sel.downloads.toLocaleString()}</span>
+                                    </li>
+                                    <li>
+                                        <span className={'k'}>Source</span>
+                                        <span className={'v'}>{SOURCE_LABEL[sel.source] ?? sel.source}</span>
+                                    </li>
+                                    <li>
+                                        <span className={'k'}>External ID</span>
+                                        <span className={'v'}>{sel.external_id}</span>
                                     </li>
                                 </ul>
-                            </>
-                        )}
-                        <h4>Permissions</h4>
-                        <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5 }}>
-                            essentials.* · essentials.list · essentials.tpa · essentials.home · …
-                        </p>
-                    </div>
-                    <div className={'detail-foot'}>
-                        {installing === sel.name ? (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                <div className={'row gap-8'} style={{ fontSize: 12 }}>
-                                    <Icon name={'sparkles'} size={12} color={'var(--purple)'} />
-                                    <span style={{ color: 'var(--text)' }}>Installing… resolving dependencies</span>
-                                    <div className={'spacer'} />
-                                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: 'var(--text-faint)' }}>62%</span>
-                                </div>
-                                <div className={'progress'}><div style={{ width: '62%' }} /></div>
+                                {tab === 'modpacks' && (
+                                    <>
+                                        <h4>Heads up</h4>
+                                        <p>
+                                            Modpack installs replace the server jar and overwrite world data.
+                                            Take a backup before continuing.
+                                        </p>
+                                    </>
+                                )}
+                                {installError && (
+                                    <div className={'notice warn'}>
+                                        <Icon name={'zap'} size={14} />
+                                        {installError}
+                                    </div>
+                                )}
                             </div>
-                        ) : (
-                            <>
-                                <button className={'btn btn-primary'} style={{ flex: 1 }} onClick={() => handleInstall(sel)}>
-                                    <Icon name={'download'} size={13} />
-                                    Install {tab === 'modpacks' ? 'modpack' : tab.slice(0, -1)}
-                                </button>
-                                <button className={'btn'}><Icon name={'settings'} size={13} /></button>
-                            </>
-                        )}
-                    </div>
+                            <div className={'detail-foot'}>
+                                {installing === sel.name ? (
+                                    <div
+                                        style={{
+                                            flex: 1, display: 'flex',
+                                            flexDirection: 'column', gap: 6,
+                                        }}
+                                    >
+                                        <div
+                                            className={'row gap-8'}
+                                            style={{ fontSize: 12, gap: 8 }}
+                                        >
+                                            <Icon name={'restart'} size={12} color={'var(--purple)'} className={'spin'} />
+                                            <span style={{ color: 'var(--text)' }}>
+                                                Installing…
+                                            </span>
+                                            <div className={'spacer'} />
+                                        </div>
+                                        <div className={'progress'}>
+                                            <div style={{ width: '100%' }} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        className={'btn btn-primary'}
+                                        style={{ flex: 1 }}
+                                        onClick={handleInstall}
+                                        disabled={isInstalledHit(sel) || !activeSource}
+                                    >
+                                        <Icon name={'download'} size={13} />
+                                        {isInstalledHit(sel)
+                                            ? `Already installed`
+                                            : `Install ${tab === 'modpacks' ? 'modpack' : tab.slice(0, -1)}`}
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
