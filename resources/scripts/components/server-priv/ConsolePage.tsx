@@ -11,6 +11,8 @@ import { Sparkline } from './Sparkline';
 import { PlayerManager } from './PlayerManager';
 import { useServerRoster } from './useServerRoster';
 import { useTps } from './useTps';
+import { CrashLogsPanel } from './CrashLogsPanel';
+import { DiscordCta } from './DiscordCta';
 
 /**
  * Console page — wireframe layout backed by real WebSocket data.
@@ -258,6 +260,8 @@ export const ConsolePage = () => (
         <div className={'col'}>
             <StatRow />
             <ConsolePanel />
+            <DiscordCta />
+            <CrashLogsPanel />
         </div>
         <div className={'col'}>
             <AiCard />

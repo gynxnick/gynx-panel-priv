@@ -298,7 +298,7 @@ const css = `
 .gynx-server-priv .main {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 296px;
   gap: 10px;
   padding: 12px 16px 16px;
   min-height: 0;

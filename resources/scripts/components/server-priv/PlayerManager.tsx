@@ -80,9 +80,30 @@ export const PlayerManager: React.FC = () => {
                         const deopKey = `${name}:deop`;
                         return (
                             <div className={'player-row'} key={name}>
-                                <div className={'player-avatar'} aria-hidden>
-                                    {name.slice(0, 2)}
-                                </div>
+                                {game.label === 'minecraft' ? (
+                                    <img
+                                        className={'player-avatar'}
+                                        src={`https://minotar.net/helm/${encodeURIComponent(name)}/52`}
+                                        alt={''}
+                                        width={26}
+                                        height={26}
+                                        loading={'lazy'}
+                                        style={{ imageRendering: 'pixelated', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                            // minotar 404s for unknown / cracked names; fall back to
+                                            // an initials avatar so the row still reads cleanly.
+                                            const fallback = document.createElement('div');
+                                            fallback.className = 'player-avatar';
+                                            fallback.setAttribute('aria-hidden', 'true');
+                                            fallback.textContent = name.slice(0, 2);
+                                            e.currentTarget.replaceWith(fallback);
+                                        }}
+                                    />
+                                ) : (
+                                    <div className={'player-avatar'} aria-hidden>
+                                        {name.slice(0, 2)}
+                                    </div>
+                                )}
                                 <div className={'player-name'} title={name}>
                                     {name}
                                 </div>
