@@ -37,7 +37,7 @@ import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import SubdomainsContainer from '@/components/server-priv/SubdomainsPage';
 import ConfigEditorContainer from '@/components/server/configs/ConfigEditorContainer';
-import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
+import AccountOverviewContainer from '@/components/account-priv/AccountPage';
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';

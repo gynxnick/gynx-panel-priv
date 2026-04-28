@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useHistory, useRouteMatch } from 'react-router-dom';
+import { Link, NavLink, useHistory, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
@@ -288,11 +288,16 @@ const Topbar = ({ serverName, currentId }: { serverName: string; currentId: stri
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
+    // Logo target: the current server's console. Linking to "/" here would
+    // bounce through DashboardRouter → RootRedirect → /server/<id>, and the
+    // legacy AppShell flashes for the duration of the getServers call. Going
+    // straight to the current server avoids that round-trip entirely.
+    const logoHref = currentId ? `/server/${currentId}` : '/';
     return (
         <div className={'topbar'}>
-            <a href={'/'} className={'logo'} aria-label={'gynx.gg home'}>
+            <Link to={logoHref} className={'logo'} aria-label={'gynx.gg home'}>
                 <LogoMark size={26} alt={'gynx.gg'} />
-            </a>
+            </Link>
             <div className={'divider-v'} />
             <ServerPicker
                 currentId={currentId}

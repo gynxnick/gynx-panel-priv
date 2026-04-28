@@ -8,7 +8,7 @@ import getServers from '@/api/getServers';
 import { httpErrorToHuman } from '@/api/http';
 import routes from '@/routers/routes';
 import AppShell from '@/components/gynx/AppShell';
-import TopBar from '@/components/gynx/TopBar';
+import AccountShell from '@/components/account-priv/AccountShell';
 
 // Root index — auto-redirect to the user's first server. Keeps no
 // dashboard server-list page in the new shell (gynx.gg users mostly
@@ -58,23 +58,39 @@ export default () => {
     const location = useLocation();
     const inAccount = location.pathname.startsWith('/account');
 
-    const header = (
-        <TopBar.Dashboard eyebrow={'you'} title={'account'} />
-    );
+    // /account/* renders inside AccountShell — same priv-themed topbar +
+    // tabs as the server pages. The legacy AppShell (gray sidebar +
+    // background art) is only used for the brief root-redirect window
+    // before getServers resolves; see RootRedirect above.
+    if (inAccount) {
+        return (
+            <AccountShell>
+                <TransitionRouter>
+                    <React.Suspense fallback={<Spinner centered />}>
+                        <Switch location={location}>
+                            {routes.account.map(({ path, component: Component }) => (
+                                <Route key={path} path={`/account/${path}`.replace('//', '/')} exact>
+                                    <Component />
+                                </Route>
+                            ))}
+                            <Route path={'*'}>
+                                <NotFound />
+                            </Route>
+                        </Switch>
+                    </React.Suspense>
+                </TransitionRouter>
+            </AccountShell>
+        );
+    }
 
     return (
-        <AppShell header={inAccount ? header : undefined}>
+        <AppShell>
             <TransitionRouter>
                 <React.Suspense fallback={<Spinner centered />}>
                     <Switch location={location}>
                         <Route path={'/'} exact>
                             <RootRedirect />
                         </Route>
-                        {routes.account.map(({ path, component: Component }) => (
-                            <Route key={path} path={`/account/${path}`.replace('//', '/')} exact>
-                                <Component />
-                            </Route>
-                        ))}
                         <Route path={'*'}>
                             <NotFound />
                         </Route>
