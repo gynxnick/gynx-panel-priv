@@ -467,7 +467,7 @@ export const FilesPage = () => {
                                                     checked={allSelected}
                                                     onChange={toggleSelectAll}
                                                     aria-label={'Select all'}
-                                                    style={{ accentColor: 'var(--purple)', cursor: 'pointer' }}
+                                                    style={{ accentColor: 'var(--purple)', cursor: 'pointer' } as React.CSSProperties}
                                                 />
                                             </th>
                                             <th style={{ width: '40%' }}>Name</th>
@@ -494,7 +494,7 @@ export const FilesPage = () => {
                                                             checked={isSelected}
                                                             onChange={() => toggleSelect(f.name)}
                                                             aria-label={`Select ${f.name}`}
-                                                            style={{ accentColor: 'var(--purple)', cursor: 'pointer' }}
+                                                            style={{ accentColor: 'var(--purple)', cursor: 'pointer' } as React.CSSProperties}
                                                         />
                                                     </td>
                                                     <td
