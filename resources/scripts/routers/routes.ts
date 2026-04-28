@@ -38,9 +38,9 @@ import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import SubdomainsContainer from '@/components/server-priv/SubdomainsPage';
 import ConfigEditorContainer from '@/components/server/configs/ConfigEditorContainer';
 import AccountOverviewContainer from '@/components/account-priv/AccountPage';
-import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
-import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
-import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
+import AccountApiContainer from '@/components/account-priv/ApiKeysPage';
+import AccountSSHContainer from '@/components/account-priv/SshKeysPage';
+import ActivityLogContainer from '@/components/account-priv/ActivityPage';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 
 const FileEditContainer = lazy(() => import('@/components/server/files/FileEditContainer'));

@@ -1454,6 +1454,43 @@ const css = `
   background: linear-gradient(90deg, var(--purple), var(--blue));
   box-shadow: 0 0 8px rgba(124,58,237,0.5);
 }
+
+/* Generic form primitives — input/textarea + matching label. Used by the
+ * priv account pages (api keys / ssh / activity); the server pages still
+ * mostly inline their input styles since each context is bespoke. */
+.gynx-server-priv .priv-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.gynx-server-priv .priv-input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: none;
+  transition: border-color .15s ease;
+}
+.gynx-server-priv textarea.priv-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.gynx-server-priv .priv-input::placeholder {
+  color: var(--text-faint);
+}
+.gynx-server-priv .priv-input:focus {
+  outline: none;
+  border-color: var(--purple);
+}
 `;
 
 const GynxServerStyles = () => <style>{css}</style>;

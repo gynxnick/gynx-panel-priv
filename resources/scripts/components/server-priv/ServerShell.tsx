@@ -336,15 +336,19 @@ interface ServerHeaderProps {
     statusLabel: string;
     statusClass: string;
     metaParts: string[];
+    canStart: boolean;
     canStop: boolean;
+    onStart?: () => void;
     onStop?: () => void;
     onRestart?: () => void;
     onKill?: () => void;
     killable: boolean;
+    isOffline: boolean;
 }
 
 const ServerHeader = ({
-    name, statusLabel, statusClass, metaParts, canStop, onStop, onRestart, onKill, killable,
+    name, statusLabel, statusClass, metaParts,
+    canStart, canStop, onStart, onStop, onRestart, onKill, killable, isOffline,
 }: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
     return (
@@ -364,13 +368,23 @@ const ServerHeader = ({
                     ))}
                 </span>
                 <div className={'spacer'} />
-                <button className={'btn'} onClick={onStop} disabled={!canStop}>
-                    <Icon name={'pause'} size={13} />{killable ? 'Stop' : 'Stop'}
-                </button>
-                <button className={'btn'} onClick={onRestart}>
+                {/* Power buttons. Start and Stop swap based on state so the
+                 * primary action is always whichever transition makes sense
+                 * for the current power state. Restart stays available on
+                 * running, Kill only when the daemon is mid-stop. */}
+                {isOffline ? (
+                    <button className={'btn btn-primary'} onClick={onStart} disabled={!canStart}>
+                        <Icon name={'play'} size={13} />Start
+                    </button>
+                ) : (
+                    <button className={'btn'} onClick={onStop} disabled={!canStop}>
+                        <Icon name={'pause'} size={13} />{killable ? 'Force stop' : 'Stop'}
+                    </button>
+                )}
+                <button className={'btn'} onClick={onRestart} disabled={isOffline}>
                     <Icon name={'restart'} size={13} />Restart
                 </button>
-                <button className={'btn btn-danger'} onClick={onKill}>
+                <button className={'btn btn-danger'} onClick={onKill} disabled={isOffline}>
                     <Icon name={'zap'} size={13} />Kill
                 </button>
             </div>
@@ -472,12 +486,15 @@ export const ServerShell = ({ children }: Props) => {
         : '';
 
     const killable = status === 'stopping';
+    const isOffline = status === 'offline' || !status;
+    const canStart = isOffline && connected && !!instance;
     const canStop = !!status && status !== 'offline';
 
     const send = (action: 'start' | 'restart' | 'stop' | 'kill') => {
         if (!instance || !connected) return;
         instance.send('set state', action);
     };
+    const onStart = () => send('start');
     const onStop = () => send(killable ? 'kill' : 'stop');
     const onRestart = () => send('restart');
     const onKill = () => {
@@ -498,11 +515,14 @@ export const ServerShell = ({ children }: Props) => {
                             statusLabel={statusLabel}
                             statusClass={statusClass}
                             metaParts={metaParts}
+                            canStart={canStart}
                             canStop={canStop}
+                            onStart={onStart}
                             onStop={onStop}
                             onRestart={onRestart}
                             onKill={onKill}
                             killable={killable}
+                            isOffline={isOffline}
                         />
                         {children}
                     </div>

@@ -14,12 +14,11 @@ import http from '@/api/http';
 // gynx AppShell so /account stops flashing the old gray sidebar when users
 // land here from the avatar button.
 
-// Tab list intentionally has just Profile & Security for now — the API
-// Keys / SSH Keys / Activity Log routes still fall back to the legacy
-// PageContentBlock chrome that doesn't match this shell. Re-add the tabs
-// once those three pages have priv-styled equivalents.
 const ACCOUNT_TABS = [
-    { id: 'account',  label: 'Profile & Security', icon: 'shield' as const, path: '' },
+    { id: 'account',  label: 'Profile & Security', icon: 'shield' as const,   path: '' },
+    { id: 'api',      label: 'API Keys',           icon: 'send' as const,     path: 'api' },
+    { id: 'ssh',      label: 'SSH Keys',           icon: 'settings' as const, path: 'ssh' },
+    { id: 'activity', label: 'Activity',           icon: 'clock' as const,    path: 'activity' },
 ];
 
 const AccountTopbar = () => {
