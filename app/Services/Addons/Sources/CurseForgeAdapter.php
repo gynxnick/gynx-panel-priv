@@ -88,7 +88,7 @@ class CurseForgeAdapter implements AddonSource
         return isset(self::CLASS_BY_TYPE[$type]);
     }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
     {
         $this->assertSupports($type);
 

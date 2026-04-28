@@ -35,7 +35,7 @@ class HangarAdapter implements AddonSource
     public function available(): bool { return true; }
     public function supports(string $type): bool { return $type === self::TYPE_PLUGIN; }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
     {
         $this->assertPlugin($type);
 

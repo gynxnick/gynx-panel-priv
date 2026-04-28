@@ -50,7 +50,7 @@ class ModrinthAdapter implements AddonSource
         return in_array($type, [self::TYPE_PLUGIN, self::TYPE_MOD, self::TYPE_MODPACK], true);
     }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
     {
         $this->assertSupports($type);
 
@@ -61,7 +61,7 @@ class ModrinthAdapter implements AddonSource
         // an empty `query` and we sort by downloads to surface the staples.
         $params = [
             'query' => $query,
-            'limit' => min($limit, 30),
+            'limit' => min($limit, 100),
             'facets' => json_encode($facets),
         ];
         if (trim($query) === '') {

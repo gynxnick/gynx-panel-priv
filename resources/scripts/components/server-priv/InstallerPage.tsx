@@ -120,9 +120,6 @@ export const InstallerPage = () => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<AnyHit[]>([]);
     const [loading, setLoading] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedIdx, setSelectedIdx] = useState(0);
     const [installing, setInstalling] = useState<string | null>(null);
@@ -150,27 +147,22 @@ export const InstallerPage = () => {
         };
     }, [tab, uuid]);
 
-    // Search whenever activeSource or query changes (debounced). Always
-    // resets to page 1 + clears prior results.
+    // Search whenever activeSource or query changes (debounced). The backend
+    // returns up to 60 hits per source per query — there's no real
+    // pagination, so this is the full result set the user sees.
     useEffect(() => {
         if (!activeSource) {
             setResults([]);
-            setHasMore(false);
             return;
         }
         let alive = true;
         const id = window.setTimeout(() => {
             setLoading(true);
             setError(null);
-            setPage(1);
-            api.search(uuid, activeSource, query, undefined, 1)
+            api.search(uuid, activeSource, query)
                 .then((hits) => {
                     if (!alive) return;
                     setResults(hits);
-                    // If we got 0 hits there's nothing more either; if we
-                    // got a non-empty page assume there might be more
-                    // until a load-more comes back empty.
-                    setHasMore(hits.length > 0);
                     setSelectedIdx(0);
                 })
                 .catch((e) => alive && setError(httpErrorToHuman(e as Error)))
@@ -181,30 +173,6 @@ export const InstallerPage = () => {
             window.clearTimeout(id);
         };
     }, [tab, activeSource, query, uuid]);
-
-    const handleLoadMore = async () => {
-        if (!activeSource || loadingMore || !hasMore) return;
-        const next = page + 1;
-        setLoadingMore(true);
-        try {
-            const hits = await api.search(uuid, activeSource, query, undefined, next);
-            // De-dup by external_id in case the backend returns overlapping
-            // results across pages (or paging isn't honored and we'd just
-            // append the same set).
-            const seen = new Set(results.map((r) => `${r.source}:${r.external_id}`));
-            const fresh = hits.filter((r) => !seen.has(`${r.source}:${r.external_id}`));
-            if (fresh.length === 0) {
-                setHasMore(false);
-            } else {
-                setResults((prev) => [...prev, ...fresh]);
-                setPage(next);
-            }
-        } catch (e) {
-            setError(httpErrorToHuman(e as Error));
-        } finally {
-            setLoadingMore(false);
-        }
-    };
 
     const sel = results[Math.min(selectedIdx, Math.max(results.length - 1, 0))];
 
@@ -429,39 +397,6 @@ export const InstallerPage = () => {
                                 </div>
                             );
                         })
-                    )}
-                    {/* Load more — appended to the grid's bottom row.
-                        Spans the full grid via column-end:-1. Hidden when
-                        there's no active source / no current results /
-                        we've established that the next page returned 0. */}
-                    {activeSource && results.length > 0 && hasMore && (
-                        <div
-                            style={{
-                                gridColumn: '1 / -1',
-                                display: 'flex', justifyContent: 'center',
-                                padding: '8px 0 4px',
-                            }}
-                        >
-                            <button
-                                className={'btn'}
-                                onClick={handleLoadMore}
-                                disabled={loadingMore}
-                            >
-                                {loadingMore ? 'Loading…' : `Load more (page ${page + 1})`}
-                            </button>
-                        </div>
-                    )}
-                    {activeSource && results.length > 0 && !hasMore && (
-                        <div
-                            style={{
-                                gridColumn: '1 / -1', textAlign: 'center',
-                                color: 'var(--text-faint)', fontSize: 11,
-                                padding: '6px 0 4px',
-                                fontFamily: "'JetBrains Mono', monospace",
-                            }}
-                        >
-                            end of results
-                        </div>
                     )}
                 </div>
 

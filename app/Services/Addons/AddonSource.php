@@ -32,7 +32,7 @@ interface AddonSource
      *   latest_version:?string, source:string
      * }>
      */
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array;
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array;
 
     /**
      * @return array{url:string, file_name:string, file_hash:?string, version:string, version_id:string}
