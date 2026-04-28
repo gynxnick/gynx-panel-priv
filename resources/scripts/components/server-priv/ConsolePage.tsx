@@ -207,9 +207,7 @@ const AiCard = () => (
         <div className={'ai-card-bg'} />
         <div className={'ai-card-inner'}>
             <div className={'row'} style={{ justifyContent: 'space-between' }}>
-                <span className={'ai-badge'}>
-                    <Icon name={'sparkles'} size={11} color={'var(--purple)'} />
-                    gynx ai
+                <span className={'ai-badge'}>gynx ai
                 </span>
                 <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: "'JetBrains Mono',monospace" }}>
                     coming soon

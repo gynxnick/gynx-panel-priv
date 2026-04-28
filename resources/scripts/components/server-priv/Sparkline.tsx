@@ -11,7 +11,7 @@ interface Props {
  * Tiny sparkline used inside StatCard. Translated from the wireframe Spark
  * component — same SVG path math, drop-shadow filter for the accent glow.
  */
-export const Sparkline = ({ points, color = '#7c3aed', fill = true, glow = true }: Props) => {
+export const Sparkline = ({ points, color = '#7c3aed', fill = true, glow = false }: Props) => {
     const w = 100;
     const h = 40;
     const min = Math.min(...points);

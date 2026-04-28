@@ -142,7 +142,7 @@ export const SettingsPage = () => {
                     {identitySavedAt && Date.now() - identitySavedAt < 4000 && (
                         <>
                             <div className={'spacer'} />
-                            <span className={'tag compat'}>✓ saved</span>
+                            <span className={'tag compat'}>saved</span>
                         </>
                     )}
                 </div>

@@ -193,7 +193,7 @@ export const SubdomainsPage = () => {
                                             <span className={'sub'}>{rec.hostname}</span>
                                             <span className={'root'}>.{rec.zone?.domain ?? ''}</span>
                                             {isPrimary && (
-                                                <span className={'tag featured'} style={{ marginLeft: 8 }}>★ primary</span>
+                                                <span className={'tag featured'} style={{ marginLeft: 8 }}>primary</span>
                                             )}
                                         </div>
                                         <div className={'sd-meta'}>
@@ -401,10 +401,7 @@ export const SubdomainsPage = () => {
                     <div className={'panel ai-card'}>
                         <div className={'ai-card-bg'} />
                         <div className={'ai-card-inner'}>
-                            <span className={'ai-badge'}>
-                                <Icon name={'sparkles'} size={11} color={'var(--purple)'} />
-                                gynx ai
-                            </span>
+                            <span className={'ai-badge'}>gynx ai</span>
                             <p className={'ai-msg'} style={{ fontSize: 13 }}>
                                 Coming soon: vanity short links and Discord integration that route users to{' '}
                                 <span className={'hl'}>

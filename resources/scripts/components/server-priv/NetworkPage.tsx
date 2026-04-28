@@ -206,7 +206,7 @@ export const NetworkPage = () => {
                                         {a.port}
                                         {a.isDefault && (
                                             <span className={'tag featured'} style={{ marginLeft: 8 }}>
-                                                ★ primary
+                                                primary
                                             </span>
                                         )}
                                     </td>

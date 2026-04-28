@@ -304,7 +304,7 @@ export const StartupPage = () => {
                         </span>
                     </div>
                     <div className={'spacer'} />
-                    <span className={'tag compat'}>✓ valid</span>
+                    <span className={'tag compat'}>valid</span>
                 </div>
                 <div style={{ padding: 14 }}>
                     <div

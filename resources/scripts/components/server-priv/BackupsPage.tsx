@@ -237,7 +237,7 @@ const BackupsView = (_: BackupsViewProps) => {
                                                     borderColor: 'rgba(245,158,11,0.3)',
                                                     color: '#fde68a',
                                                 }}
-                                            >★ locked</span>
+                                            >locked</span>
                                         )}
                                     </div>
                                     <div className={'backup-meta'}>

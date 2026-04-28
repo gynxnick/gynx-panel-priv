@@ -41,11 +41,15 @@ type Tab = 'plugins' | 'mods' | 'modpacks';
 type AnyHit = PluginSearchHit | ModSearchHit | ModpackSearchHit;
 type AnyInstalled = InstalledPlugin | InstalledMod | InstalledModpack;
 
+// Toned-down source palette — the wireframe ran the brand colors at full
+// saturation which read as "rainbow squares". These are muted by ~30%
+// luma so they still color-code the source without competing for
+// attention with content.
 const SOURCE_BG: Record<string, string> = {
-    modrinth: '#1bd96a',
-    curseforge: '#f16436',
-    hangar: '#005c9c',
-    spigot: '#ee8a18',
+    modrinth: '#21a35a',
+    curseforge: '#c25638',
+    hangar: '#2c6a96',
+    spigot: '#b87a26',
 };
 const SOURCE_LABEL: Record<string, string> = {
     modrinth: 'Modrinth',
@@ -364,7 +368,7 @@ export const InstallerPage = () => {
                                     <div className={'item-desc'}>{it.description}</div>
                                     <div className={'item-tags'}>
                                         {installed && (
-                                            <span className={'tag compat'}>✓ installed</span>
+                                            <span className={'tag compat'}>installed</span>
                                         )}
                                         {it.latest_version && (
                                             <span className={'tag'}>v{it.latest_version}</span>
@@ -428,7 +432,7 @@ export const InstallerPage = () => {
                                             style={{ marginTop: 8, gap: 6 }}
                                         >
                                             {isInstalledHit(sel) && (
-                                                <span className={'tag compat'}>✓ installed</span>
+                                                <span className={'tag compat'}>installed</span>
                                             )}
                                             <span
                                                 className={'tag'}
