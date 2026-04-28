@@ -9,23 +9,20 @@ import { httpErrorToHuman } from '@/api/http';
 import Spinner from '@/components/elements/Spinner';
 import { Icon } from './Icon';
 
-// Startup page — wireframe layout (command preview + docker image picker
-// + variables grid) backed by the real /startup API. Variables save
-// inline on blur; Docker image swap saves immediately on change.
-//
-// Token highlighter for the resolved command line: java keyword in
-// purple, flags in amber, ${VARIABLES} in green, jar paths in cyan.
-// Stripped to just regex-classification — no tokenizer dependency.
+// Startup page — wireframe translation of startup.jsx, backed by the
+// real /startup endpoint. Three section cards: command preview with
+// styled $-prompt + token highlighting + copy, docker image picker
+// (kv-grid layout), and a 2-col variables grid that saves on blur.
 
 const COMMAND_TOKEN_PATTERNS: Array<[RegExp, string]> = [
-    // env-style variables — {{X}} and ${X}
+    // env-style variables — {{X}} or ${X}
     [/^(\{\{[^}]+\}\}|\$\{?[A-Z_][A-Z0-9_]*\}?)/, '#6ee7b7'],
     // jar / archive paths
     [/^(\S+\.(jar|zip|tar|gz))/, '#22d3ee'],
     // long-form flags
     [/^(--?[a-zA-Z][a-zA-Z0-9-]*(?:=\S+)?)/, '#fcd34d'],
-    // -X jvm flags
-    [/^(-X[A-Z][^\s]*)/, '#fcd34d'],
+    // -X jvm flags / -D system props
+    [/^(-[XD][A-Z][^\s]*)/, '#fcd34d'],
     // common keywords
     [/^(java|node|python|python3|dotnet|exec|sh|bash)\b/, '#c4b5fd'],
 ];
@@ -35,7 +32,6 @@ const tokenizeCommand = (cmd: string): React.ReactNode[] => {
     let rest = cmd;
     let key = 0;
     while (rest.length > 0) {
-        // skip whitespace verbatim
         const ws = rest.match(/^\s+/);
         if (ws) {
             out.push(ws[0]);
@@ -53,13 +49,31 @@ const tokenizeCommand = (cmd: string): React.ReactNode[] => {
             }
         }
         if (!matched) {
-            // grab the next word so we don't re-loop forever on unmatched chars
             const word = rest.match(/^\S+/)?.[0] ?? rest[0];
             out.push(<span key={key++} style={{ color: 'var(--text-soft)' }}>{word}</span>);
             rest = rest.slice(word.length);
         }
     }
     return out;
+};
+
+const copyToClipboard = async (text: string) => {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+    } catch (e) {
+        console.error('copy failed', e);
+    }
 };
 
 const VariableCard = ({
@@ -81,6 +95,17 @@ const VariableCard = ({
     const options = isOptions
         ? (variable.rules.find((r) => r.startsWith('in:')) ?? '').replace(/^in:/, '').split(',')
         : null;
+    const isNumeric = !isOptions && variable.rules.some((r) => /^(numeric|integer|min:\d|max:\d)/.test(r));
+
+    const inputStyle: React.CSSProperties = {
+        width: '100%', height: 32,
+        background: 'rgba(0,0,0,0.3)',
+        border: '1px solid var(--line)',
+        borderRadius: 6, padding: '0 8px',
+        color: 'var(--text)',
+        fontFamily: "'JetBrains Mono',monospace",
+        fontSize: 12, outline: 'none',
+    };
 
     const commit = async () => {
         if (!variable.isEditable) return;
@@ -100,10 +125,11 @@ const VariableCard = ({
     return (
         <div className={'var-card'}>
             <div className={'vk'}>{variable.envVariable}</div>
-            <label
+            <div
                 style={{
-                    display: 'block', fontSize: 13, fontWeight: 500,
-                    color: 'var(--text)', marginBottom: 8,
+                    fontSize: 13, color: 'white',
+                    fontFamily: "'Space Grotesk',sans-serif",
+                    marginBottom: 6,
                 }}
             >
                 {variable.name}
@@ -113,31 +139,24 @@ const VariableCard = ({
                             marginLeft: 8, fontSize: 10, padding: '1px 6px',
                             borderRadius: 4, background: 'rgba(255,255,255,0.05)',
                             color: 'var(--text-faint)', border: '1px solid var(--line)',
+                            fontFamily: "'Inter',sans-serif", fontWeight: 500,
                         }}
                     >read-only</span>
                 )}
-            </label>
+            </div>
             {options ? (
                 <select
                     value={value}
                     disabled={!variable.isEditable || saving}
                     onChange={(e) => setValue(e.target.value)}
                     onBlur={commit}
-                    style={{
-                        height: 34, width: '100%',
-                        background: 'rgba(0,0,0,0.25)',
-                        border: '1px solid var(--line)',
-                        borderRadius: 7, padding: '0 10px',
-                        color: 'var(--text)',
-                        fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5,
-                        outline: 'none',
-                    }}
+                    style={inputStyle}
                 >
                     {options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
             ) : (
                 <input
-                    type={'text'}
+                    type={isNumeric ? 'number' : 'text'}
                     value={value}
                     disabled={!variable.isEditable || saving}
                     placeholder={variable.defaultValue ?? ''}
@@ -146,25 +165,25 @@ const VariableCard = ({
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
                     }}
-                    style={{
-                        height: 34, width: '100%',
-                        background: 'rgba(0,0,0,0.25)',
-                        border: '1px solid var(--line)',
-                        borderRadius: 7, padding: '0 10px',
-                        color: 'var(--text)',
-                        fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5,
-                        outline: 'none',
-                    }}
+                    style={inputStyle}
                 />
             )}
             <div className={'vh'}>
                 {variable.description}
                 {error && (
-                    <span style={{ display: 'block', color: 'var(--pink)', marginTop: 4 }}>{error}</span>
+                    <span style={{ display: 'block', color: 'var(--pink)', marginTop: 4 }}>
+                        {error}
+                    </span>
                 )}
-                {saving && <span style={{ display: 'block', color: 'var(--text-faint)', marginTop: 4 }}>Saving…</span>}
+                {saving && (
+                    <span style={{ display: 'block', color: 'var(--text-faint)', marginTop: 4 }}>
+                        Saving…
+                    </span>
+                )}
                 {savedAt && !saving && !error && Date.now() - savedAt < 4000 && (
-                    <span style={{ display: 'block', color: 'var(--green)', marginTop: 4 }}>Saved.</span>
+                    <span style={{ display: 'block', color: 'var(--green)', marginTop: 4 }}>
+                        Saved.
+                    </span>
                 )}
             </div>
         </div>
@@ -177,6 +196,8 @@ export const StartupPage = () => {
     const initialDockerImage = ServerContext.useStoreState((s) => s.server.data!.dockerImage);
     const initialVariables = ServerContext.useStoreState((s) => s.server.data!.variables);
     const setServerFromState = ServerContext.useStoreActions((a) => a.server.setServerFromState);
+    const status = ServerContext.useStoreState((s) => s.status.value);
+    const instance = ServerContext.useStoreState((s) => s.socket.instance);
 
     const { data, error, mutate } = getServerStartup(uuid, {
         invocation: initialInvocation,
@@ -218,15 +239,19 @@ export const StartupPage = () => {
         }));
     };
 
+    const handleApplyRestart = () => {
+        if (!instance) return;
+        if (!confirm('Restart the server now to apply startup changes?')) return;
+        instance.send('set state', status === 'offline' ? 'start' : 'restart');
+    };
+
     if (!data) {
         return (
             <div className={'sub-main'}>
                 <div className={'page-header'}>
                     <div>
                         <div className={'page-title'}>Startup</div>
-                        <div className={'page-sub'}>
-                            Loading startup configuration…
-                        </div>
+                        <div className={'page-sub'}>Loading startup configuration…</div>
                     </div>
                 </div>
                 {error ? (
@@ -255,93 +280,124 @@ export const StartupPage = () => {
                 <div>
                     <div className={'page-title'}>Startup</div>
                     <div className={'page-sub'}>
-                        Resolved startup command, docker image, and editable variables for this server.
+                        Boot configuration. Changes apply on next restart.
                     </div>
                 </div>
+                <div className={'spacer'} />
+                <button
+                    className={'btn'}
+                    onClick={handleApplyRestart}
+                    disabled={!instance}
+                    title={'Restart the server now to apply changes'}
+                >
+                    <Icon name={'restart'} size={13} />Apply & restart
+                </button>
             </div>
 
             <div className={'section-card'}>
                 <div className={'section-head'}>
-                    <Icon name={'play'} size={14} color={'var(--purple)'} />
+                    <Icon name={'console'} size={14} color={'var(--blue)'} />
                     <div>
                         <h3>Startup command</h3>
-                        <span className={'desc'}>Read-only preview — variables resolve into this on launch.</span>
+                        <span className={'desc'}>
+                            Resolved from your variables — read-only preview.
+                        </span>
                     </div>
+                    <div className={'spacer'} />
+                    <span className={'tag compat'}>✓ valid</span>
                 </div>
                 <div style={{ padding: 14 }}>
-                    <pre
+                    <div
+                        className={'conn-string'}
                         style={{
-                            margin: 0, padding: '12px 14px',
-                            background: '#07070a', border: '1px solid var(--line)',
-                            borderRadius: 8,
-                            fontFamily: "'JetBrains Mono', monospace",
-                            fontSize: 12.5,
-                            lineHeight: 1.6,
-                            color: 'var(--text-soft)',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
+                            fontSize: 12.5, padding: 14, lineHeight: 1.7,
+                            alignItems: 'flex-start',
                         }}
                     >
-                        {tokenizeCommand(data.invocation)}
-                    </pre>
+                        <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>$</span>
+                        <span
+                            className={'v'}
+                            style={{
+                                flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                color: 'var(--text)', overflow: 'visible',
+                                fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                        >
+                            {tokenizeCommand(data.invocation)}
+                        </span>
+                        <button
+                            className={'icon-btn'}
+                            onClick={() => copyToClipboard(data.invocation)}
+                            title={'Copy command'}
+                            style={{ flexShrink: 0 }}
+                        >
+                            <Icon name={'copy'} size={12} />
+                        </button>
+                    </div>
+                    <div
+                        style={{
+                            fontSize: 11.5, color: 'var(--text-faint)',
+                            marginTop: 8,
+                            fontFamily: "'JetBrains Mono',monospace",
+                        }}
+                    >
+                        ⓘ Variables wrapped in{' '}
+                        <span style={{ color: 'var(--purple)' }}>{`{{...}}`}</span> or{' '}
+                        <span style={{ color: 'var(--purple)' }}>{`\${...}`}</span>{' '}
+                        resolve from your config below.
+                    </div>
                 </div>
             </div>
 
             <div className={'section-card'}>
                 <div className={'section-head'}>
-                    <Icon name={'db'} size={14} color={'var(--blue)'} />
+                    <Icon name={'archive'} size={14} color={'var(--purple)'} />
                     <div>
                         <h3>Docker image</h3>
-                        <span className={'desc'}>
-                            {isCustomImage
-                                ? 'Set by an admin — cannot be changed from here.'
-                                : 'The container image used to run this server.'}
-                        </span>
+                        <span className={'desc'}>Container that wraps your server process.</span>
                     </div>
                 </div>
-                <div style={{ padding: 14 }}>
+                <div className={'kv-grid'}>
+                    <label>
+                        Image
+                        <span className={'hint'}>
+                            {isCustomImage
+                                ? 'Set by an admin — cannot be changed from here.'
+                                : 'Maintained by gynx — updated weekly.'}
+                        </span>
+                    </label>
                     {!isCustomImage && dockerImageEntries.length > 1 ? (
                         <select
                             value={dockerImage}
                             disabled={imageBusy}
                             onChange={handleDockerImage}
-                            style={{
-                                height: 36, width: '100%',
-                                background: 'rgba(0,0,0,0.25)',
-                                border: '1px solid var(--line)',
-                                borderRadius: 7, padding: '0 12px',
-                                color: 'var(--text)',
-                                fontFamily: "'JetBrains Mono',monospace", fontSize: 13,
-                                outline: 'none',
-                            }}
                         >
                             {dockerImageEntries.map(([label, value]) => (
                                 <option key={value} value={value}>{label}</option>
                             ))}
                         </select>
                     ) : (
-                        <code
-                            style={{
-                                display: 'block', padding: '10px 12px',
-                                background: '#07070a', border: '1px solid var(--line)',
-                                borderRadius: 7, fontSize: 12.5, color: 'var(--text-soft)',
-                            }}
-                        >
-                            {dockerImage}
-                        </code>
+                        <input value={dockerImage} disabled readOnly />
                     )}
-                    {imageBusy && (
-                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 8 }}>
-                            Saving image…
-                        </div>
-                    )}
-                    {imageError && (
-                        <div className={'notice warn'} style={{ marginTop: 10 }}>
+                </div>
+                {imageBusy && (
+                    <div
+                        style={{
+                            fontSize: 11, color: 'var(--text-faint)',
+                            padding: '0 16px 12px',
+                        }}
+                    >
+                        Saving image…
+                    </div>
+                )}
+                {imageError && (
+                    <div style={{ padding: '0 14px 14px' }}>
+                        <div className={'notice warn'}>
                             <Icon name={'zap'} size={14} />
                             {imageError}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             <div className={'section-card'}>
@@ -350,14 +406,22 @@ export const StartupPage = () => {
                     <div>
                         <h3>Variables</h3>
                         <span className={'desc'}>
-                            Edit server-side egg values. Changes save on blur and rebuild the startup command.
+                            Inputs your startup command interpolates from. Save on blur.
                         </span>
                     </div>
                 </div>
-                <div style={{ padding: 14 }}>
+                <div
+                    style={{
+                        padding: 14,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                        gap: 12,
+                    }}
+                >
                     {data.variables.length === 0 ? (
                         <div
                             style={{
+                                gridColumn: '1 / -1',
                                 padding: 24, textAlign: 'center',
                                 color: 'var(--text-faint)', fontSize: 13,
                             }}
@@ -365,21 +429,13 @@ export const StartupPage = () => {
                             No editable variables for this egg.
                         </div>
                     ) : (
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                                gap: 12,
-                            }}
-                        >
-                            {data.variables.map((v) => (
-                                <VariableCard
-                                    key={v.envVariable}
-                                    variable={v}
-                                    onSave={(value) => handleSaveVariable(v.envVariable, value)}
-                                />
-                            ))}
-                        </div>
+                        data.variables.map((v) => (
+                            <VariableCard
+                                key={v.envVariable}
+                                variable={v}
+                                onSave={(value) => handleSaveVariable(v.envVariable, value)}
+                            />
+                        ))
                     )}
                 </div>
             </div>
