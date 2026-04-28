@@ -1,26 +1,25 @@
 import * as React from 'react';
-import { useEffect, useMemo } from 'react';
-import { NavLink, useLocation, useRouteMatch } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, useHistory, useLocation, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import useFileManagerSwr from '@/plugins/useFileManagerSwr';
 import { hashToPath, encodePathSegments } from '@/helpers';
 import { bytesToString } from '@/lib/formatters';
 import { httpErrorToHuman } from '@/api/http';
 import { FileObject } from '@/api/server/files/loadDirectory';
+import deleteFiles from '@/api/server/files/deleteFiles';
+import renameFiles from '@/api/server/files/renameFiles';
+import createDirectory from '@/api/server/files/createDirectory';
+import saveFileContents from '@/api/server/files/saveFileContents';
 import Spinner from '@/components/elements/Spinner';
 import { Icon, IconName } from './Icon';
 
-/**
- * Files page — wireframe layout backed by real Pterodactyl files API.
- *
- * Reads the current directory from the URL hash (legacy convention),
- * fetches via useFileManagerSwr, and renders the standard tree-by-folder
- * + file table layout. Click a folder → navigate into it. Click a file →
- * jump to the legacy edit screen at /files/edit#<path>.
- *
- * The code-preview pane stays as a dim placeholder for now; a real preview
- * needs a getFileContents call + a syntax highlighter, follow-up work.
- */
+// Files page — wireframe layout backed by real Pterodactyl files API.
+// Click folder → navigate. Click file → legacy editor. Per-row rename
+// (pencil) + delete (trash). Multi-select via checkboxes; mass-actions
+// bar at the top of the table when ≥1 row is selected. New file / new
+// folder via the toolbar buttons. Upload + search are still placeholders
+// (uploads need a dropzone; search needs a recursive walk).
 
 const sortFiles = (files: FileObject[]): FileObject[] => {
     return [...files]
@@ -83,10 +82,13 @@ const Crumbs = ({ directory, baseUrl }: CrumbsProps) => {
 
 export const FilesPage = () => {
     const location = useLocation();
+    const history = useHistory();
     const match = useRouteMatch<{ id: string }>();
     const baseUrl = `/server/${match.params.id}/files`;
     const editUrl = `/server/${match.params.id}/files/edit`;
+    const newUrl = `/server/${match.params.id}/files/new`;
 
+    const uuid = ServerContext.useStoreState((s) => s.server.data!.uuid);
     const directory = ServerContext.useStoreState((s) => s.files.directory);
     const setDirectory = ServerContext.useStoreActions((a) => a.files.setDirectory);
     const setSelectedFiles = ServerContext.useStoreActions((a) => a.files.setSelectedFiles);
@@ -98,15 +100,34 @@ export const FilesPage = () => {
 
     const { data: files, error, mutate } = useFileManagerSwr();
 
-    // useFileManagerSwr is configured `revalidateOnMount: false`, so the
-    // hook never fetches automatically on first mount. Trigger it manually
-    // every time the directory state changes (matches the legacy page).
     useEffect(() => {
         mutate();
     }, [directory]);
 
     const sortedFiles = useMemo(() => (files ? sortFiles(files) : []), [files]);
     const folders = sortedFiles.filter((f) => !f.isFile);
+
+    // Local selection set keyed by file name (server uses name + dir for ops).
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [busy, setBusy] = useState(false);
+
+    // Reset selection when directory changes.
+    useEffect(() => { setSelected(new Set()); }, [directory]);
+
+    const toggleSelect = (name: string) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name); else next.add(name);
+            return next;
+        });
+    };
+    const toggleSelectAll = () => {
+        setSelected((prev) =>
+            prev.size === sortedFiles.length
+                ? new Set()
+                : new Set(sortedFiles.map((f) => f.name)),
+        );
+    };
 
     const linkForFile = (f: FileObject): string => {
         const targetDir = directory.replace(/\/+$/, '') + '/' + f.name;
@@ -115,6 +136,78 @@ export const FilesPage = () => {
         }
         return `${baseUrl}#${encodePathSegments(targetDir)}`;
     };
+
+    const handleNewFolder = async () => {
+        const name = prompt('Folder name:', '');
+        if (!name) return;
+        try {
+            setBusy(true);
+            await createDirectory(uuid, directory, name);
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleNewFile = () => {
+        // The legacy /files/new screen has the full editor + filename input.
+        // Better UX than spawning an empty file inline and re-navigating.
+        history.push(newUrl);
+    };
+
+    const handleRename = async (f: FileObject) => {
+        const next = prompt(`Rename "${f.name}" to:`, f.name);
+        if (!next || next === f.name) return;
+        try {
+            setBusy(true);
+            await renameFiles(uuid, directory, [{ from: f.name, to: next }]);
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleDeleteOne = async (f: FileObject) => {
+        if (!confirm(`Delete "${f.name}"? This cannot be undone.`)) return;
+        try {
+            setBusy(true);
+            await deleteFiles(uuid, directory, [f.name]);
+            setSelected((prev) => {
+                const next = new Set(prev);
+                next.delete(f.name);
+                return next;
+            });
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleDeleteSelected = async () => {
+        if (selected.size === 0) return;
+        if (!confirm(
+            `Delete ${selected.size} item${selected.size === 1 ? '' : 's'}? This cannot be undone.`,
+        )) return;
+        try {
+            setBusy(true);
+            await deleteFiles(uuid, directory, Array.from(selected));
+            setSelected(new Set());
+            await mutate();
+        } catch (e) {
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const allSelected = sortedFiles.length > 0 && selected.size === sortedFiles.length;
+    const someSelected = selected.size > 0;
 
     return (
         <div className={'sub-main'}>
@@ -125,10 +218,18 @@ export const FilesPage = () => {
                 </div>
                 <div className={'spacer'} />
                 <div className={'row gap-6'}>
-                    <button className={'btn'} disabled><Icon name={'search'} size={13} />Search files</button>
-                    <button className={'btn'} disabled><Icon name={'folder'} size={13} />New folder</button>
-                    <button className={'btn'} disabled><Icon name={'download'} size={13} />Upload</button>
-                    <button className={'btn btn-primary'} disabled><Icon name={'plus'} size={13} />New file</button>
+                    <button className={'btn'} disabled title={'Coming soon'}>
+                        <Icon name={'search'} size={13} />Search files
+                    </button>
+                    <button className={'btn'} onClick={handleNewFolder} disabled={busy}>
+                        <Icon name={'folder'} size={13} />New folder
+                    </button>
+                    <button className={'btn'} disabled title={'Coming soon'}>
+                        <Icon name={'download'} size={13} />Upload
+                    </button>
+                    <button className={'btn btn-primary'} onClick={handleNewFile} disabled={busy}>
+                        <Icon name={'plus'} size={13} />New file
+                    </button>
                 </div>
             </div>
 
@@ -140,8 +241,32 @@ export const FilesPage = () => {
                 </span>
             </div>
 
+            {someSelected && (
+                <div
+                    className={'notice purple'}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                >
+                    <Icon name={'archive'} size={14} />
+                    <strong style={{ color: 'white' }}>{selected.size}</strong> selected
+                    <div className={'spacer'} />
+                    <button
+                        className={'btn btn-sm'}
+                        onClick={() => setSelected(new Set())}
+                    >
+                        Clear
+                    </button>
+                    <button
+                        className={'btn btn-sm btn-danger'}
+                        onClick={handleDeleteSelected}
+                        disabled={busy}
+                    >
+                        <Icon name={'trash'} size={11} />
+                        Delete {selected.size}
+                    </button>
+                </div>
+            )}
+
             <div className={'files-layout'}>
-                {/* sidebar — folders in current directory */}
                 <div className={'panel'} style={{ padding: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <div className={'side-label'} style={{ padding: '8px 10px 4px' }}>
                         Folders here
@@ -174,7 +299,6 @@ export const FilesPage = () => {
                     </div>
                 </div>
 
-                {/* file list — fills the available vertical space */}
                 <div className={'col'} style={{ gap: 12, minHeight: 0 }}>
                     <div
                         className={'panel'}
@@ -197,55 +321,97 @@ export const FilesPage = () => {
                                 <table className={'tbl'}>
                                     <thead>
                                         <tr>
-                                            <th style={{ width: '45%' }}>Name</th>
+                                            <th style={{ width: 36, paddingRight: 0 }}>
+                                                <input
+                                                    type={'checkbox'}
+                                                    checked={allSelected}
+                                                    onChange={toggleSelectAll}
+                                                    aria-label={'Select all'}
+                                                    style={{ accentColor: 'var(--purple)', cursor: 'pointer' }}
+                                                />
+                                            </th>
+                                            <th style={{ width: '40%' }}>Name</th>
                                             <th>Size</th>
                                             <th>Modified</th>
                                             <th>Permissions</th>
-                                            <th style={{ width: 50 }}></th>
+                                            <th style={{ width: 88 }}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {sortedFiles.map((f) => (
-                                            <tr
-                                                key={f.key}
-                                                className={`file-row ${f.isFile ? '' : 'dir'}`}
-                                                onClick={() => {
-                                                    // Navigate via the NavLink would be more idiomatic — but the
-                                                    // tr is the click target so we set window.location.hash
-                                                    // (location-based routing). For files, change to edit URL.
-                                                    if (f.isFile) {
-                                                        window.location.href = linkForFile(f);
-                                                    } else {
-                                                        window.location.hash = encodePathSegments(
-                                                            directory.replace(/\/+$/, '') + '/' + f.name,
-                                                        );
-                                                    }
-                                                }}
-                                            >
-                                                <td>
-                                                    <span className={'fname'}>
-                                                        {f.isFile
-                                                            ? <Icon name={iconForFile(f)} size={14} />
-                                                            : <Icon name={'folder'} size={14} />}
-                                                        {f.name}
-                                                    </span>
-                                                </td>
-                                                <td className={'mono'}>{f.isFile ? bytesToString(f.size) : '—'}</td>
-                                                <td className={'dim'}>{formatRelative(f.modifiedAt)}</td>
-                                                <td className={'mono dim'}>{f.modeBits}</td>
-                                                <td>
-                                                    <div className={'icon-btn'} style={{ width: 22, height: 22 }}>
-                                                        <Icon name={'chevron-right'} size={12} />
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {sortedFiles.map((f) => {
+                                            const isSelected = selected.has(f.name);
+                                            return (
+                                                <tr
+                                                    key={f.key}
+                                                    className={`file-row ${f.isFile ? '' : 'dir'} ${isSelected ? 'selected' : ''}`}
+                                                >
+                                                    <td
+                                                        style={{ width: 36, paddingRight: 0 }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <input
+                                                            type={'checkbox'}
+                                                            checked={isSelected}
+                                                            onChange={() => toggleSelect(f.name)}
+                                                            aria-label={`Select ${f.name}`}
+                                                            style={{ accentColor: 'var(--purple)', cursor: 'pointer' }}
+                                                        />
+                                                    </td>
+                                                    <td
+                                                        onClick={() => {
+                                                            if (f.isFile) {
+                                                                window.location.href = linkForFile(f);
+                                                            } else {
+                                                                window.location.hash = encodePathSegments(
+                                                                    directory.replace(/\/+$/, '') + '/' + f.name,
+                                                                );
+                                                            }
+                                                        }}
+                                                    >
+                                                        <span className={'fname'}>
+                                                            {f.isFile
+                                                                ? <Icon name={iconForFile(f)} size={14} />
+                                                                : <Icon name={'folder'} size={14} />}
+                                                            {f.name}
+                                                        </span>
+                                                    </td>
+                                                    <td className={'mono'}>{f.isFile ? bytesToString(f.size) : '—'}</td>
+                                                    <td className={'dim'}>{formatRelative(f.modifiedAt)}</td>
+                                                    <td className={'mono dim'}>{f.modeBits}</td>
+                                                    <td>
+                                                        <div
+                                                            className={'row gap-4'}
+                                                            style={{ gap: 4, justifyContent: 'flex-end' }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <button
+                                                                className={'icon-btn'}
+                                                                onClick={() => handleRename(f)}
+                                                                disabled={busy}
+                                                                title={'Rename'}
+                                                                style={{ width: 26, height: 26 }}
+                                                            >
+                                                                <Icon name={'settings'} size={11} />
+                                                            </button>
+                                                            <button
+                                                                className={'icon-btn'}
+                                                                onClick={() => handleDeleteOne(f)}
+                                                                disabled={busy}
+                                                                title={'Delete'}
+                                                                style={{ width: 26, height: 26, color: 'var(--pink)' }}
+                                                            >
+                                                                <Icon name={'trash'} size={11} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
