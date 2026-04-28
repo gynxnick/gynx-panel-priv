@@ -24,7 +24,7 @@ import { getAddonCapabilities } from '@/helpers/serverKind';
 import ServerConsole from '@/components/server-priv/ConsolePage';
 import DatabasesContainer from '@/components/server-priv/DatabasesPage';
 import ScheduleContainer from '@/components/server-priv/SchedulesPage';
-import UsersContainer from '@/components/server/users/UsersContainer';
+import UsersContainer from '@/components/server-priv/UsersPage';
 import BackupContainer from '@/components/server-priv/BackupsPage';
 import NetworkContainer from '@/components/server-priv/NetworkPage';
 import StartupContainer from '@/components/server/startup/StartupContainer';
