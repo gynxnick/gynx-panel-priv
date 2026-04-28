@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { Sparkline } from './Sparkline';
 import { PlayerManager } from './PlayerManager';
 import { useServerRoster } from './useServerRoster';
+import { useTps } from './useTps';
 
 /**
  * Console page — wireframe layout backed by real WebSocket data.
@@ -118,6 +119,7 @@ const StatRow = () => {
     const limits = ServerContext.useStoreState((s) => s.server.data!.limits);
     const status = ServerContext.useStoreState((s) => s.status.value);
     const { players, game } = useServerRoster();
+    const { tps, history: tpsHistory, active: tpsActive } = useTps();
 
     // Track player count over time for the sparkline. Pushes a new sample
     // whenever the roster size actually changes — rather than on a fixed
@@ -153,7 +155,11 @@ const StatRow = () => {
                 icon={'globe'} color={PURPLE} spark={netHistory}
             />
             <Stat
-                label={'TPS'} value={'—'} icon={'trend-down'} color={NEON} spark={[]}
+                label={'TPS'}
+                value={tpsActive && tps !== null ? tps.toFixed(1) : '—'}
+                unit={tpsActive && tps !== null ? ' / 20' : undefined}
+                icon={'trend-down'} color={NEON}
+                spark={tpsActive ? tpsHistory : []}
             />
             <Stat
                 label={'Players'} value={playersDisplay} icon={'users'} color={PURPLE}
