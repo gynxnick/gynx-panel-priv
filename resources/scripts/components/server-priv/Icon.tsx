@@ -10,7 +10,8 @@ export type IconName =
     | 'play' | 'settings' | 'pause' | 'restart' | 'zap' | 'search' | 'bell'
     | 'expand' | 'filter' | 'copy' | 'trash' | 'chevron-down' | 'chevron-right'
     | 'plus' | 'send' | 'wand' | 'sparkles' | 'broadcast' | 'save' | 'download'
-    | 'skull' | 'trend-down' | 'user-x' | 'gavel' | 'crown' | 'shield' | 'refresh';
+    | 'skull' | 'trend-down' | 'user-x' | 'gavel' | 'crown' | 'shield' | 'refresh'
+    | 'check' | 'gamepad';
 
 interface Props {
     name: IconName;
@@ -68,6 +69,8 @@ export const Icon = ({ name, size = 16, color = 'currentColor', style, className
         case 'crown':         return <svg {...props}><path d="M2 17l4-10 6 7 6-7 4 10z"/><line x1="2" y1="20" x2="22" y2="20"/></svg>;
         case 'shield':        return <svg {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
         case 'refresh':       return <svg {...props}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
+        case 'check':         return <svg {...props}><polyline points="20 6 9 17 4 12"/></svg>;
+        case 'gamepad':       return <svg {...props}><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>;
         default:              return null;
     }
 };

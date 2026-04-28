@@ -45,6 +45,7 @@ const TABS: TabSpec[] = [
     { id: 'backups',   label: 'Backups',   icon: 'archive',  path: 'backups' },
     { id: 'network',   label: 'Network',   icon: 'globe',    path: 'network' },
     { id: 'startup',   label: 'Startup',   icon: 'play',     path: 'startup' },
+    { id: 'game',      label: 'Game',      icon: 'gamepad',  path: 'game' },
     { id: 'settings',  label: 'Settings',  icon: 'settings', path: 'settings' },
 ];
 

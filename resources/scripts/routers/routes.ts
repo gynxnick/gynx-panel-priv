@@ -30,7 +30,7 @@ import NetworkContainer from '@/components/server-priv/NetworkPage';
 import StartupContainer from '@/components/server-priv/StartupPage';
 import FileManagerContainer from '@/components/server-priv/FilesPage';
 import SettingsContainer from '@/components/server-priv/SettingsPage';
-import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
+import EggSwitcherContainer from '@/components/server-priv/GamePage';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import InstallerPage from '@/components/server-priv/InstallerPage';
 import ModsContainer from '@/components/server/mods/ModsContainer';
