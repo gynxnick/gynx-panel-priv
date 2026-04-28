@@ -8,6 +8,9 @@ import getServers from '@/api/getServers';
 import { Server as ServerData } from '@/api/server/getServer';
 import { httpErrorToHuman } from '@/api/http';
 import LogoMark from '@/components/gynx/LogoMark';
+import AlertBar from '@/components/gynx/AlertBar';
+import AlertBell from '@/components/gynx/AlertBell';
+import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import GynxServerStyles from './styles';
 import { Icon, IconName } from './Icon';
 
@@ -276,9 +279,7 @@ const Topbar = ({ serverName, currentId }: { serverName: string; currentId: stri
                 <span>Search servers, files, commands…</span>
                 <span className={'kbd'}>⌘K</span>
             </div>
-            <div className={'icon-btn'} title={'Notifications'}>
-                <Icon name={'bell'} size={15} />
-            </div>
+            <AlertBell />
             <div className={'avatar'}>{userInitial}</div>
         </div>
     );
@@ -392,6 +393,10 @@ const useUptime = (status: string | null | undefined): string => {
 };
 
 export const ServerShell = ({ children }: Props) => {
+    // Alerts: poll once per shell mount. Same hook the legacy AppShell uses;
+    // updates state.alerts which AlertBar + AlertBell read from.
+    useAlertPolling();
+
     const server = ServerContext.useStoreState((s) => s.server.data);
     const status = ServerContext.useStoreState((s) => s.status.value);
     const instance = ServerContext.useStoreState((s) => s.socket.instance);
@@ -441,6 +446,7 @@ export const ServerShell = ({ children }: Props) => {
                 <div className={'app'}>
                     <div className={'layer'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                         <Topbar serverName={name} currentId={serverId} />
+                        <AlertBar />
                         <ServerHeader
                             name={name}
                             statusLabel={statusLabel}
