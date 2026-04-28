@@ -1,9 +1,12 @@
 import * as React from 'react';
-import { useEffect, useState } from 'react';
-import { NavLink, useRouteMatch } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useHistory, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
+import getServers from '@/api/getServers';
+import { Server as ServerData } from '@/api/server/getServer';
+import { httpErrorToHuman } from '@/api/http';
 import LogoMark from '@/components/gynx/LogoMark';
 import AlertBar from '@/components/gynx/AlertBar';
 import AlertBell from '@/components/gynx/AlertBell';
@@ -45,34 +48,279 @@ const TABS: TabSpec[] = [
     { id: 'settings',  label: 'Settings',  icon: 'settings', path: 'settings' },
 ];
 
-// ServerPicker dropdown removed per request — gynx.gg users typically have one server.
+const ServerPicker = ({
+    currentId, currentName, open, onOpenChange,
+}: {
+    currentId: string | undefined;
+    currentName: string;
+    open: boolean;
+    onOpenChange: (next: boolean) => void;
+}) => {
+    const history = useHistory();
+    const setOpen = onOpenChange;
+    const [servers, setServers] = useState<ServerData[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [q, setQ] = useState('');
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
+    // Lazy-fetch server list on first open. Keep it cached afterwards.
+    useEffect(() => {
+        if (!open || servers !== null) return;
+        getServers({ page: 1 })
+            .then(({ items }) => setServers(items))
+            .catch((e) => setError(httpErrorToHuman(e as Error)));
+    }, [open, servers]);
 
-const Topbar = ({ serverName }: { serverName: string }) => {
+    // Close on outside click + Esc.
+    useEffect(() => {
+        if (!open) return;
+        const onClick = (e: MouseEvent) => {
+            if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onClick);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onClick);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
+
+    useEffect(() => {
+        if (open) inputRef.current?.focus();
+        if (!open) setQ('');
+    }, [open]);
+
+    const filtered = (servers ?? []).filter((s) =>
+        !q || s.name.toLowerCase().includes(q.toLowerCase())
+            || s.id.toLowerCase().includes(q.toLowerCase())
+            || (s.node ?? '').toLowerCase().includes(q.toLowerCase()),
+    );
+
+    const navigateTo = (s: ServerData) => {
+        if (s.id === currentId) {
+            setOpen(false);
+            return;
+        }
+        setOpen(false);
+        history.push(`/server/${s.id}`);
+    };
+
+    return (
+        <div ref={wrapRef} style={{ position: 'relative' }}>
+            <div
+                className={'server-pill'}
+                title={'Switch server'}
+                onClick={() => setOpen(!open)}
+                style={{ userSelect: 'none' }}
+            >
+                <span className={'status-pill running'} style={{ padding: '2px 6px 2px 5px' }}>
+                    <span className={'pulse'} />
+                </span>
+                <span>{currentName}</span>
+                <Icon
+                    name={'chevron-down'}
+                    size={14}
+                    color={'var(--text-faint)'}
+                    style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s ease' }}
+                />
+            </div>
+            {open && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        left: 0,
+                        width: 320,
+                        zIndex: 50,
+                        background: 'linear-gradient(180deg, rgba(31,41,55,0.95) 0%, rgba(22,27,36,0.95) 100%)',
+                        border: '1px solid var(--line-2)',
+                        borderRadius: 12,
+                        boxShadow: '0 18px 48px -16px rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(12px)',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div
+                        style={{
+                            padding: 10,
+                            borderBottom: '1px solid var(--line)',
+                            background: 'rgba(0,0,0,0.2)',
+                        }}
+                    >
+                        <div className={'search-lg'} style={{ height: 32, fontSize: 12 }}>
+                            <Icon name={'search'} size={12} />
+                            <input
+                                ref={inputRef}
+                                placeholder={'Find a server…'}
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ maxHeight: 360, overflow: 'auto', padding: 6 }}>
+                        {error ? (
+                            <div style={{ padding: 18, textAlign: 'center', color: 'var(--pink)', fontSize: 12.5 }}>
+                                {error}
+                            </div>
+                        ) : servers === null ? (
+                            <div style={{ padding: 18, textAlign: 'center', color: 'var(--text-faint)', fontSize: 12.5 }}>
+                                Loading…
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div style={{ padding: 18, textAlign: 'center', color: 'var(--text-faint)', fontSize: 12.5 }}>
+                                {servers.length === 0 ? 'No servers on this account.' : `No servers match "${q}".`}
+                            </div>
+                        ) : (
+                            filtered.map((s) => {
+                                const isCurrent = s.id === currentId;
+                                return (
+                                    <div
+                                        key={s.uuid}
+                                        onClick={() => navigateTo(s)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                            padding: '8px 10px',
+                                            borderRadius: 8,
+                                            cursor: 'pointer',
+                                            background: isCurrent ? 'rgba(124,58,237,0.12)' : 'transparent',
+                                            transition: 'background .12s ease',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!isCurrent) {
+                                                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!isCurrent) {
+                                                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                                            }
+                                        }}
+                                    >
+                                        <span
+                                            className={`status-pill ${
+                                                s.status === 'installing' || s.status === 'restoring_backup'
+                                                    ? 'starting'
+                                                    : s.status === 'install_failed' || s.status === 'reinstall_failed'
+                                                    ? 'offline'
+                                                    : s.status === 'suspended'
+                                                    ? 'offline'
+                                                    : 'running'
+                                            }`}
+                                            style={{ padding: '2px 6px 2px 5px', flexShrink: 0 }}
+                                        >
+                                            <span className={'pulse'} />
+                                        </span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div
+                                                style={{
+                                                    fontSize: 13,
+                                                    color: isCurrent ? 'white' : 'var(--text)',
+                                                    fontWeight: 500,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {s.name}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 11,
+                                                    color: 'var(--text-faint)',
+                                                    fontFamily: "'JetBrains Mono', monospace",
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {s.node ? `node-${s.node.toLowerCase().replace(/\s+/g, '-')}` : '—'} · #{s.id}
+                                            </div>
+                                        </div>
+                                        {isCurrent && (
+                                            <span
+                                                style={{
+                                                    fontSize: 10,
+                                                    color: 'var(--purple-light)',
+                                                    fontFamily: "'JetBrains Mono',monospace",
+                                                    flexShrink: 0,
+                                                }}
+                                            >current</span>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const Topbar = ({ serverName, currentId }: { serverName: string; currentId: string | undefined }) => {
     const userInitial = useStoreState((s: ApplicationStore) => {
         const e = s.user.data?.email ?? '';
         return e ? e[0].toUpperCase() : '?';
     });
+    const history = useHistory();
+
+    // Picker open state lives here so both the pill (inside ServerPicker)
+    // and the topbar's search box can toggle it.
+    const [pickerOpen, setPickerOpen] = useState(false);
+
+    // ⌘K / ctrl-K keyboard shortcut → open the picker. The picker's
+    // input auto-focuses on open so users can start typing immediately.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setPickerOpen(true);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
     return (
         <div className={'topbar'}>
             <a href={'/'} className={'logo'} aria-label={'gynx.gg home'}>
                 <LogoMark size={26} alt={'gynx.gg'} />
             </a>
             <div className={'divider-v'} />
-            <span className={'server-pill'} style={{ cursor: 'default' }}>
-                <span className={'status-pill running'} style={{ padding: '2px 6px 2px 5px' }}>
-                    <span className={'pulse'} />
-                </span>
-                <span>{serverName}</span>
-            </span>
+            <ServerPicker
+                currentId={currentId}
+                currentName={serverName}
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+            />
             <div className={'spacer'} />
-            <div className={'search'}>
+            <div
+                className={'search'}
+                role={'button'}
+                onClick={() => setPickerOpen(true)}
+                style={{ cursor: 'pointer' }}
+                title={'Open server switcher (⌘K)'}
+            >
                 <Icon name={'search'} size={14} />
-                <span>Search servers, files, commands…</span>
+                <span>Switch server, find files…</span>
                 <span className={'kbd'}>⌘K</span>
             </div>
             <AlertBell />
-            <div className={'avatar'}>{userInitial}</div>
+            <button
+                type={'button'}
+                className={'avatar'}
+                onClick={() => history.push('/account')}
+                title={'Account settings'}
+                style={{ border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+                {userInitial}
+            </button>
         </div>
     );
 };
@@ -195,6 +443,7 @@ export const ServerShell = ({ children }: Props) => {
     const connected = ServerContext.useStoreState((s) => s.socket.connected);
 
     const name = server?.name ?? 'unknown';
+    const serverId = server?.id;
     const eggName = server?.eggFeatures?.[0] ?? '';
     const node = server?.node ?? '';
     const uptime = useUptime(status);
@@ -236,7 +485,7 @@ export const ServerShell = ({ children }: Props) => {
             <div className={'gynx-server-priv'}>
                 <div className={'app'}>
                     <div className={'layer'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                        <Topbar serverName={name} />
+                        <Topbar serverName={name} currentId={serverId} />
                         <AlertBar />
                         <ServerHeader
                             name={name}
