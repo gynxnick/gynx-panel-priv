@@ -12,9 +12,10 @@ export const searchModpacks = async (
     source: PluginSourceSlug,
     query: string,
     gameVersion?: string,
+    page?: number,
 ): Promise<ModpackSearchHit[]> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/addons/modpacks/search`, {
-        params: { source, q: query, game_version: gameVersion },
+        params: { source, q: query, game_version: gameVersion, page },
     });
     return (data?.data ?? []) as ModpackSearchHit[];
 };

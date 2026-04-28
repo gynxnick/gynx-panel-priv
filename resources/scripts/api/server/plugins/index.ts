@@ -11,9 +11,10 @@ export const searchPlugins = async (
     source: PluginSourceSlug,
     query: string,
     gameVersion?: string,
+    page?: number,
 ): Promise<PluginSearchHit[]> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/addons/plugins/search`, {
-        params: { source, q: query, game_version: gameVersion },
+        params: { source, q: query, game_version: gameVersion, page },
     });
     return (data?.data ?? []) as PluginSearchHit[];
 };
