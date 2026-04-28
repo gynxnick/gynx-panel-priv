@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useHistory, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { SocketEvent } from '@/components/server/events';
 import useWebsocketEvent from '@/plugins/useWebsocketEvent';
@@ -223,29 +224,34 @@ const AiCard = () => (
     </div>
 );
 
-const QuickActions = () => (
-    <div className={'panel rail-card'}>
-        <div className={'rail-title'}>Quick actions</div>
-        <div className={'quick-grid'}>
-            <button className={'quick-btn'}>
-                <Icon name={'sparkles'} size={13} color={'var(--purple)'} style={{ flexShrink: 0 }} />
-                <span>Install plugin</span>
-            </button>
-            <button className={'quick-btn'}>
-                <Icon name={'save'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
-                <span>Backup now</span>
-            </button>
-            <button className={'quick-btn'}>
-                <Icon name={'broadcast'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
-                <span>Broadcast</span>
-            </button>
-            <button className={'quick-btn'}>
-                <Icon name={'download'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
-                <span>Save world</span>
-            </button>
+const QuickActions = () => {
+    const history = useHistory();
+    const match = useRouteMatch<{ id: string }>();
+    const base = `/server/${match.params.id}`;
+    return (
+        <div className={'panel rail-card'}>
+            <div className={'rail-title'}>Quick actions</div>
+            <div className={'quick-grid'}>
+                <button className={'quick-btn'} onClick={() => history.push(`${base}/install`)}>
+                    <Icon name={'sparkles'} size={13} color={'var(--purple)'} style={{ flexShrink: 0 }} />
+                    <span>Mod installer</span>
+                </button>
+                <button className={'quick-btn'} onClick={() => history.push(`${base}/backups`)}>
+                    <Icon name={'archive'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
+                    <span>Backups</span>
+                </button>
+                <button className={'quick-btn'} onClick={() => history.push(`${base}/domain`)}>
+                    <Icon name={'globe'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
+                    <span>Subdomains</span>
+                </button>
+                <button className={'quick-btn'} onClick={() => history.push(`${base}/files`)}>
+                    <Icon name={'folder'} size={13} color={'var(--text-faint)'} style={{ flexShrink: 0 }} />
+                    <span>Files</span>
+                </button>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export const ConsolePage = () => (
     <div className={'main'}>
