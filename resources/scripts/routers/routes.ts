@@ -22,19 +22,20 @@ import {
 import { Server } from '@/api/server/getServer';
 import { getAddonCapabilities } from '@/helpers/serverKind';
 import ServerConsole from '@/components/server-priv/ConsolePage';
-import DatabasesContainer from '@/components/server/databases/DatabasesContainer';
-import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
-import UsersContainer from '@/components/server/users/UsersContainer';
-import BackupContainer from '@/components/server/backups/BackupContainer';
-import NetworkContainer from '@/components/server/network/NetworkContainer';
-import StartupContainer from '@/components/server/startup/StartupContainer';
-import FileManagerContainer from '@/components/server/files/FileManagerContainer';
-import SettingsContainer from '@/components/server/settings/SettingsContainer';
-import EggSwitcherContainer from '@/components/server/egg-switch/EggSwitcherContainer';
+import DatabasesContainer from '@/components/server-priv/DatabasesPage';
+import ScheduleContainer from '@/components/server-priv/SchedulesPage';
+import UsersContainer from '@/components/server-priv/UsersPage';
+import BackupContainer from '@/components/server-priv/BackupsPage';
+import NetworkContainer from '@/components/server-priv/NetworkPage';
+import StartupContainer from '@/components/server-priv/StartupPage';
+import FileManagerContainer from '@/components/server-priv/FilesPage';
+import SettingsContainer from '@/components/server-priv/SettingsPage';
+import EggSwitcherContainer from '@/components/server-priv/GamePage';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
+import InstallerPage from '@/components/server-priv/InstallerPage';
 import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
-import SubdomainsContainer from '@/components/server/subdomains/SubdomainsContainer';
+import SubdomainsContainer from '@/components/server-priv/SubdomainsPage';
 import ConfigEditorContainer from '@/components/server/configs/ConfigEditorContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
@@ -95,6 +96,7 @@ export default {
         { path: '/files',     permission: 'file.*',     name: 'Files',     icon: faFolder,       group: 'management', component: FileManagerContainer },
         { path: '/files/:action(edit|new)', permission: 'file.*', name: undefined, component: FileEditContainer },
         { path: '/databases', permission: 'database.*', name: 'Databases', icon: faDatabase,     group: 'management', component: DatabasesContainer },
+        { path: '/install',   permission: null,             name: 'Install',  icon: faPuzzlePiece, group: 'management', component: InstallerPage },
         { path: '/plugins',   permission: 'addon.plugin.*', name: 'Plugins', icon: faPuzzlePiece, group: 'management', component: PluginsContainer,
           compatible: (s) => getAddonCapabilities(s).plugins },
         { path: '/mods',      permission: 'addon.mod.*',    name: 'Mods',    icon: faCubes,       group: 'management', component: ModsContainer,

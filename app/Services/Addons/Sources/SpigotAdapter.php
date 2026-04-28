@@ -38,7 +38,7 @@ class SpigotAdapter implements AddonSource
     public function available(): bool { return true; }
     public function supports(string $type): bool { return $type === self::TYPE_PLUGIN; }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 20): array
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
     {
         $this->assertPlugin($type);
 
@@ -51,7 +51,7 @@ class SpigotAdapter implements AddonSource
             if (trim($query) === '') {
                 $res = $this->http->get('resources', [
                     'query' => [
-                        'size' => min($limit, 25),
+                        'size' => min($limit, 50),
                         'sort' => '-downloads',
                         'fields' => $fields,
                     ],
@@ -59,7 +59,7 @@ class SpigotAdapter implements AddonSource
             } else {
                 $res = $this->http->get('search/resources/' . rawurlencode($query), [
                     'query' => [
-                        'size' => min($limit, 25),
+                        'size' => min($limit, 50),
                         'fields' => $fields,
                     ],
                 ]);

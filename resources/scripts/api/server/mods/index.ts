@@ -12,9 +12,10 @@ export const searchMods = async (
     source: PluginSourceSlug,
     query: string,
     gameVersion?: string,
+    page?: number,
 ): Promise<ModSearchHit[]> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/addons/mods/search`, {
-        params: { source, q: query, game_version: gameVersion },
+        params: { source, q: query, game_version: gameVersion, page },
     });
     return (data?.data ?? []) as ModSearchHit[];
 };
