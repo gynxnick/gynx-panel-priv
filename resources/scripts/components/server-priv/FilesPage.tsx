@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useHistory, useLocation, useRouteMatch } from 'react-router-dom';
+import axios from 'axios';
 import { ServerContext } from '@/state/server';
 import useFileManagerSwr from '@/plugins/useFileManagerSwr';
 import { hashToPath, encodePathSegments } from '@/helpers';
@@ -10,7 +11,7 @@ import { FileObject } from '@/api/server/files/loadDirectory';
 import deleteFiles from '@/api/server/files/deleteFiles';
 import renameFiles from '@/api/server/files/renameFiles';
 import createDirectory from '@/api/server/files/createDirectory';
-import saveFileContents from '@/api/server/files/saveFileContents';
+import getFileUploadUrl from '@/api/server/files/getFileUploadUrl';
 import Spinner from '@/components/elements/Spinner';
 import { Icon, IconName } from './Icon';
 
@@ -111,8 +112,27 @@ export const FilesPage = () => {
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [busy, setBusy] = useState(false);
 
-    // Reset selection when directory changes.
-    useEffect(() => { setSelected(new Set()); }, [directory]);
+    // Filter input — toggled by the "Search files" button. Filters
+    // current-directory entries client-side; recursive walks are out of
+    // scope (would need a backend search endpoint).
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterText, setFilterText] = useState('');
+    const filterInputRef = useRef<HTMLInputElement>(null);
+
+    // Upload state — file input is hidden, button triggers click().
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState<{ name: string; pct: number } | null>(null);
+
+    // Reset selection + filter when directory changes.
+    useEffect(() => {
+        setSelected(new Set());
+        setFilterText('');
+    }, [directory]);
+
+    // Focus the filter input when it opens.
+    useEffect(() => {
+        if (filterOpen) filterInputRef.current?.focus();
+    }, [filterOpen]);
 
     const toggleSelect = (name: string) => {
         setSelected((prev) => {
@@ -122,11 +142,20 @@ export const FilesPage = () => {
         });
     };
     const toggleSelectAll = () => {
-        setSelected((prev) =>
-            prev.size === sortedFiles.length
-                ? new Set()
-                : new Set(sortedFiles.map((f) => f.name)),
-        );
+        setSelected((prev) => {
+            // Operate on the currently-visible list so a filter narrows what
+            // "select all" actually selects.
+            const visibleNames = new Set(visibleFiles.map((f) => f.name));
+            const allVisibleSelected = visibleFiles.every((f) => prev.has(f.name));
+            if (allVisibleSelected && visibleFiles.length > 0) {
+                const next = new Set(prev);
+                visibleFiles.forEach((f) => next.delete(f.name));
+                return next;
+            }
+            const next = new Set(prev);
+            visibleFiles.forEach((f) => next.add(f.name));
+            return next;
+        });
     };
 
     const linkForFile = (f: FileObject): string => {
@@ -189,6 +218,37 @@ export const FilesPage = () => {
         }
     };
 
+    const handleUpload = async (filesList: FileList) => {
+        if (!filesList.length) return;
+        try {
+            setBusy(true);
+            const uploadUrl = await getFileUploadUrl(uuid);
+            for (let i = 0; i < filesList.length; i++) {
+                const file = filesList[i];
+                setUploading({ name: file.name, pct: 0 });
+                const form = new FormData();
+                form.append('files', file, file.name);
+                await axios.post(uploadUrl, form, {
+                    params: { directory },
+                    onUploadProgress: (e) => {
+                        const total = e.total ?? file.size;
+                        if (total > 0) {
+                            const pct = Math.round((e.loaded / total) * 100);
+                            setUploading({ name: file.name, pct });
+                        }
+                    },
+                });
+            }
+            setUploading(null);
+            await mutate();
+        } catch (e) {
+            setUploading(null);
+            alert(httpErrorToHuman(e as Error));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleDeleteSelected = async () => {
         if (selected.size === 0) return;
         if (!confirm(
@@ -206,7 +266,14 @@ export const FilesPage = () => {
         }
     };
 
-    const allSelected = sortedFiles.length > 0 && selected.size === sortedFiles.length;
+    // Apply the filter text to the rendered list. Empty filter passes all.
+    const visibleFiles = useMemo(() => {
+        const q = filterText.trim().toLowerCase();
+        if (!q) return sortedFiles;
+        return sortedFiles.filter((f) => f.name.toLowerCase().includes(q));
+    }, [sortedFiles, filterText]);
+
+    const allSelected = visibleFiles.length > 0 && visibleFiles.every((f) => selected.has(f.name));
     const someSelected = selected.size > 0;
 
     return (
@@ -218,13 +285,21 @@ export const FilesPage = () => {
                 </div>
                 <div className={'spacer'} />
                 <div className={'row gap-6'}>
-                    <button className={'btn'} disabled title={'Coming soon'}>
+                    <button
+                        className={`btn ${filterOpen ? 'btn-primary' : ''}`}
+                        onClick={() => setFilterOpen((v) => !v)}
+                        title={'Filter the current directory'}
+                    >
                         <Icon name={'search'} size={13} />Search files
                     </button>
                     <button className={'btn'} onClick={handleNewFolder} disabled={busy}>
                         <Icon name={'folder'} size={13} />New folder
                     </button>
-                    <button className={'btn'} disabled title={'Coming soon'}>
+                    <button
+                        className={'btn'}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={busy}
+                    >
                         <Icon name={'download'} size={13} />Upload
                     </button>
                     <button className={'btn btn-primary'} onClick={handleNewFile} disabled={busy}>
@@ -232,6 +307,67 @@ export const FilesPage = () => {
                     </button>
                 </div>
             </div>
+
+            {/*
+              Hidden multi-file input. Triggered by the Upload button.
+              `getFileUploadUrl` returns a one-shot wings URL we POST to
+              with FormData; the daemon writes into the current directory.
+            */}
+            <input
+                ref={fileInputRef}
+                type={'file'}
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                        handleUpload(e.target.files);
+                    }
+                    e.target.value = '';
+                }}
+            />
+
+            {filterOpen && (
+                <div className={'search-lg'} style={{ flex: 0, height: 36 }}>
+                    <Icon name={'search'} size={13} />
+                    <input
+                        ref={filterInputRef}
+                        placeholder={'Filter files in this directory…'}
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                setFilterText('');
+                                setFilterOpen(false);
+                            }
+                        }}
+                    />
+                    {filterText && (
+                        <button
+                            className={'icon-btn'}
+                            onClick={() => setFilterText('')}
+                            title={'Clear filter'}
+                            style={{ width: 22, height: 22 }}
+                        >
+                            <Icon name={'plus'} size={11} style={{ transform: 'rotate(45deg)' }} />
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {uploading && (
+                <div className={'notice purple'}>
+                    <Icon name={'download'} size={14} />
+                    <div style={{ flex: 1 }}>
+                        Uploading <strong style={{ color: 'white' }}>{uploading.name}</strong>…
+                    </div>
+                    <span
+                        style={{
+                            fontFamily: "'JetBrains Mono',monospace",
+                            fontSize: 12, color: 'var(--purple)',
+                        }}
+                    >{uploading.pct}%</span>
+                </div>
+            )}
 
             <div className={'row gap-8'} style={{ alignItems: 'center' }}>
                 <Crumbs directory={directory} baseUrl={baseUrl} />
@@ -317,6 +453,10 @@ export const FilesPage = () => {
                                 <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>
                                     This folder is empty.
                                 </div>
+                            ) : visibleFiles.length === 0 ? (
+                                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>
+                                    No files match <code>{filterText}</code> in this directory.
+                                </div>
                             ) : (
                                 <table className={'tbl'}>
                                     <thead>
@@ -338,7 +478,7 @@ export const FilesPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {sortedFiles.map((f) => {
+                                        {visibleFiles.map((f) => {
                                             const isSelected = selected.has(f.name);
                                             return (
                                                 <tr
