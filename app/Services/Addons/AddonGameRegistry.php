@@ -231,7 +231,9 @@ class AddonGameRegistry
         try {
             $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
             $raw = $repo->get('settings::addon_games:custom', null);
-        } catch (QueryException $e) {
+        } catch (\Throwable $e) {
+            // Container resolution / DB / settings table absence → just
+            // pretend there are no customisations. Built-ins remain active.
             return [];
         }
         if (!is_string($raw) || $raw === '') return [];
