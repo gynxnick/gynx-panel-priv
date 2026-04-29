@@ -5,6 +5,7 @@ namespace Pterodactyl\Http\Controllers\Admin\Settings;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
 use Illuminate\View\Factory as ViewFactory;
 use Pterodactyl\Http\Controllers\Controller;
 use Pterodactyl\Models\Server;
@@ -85,7 +86,7 @@ class AddonGamesController extends Controller
      * the admin form so admins can copy-paste the correct pattern
      * without first deploying + clicking around the panel.
      */
-    public function diagnose(Request $request): Response
+    public function diagnose(Request $request): JsonResponse
     {
         try {
             $payload = $request->validate([
