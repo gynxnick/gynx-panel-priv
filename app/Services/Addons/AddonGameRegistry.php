@@ -2,6 +2,7 @@
 
 namespace Pterodactyl\Services\Addons;
 
+use Illuminate\Database\QueryException;
 use Pterodactyl\Models\Server;
 
 /**
@@ -96,44 +97,35 @@ class AddonGameRegistry
      */
     public static function forServer(Server $server): ?array
     {
-        // Egg / nest relationships are lazy-loaded — wrap the access in
-        // try/catch so a transient DB hiccup or an orphaned egg row
-        // can't 500 the addon-source endpoints. We just pretend the
-        // server has no recognised game in that case.
-        try {
-            $egg = $server->egg;
-            $eggName = strtolower((string) ($egg?->name ?? ''));
-            $nestName = strtolower((string) ($egg?->nest?->name ?? ''));
-            $features = is_array($egg?->features ?? null) ? $egg->features : [];
-            $dockerImage = strtolower((string) ($server->image ?? ''));
-        } catch (\Throwable $e) {
-            return null;
-        }
+        $signals = self::extractSignals($server);
+        if ($signals === null) return null;
+
+        $games = self::all();
 
         // Pterodactyl egg-feature flags are a strong, registry-curated
         // game signal — the 'eula' feature is registered exclusively on
         // Minecraft eggs. Check this first because it doesn't depend on
-        // the egg author's chosen display name (which can be anything
-        // from "Paper" to "Java" to a server-owner's vanity rename).
-        if (in_array('eula', $features, true)) {
-            return self::pack('minecraft');
+        // the egg author's chosen display name.
+        if (in_array('eula', $signals['features'], true) && isset($games['minecraft'])) {
+            return self::pack('minecraft', $games);
         }
 
         // Docker image is the next-strongest signal: most MC eggs use
         // ghcr.io/pterodactyl/yolks:java_* — anything containing 'java'
-        // in the image is reliably Minecraft. Helps when the egg name
-        // is unusual but the image is standard.
-        if (str_contains($dockerImage, 'java')) {
-            return self::pack('minecraft');
+        // in the image is reliably Minecraft.
+        if (str_contains($signals['image'], 'java') && isset($games['minecraft'])) {
+            return self::pack('minecraft', $games);
         }
 
-        $haystack = trim($nestName . ' ' . $eggName . ' ' . $dockerImage);
+        $haystack = $signals['haystack'];
         if ($haystack === '') return null;
 
-        foreach (self::GAMES as $slug => $cfg) {
+        foreach ($games as $slug => $cfg) {
             foreach ($cfg['patterns'] as $pattern) {
-                if (str_contains($haystack, $pattern)) {
-                    return self::pack($slug);
+                $needle = strtolower(trim((string) $pattern));
+                if ($needle === '') continue;
+                if (str_contains($haystack, $needle)) {
+                    return self::pack($slug, $games);
                 }
             }
         }
@@ -141,10 +133,130 @@ class AddonGameRegistry
         return null;
     }
 
-    /** @return array{slug:string, curseforge_id:?int, thunderstore_community:?string, supports:array<int,string>} */
-    private static function pack(string $slug): array
+    /**
+     * Extract the matchable signals from a server in one place. Reused
+     * by forServer() and the admin-side diagnose endpoint.
+     *
+     * @return ?array{features:array<int,string>, image:string, haystack:string, egg_name:string, nest_name:string}
+     */
+    public static function extractSignals(Server $server): ?array
     {
-        $cfg = self::GAMES[$slug];
+        try {
+            $egg = $server->egg;
+            $eggName = strtolower((string) ($egg?->name ?? ''));
+            $nestName = strtolower((string) ($egg?->nest?->name ?? ''));
+            $rawFeatures = $egg?->features ?? null;
+            $features = [];
+            if (is_array($rawFeatures)) {
+                $features = $rawFeatures;
+            } elseif (is_string($rawFeatures) && $rawFeatures !== '') {
+                $decoded = json_decode($rawFeatures, true);
+                if (is_array($decoded)) $features = $decoded;
+            }
+            // Lower-case every feature so 'EULA' / 'Eula' / 'eula' all match.
+            $features = array_map(fn ($f) => strtolower((string) $f), $features);
+            $dockerImage = strtolower((string) ($server->image ?? ''));
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return [
+            'features' => $features,
+            'image' => $dockerImage,
+            'egg_name' => $eggName,
+            'nest_name' => $nestName,
+            'haystack' => trim($nestName . ' ' . $eggName . ' ' . $dockerImage),
+        ];
+    }
+
+    /**
+     * Resolved game catalogue — built-in entries merged with admin-side
+     * customizations from the panel settings. Custom entries with a
+     * built-in slug REPLACE the built-in (so admins can extend the
+     * default Minecraft patterns by copying it + adding their own).
+     *
+     * @return array<string, array{
+     *   patterns: array<int,string>,
+     *   curseforge_id: ?int,
+     *   thunderstore_community: ?string,
+     *   supports: array<int,string>,
+     * }>
+     */
+    public static function all(): array
+    {
+        return array_merge(self::GAMES, self::customGames());
+    }
+
+    /** Built-in catalogue (un-merged). Used by the admin UI for "default" rows. */
+    public static function builtIn(): array
+    {
+        return self::GAMES;
+    }
+
+    /** Admin-supplied catalogue (un-merged). Used by the admin UI for "custom" rows. */
+    public static function custom(): array
+    {
+        return self::customGames();
+    }
+
+    /** Persist a fresh custom catalogue. */
+    public static function saveCustom(array $games): void
+    {
+        $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+        $clean = [];
+        foreach ($games as $slug => $cfg) {
+            $slug = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $slug));
+            if ($slug === '') continue;
+            $patterns = array_values(array_filter(array_map(fn ($p) => trim((string) $p), (array) ($cfg['patterns'] ?? []))));
+            $supports = array_values(array_intersect((array) ($cfg['supports'] ?? []), [
+                AddonSource::TYPE_PLUGIN, AddonSource::TYPE_MOD, AddonSource::TYPE_MODPACK,
+            ]));
+            $cf = $cfg['curseforge_id'] ?? null;
+            $cf = ($cf === '' || $cf === null) ? null : (int) $cf;
+            $ts = $cfg['thunderstore_community'] ?? null;
+            $ts = ($ts === '' || $ts === null) ? null : (string) $ts;
+            $clean[$slug] = [
+                'patterns' => $patterns,
+                'curseforge_id' => $cf,
+                'thunderstore_community' => $ts,
+                'supports' => $supports,
+            ];
+        }
+        $repo->set('settings::addon_games:custom', json_encode($clean));
+    }
+
+    /** @return array<string, array{patterns:array, curseforge_id:?int, thunderstore_community:?string, supports:array}> */
+    private static function customGames(): array
+    {
+        try {
+            $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+            $raw = $repo->get('settings::addon_games:custom', null);
+        } catch (QueryException $e) {
+            return [];
+        }
+        if (!is_string($raw) || $raw === '') return [];
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) return [];
+
+        $out = [];
+        foreach ($decoded as $slug => $cfg) {
+            if (!is_array($cfg)) continue;
+            $out[(string) $slug] = [
+                'patterns' => is_array($cfg['patterns'] ?? null) ? $cfg['patterns'] : [],
+                'curseforge_id' => isset($cfg['curseforge_id']) && $cfg['curseforge_id'] !== null ? (int) $cfg['curseforge_id'] : null,
+                'thunderstore_community' => isset($cfg['thunderstore_community']) && $cfg['thunderstore_community'] !== ''
+                    ? (string) $cfg['thunderstore_community']
+                    : null,
+                'supports' => is_array($cfg['supports'] ?? null) ? array_values($cfg['supports']) : [],
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array{slug:string, curseforge_id:?int, thunderstore_community:?string, supports:array<int,string>} */
+    private static function pack(string $slug, array $games): array
+    {
+        $cfg = $games[$slug];
         return [
             'slug' => $slug,
             'curseforge_id' => $cfg['curseforge_id'],

@@ -11,6 +11,7 @@
                     <li @if($activeTab === 'mail-templates')class="active"@endif><a href="{{ route('admin.settings.mail-templates') }}">Mail Templates</a></li>
                     <li @if($activeTab === 'advanced')class="active"@endif><a href="{{ route('admin.settings.advanced') }}">Advanced</a></li>
                     <li @if($activeTab === 'gynx-ai')class="active"@endif><a href="{{ route('admin.settings.gynx-ai') }}">gynx.ai</a></li>
+                    <li @if($activeTab === 'addon-games')class="active"@endif><a href="{{ route('admin.settings.addon-games') }}">Addon Games</a></li>
                 </ul>
             </div>
         </div>
