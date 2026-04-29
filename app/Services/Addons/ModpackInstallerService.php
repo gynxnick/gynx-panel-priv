@@ -30,9 +30,9 @@ class ModpackInstallerService
     public function search(Server $server, string $sourceSlug, string $query, ?string $gameVersion = null): array
     {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK)) return [];
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion);
+        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion, 60, $server);
         $installed = AddonModpack::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
@@ -80,8 +80,8 @@ class ModpackInstallerService
         ?string $gameVersion = null,
     ): AddonModpack {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK)) {
-            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for modpacks.");
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK) || !$source->availableFor($server)) {
+            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for modpacks on this server.");
         }
 
         if (AddonModpack::query()
@@ -93,7 +93,7 @@ class ModpackInstallerService
             throw new ConflictHttpException('This modpack is already downloaded on this server.');
         }
 
-        $dl = $source->resolveDownload(AddonSource::TYPE_MODPACK, $externalId, $versionId, $gameVersion);
+        $dl = $source->resolveDownload(AddonSource::TYPE_MODPACK, $externalId, $versionId, $gameVersion, $server);
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
         $this->daemonFiles->setServer($server)->pull($dl['url'], '/modpacks', [

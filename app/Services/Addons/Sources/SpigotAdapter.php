@@ -4,6 +4,8 @@ namespace Pterodactyl\Services\Addons\Sources;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
+use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
 use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -38,7 +40,16 @@ class SpigotAdapter implements AddonSource
     public function available(): bool { return true; }
     public function supports(string $type): bool { return $type === self::TYPE_PLUGIN; }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
+    public function availableFor(Server $server): bool
+    {
+        // SpiGet wraps the SpigotMC plugin catalogue (Bukkit-derived),
+        // i.e. Minecraft-only. Gate per server so non-MC eggs don't see
+        // it as a selectable source.
+        $game = AddonGameRegistry::forServer($server);
+        return $game !== null && $game['slug'] === 'minecraft';
+    }
+
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60, ?Server $server = null): array
     {
         $this->assertPlugin($type);
 
@@ -89,7 +100,7 @@ class SpigotAdapter implements AddonSource
         }, $hits);
     }
 
-    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null): array
+    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null, ?Server $server = null): array
     {
         $this->assertPlugin($type);
 
@@ -127,7 +138,7 @@ class SpigotAdapter implements AddonSource
         ];
     }
 
-    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20): array
+    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20, ?Server $server = null): array
     {
         $this->assertPlugin($type);
 

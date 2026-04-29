@@ -58,12 +58,12 @@ class AddonVersionsController extends ClientApiController
         $this->ensurePermission($request, $server, self::TYPE_PERMISSIONS[$type]);
 
         $source = $this->sources->get($sourceSlug);
-        if (!$source->available() || !$source->supports($type)) {
+        if (!$source->available() || !$source->supports($type) || !$source->availableFor($server)) {
             return new JsonResponse(['data' => []]);
         }
 
         return new JsonResponse([
-            'data' => $source->listVersions($type, $externalId, $gameVersion, $limit),
+            'data' => $source->listVersions($type, $externalId, $gameVersion, $limit, $server),
         ]);
     }
 

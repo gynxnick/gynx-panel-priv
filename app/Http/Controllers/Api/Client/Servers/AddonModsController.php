@@ -34,6 +34,11 @@ class AddonModsController extends ClientApiController
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
             if (!$src->supports(AddonSource::TYPE_MOD)) continue;
+            // Hide adapters whose game gating excludes this server (e.g.
+            // Modrinth on a Valheim server). The list-sources endpoint
+            // is the right place to filter — surfacing them as 'soon'
+            // implies they'll work later, which they won't.
+            if (!$src->availableFor($server)) continue;
             $data[] = [
                 'slug' => $slug,
                 'available' => $src->available(),

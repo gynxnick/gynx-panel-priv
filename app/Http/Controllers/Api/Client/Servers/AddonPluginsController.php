@@ -32,6 +32,8 @@ class AddonPluginsController extends ClientApiController
 
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
+            if (!$src->supports(AddonSource::TYPE_PLUGIN)) continue;
+            if (!$src->availableFor($server)) continue;
             $data[] = [
                 'slug' => $slug,
                 'available' => $src->available(),

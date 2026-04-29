@@ -21,9 +21,9 @@ class ModInstallerService
     public function search(Server $server, string $sourceSlug, string $query, ?string $gameVersion = null): array
     {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD)) return [];
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion);
+        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion, 60, $server);
         $installed = AddonMod::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
@@ -70,8 +70,8 @@ class ModInstallerService
         ?string $gameVersion = null,
     ): AddonMod {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD)) {
-            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for mods.");
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD) || !$source->availableFor($server)) {
+            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for mods on this server.");
         }
 
         if (AddonMod::query()
@@ -83,7 +83,7 @@ class ModInstallerService
             throw new ConflictHttpException('This mod is already installed on this server.');
         }
 
-        $dl = $source->resolveDownload(AddonSource::TYPE_MOD, $externalId, $versionId, $gameVersion);
+        $dl = $source->resolveDownload(AddonSource::TYPE_MOD, $externalId, $versionId, $gameVersion, $server);
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
         $this->daemonFiles->setServer($server)->pull($dl['url'], '/mods', [
