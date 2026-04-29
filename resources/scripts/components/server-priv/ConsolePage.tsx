@@ -14,6 +14,7 @@ import { useTps } from './useTps';
 import { CrashLogsPanel } from './CrashLogsPanel';
 import { DiscordCta } from './DiscordCta';
 import { PlayerSlotsCard } from './PlayerSlotsCard';
+import { WorldSwitcherCard } from './WorldSwitcherCard';
 
 /**
  * Console page — wireframe layout backed by real WebSocket data.
@@ -266,6 +267,7 @@ export const ConsolePage = () => (
         </div>
         <div className={'col'}>
             <AiCard />
+            <WorldSwitcherCard />
             <PlayerSlotsCard />
             <PlayerManager />
             <QuickActions />
