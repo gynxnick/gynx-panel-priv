@@ -116,6 +116,7 @@ export const InstallerPage = () => {
     const uuid = ServerContext.useStoreState((s) => s.server.data!.uuid);
     const [tab, setTab] = useState<Tab>('plugins');
     const [sources, setSources] = useState<PluginSourceInfo[]>([]);
+    const [sourcesLoaded, setSourcesLoaded] = useState(false);
     const [activeSource, setActiveSource] = useState<PluginSourceSlug | null>(null);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<AnyHit[]>([]);
@@ -132,6 +133,7 @@ export const InstallerPage = () => {
     // available source as the active one.
     useEffect(() => {
         let alive = true;
+        setSourcesLoaded(false);
         api.listSources(uuid)
             .then((s) => {
                 if (!alive) return;
@@ -141,7 +143,8 @@ export const InstallerPage = () => {
                 setSelectedIdx(0);
                 setJustInstalledIds(new Set());
             })
-            .catch((e) => alive && setError(httpErrorToHuman(e as Error)));
+            .catch((e) => alive && setError(httpErrorToHuman(e as Error)))
+            .finally(() => alive && setSourcesLoaded(true));
         return () => {
             alive = false;
         };
@@ -250,9 +253,13 @@ export const InstallerPage = () => {
                 <div className={'install-side'}>
                     <div className={'side-section'}>
                         <div className={'side-label'}>Source</div>
-                        {sources.length === 0 ? (
+                        {!sourcesLoaded ? (
                             <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-faint)' }}>
                                 Loading…
+                            </div>
+                        ) : sources.length === 0 ? (
+                            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.4 }}>
+                                No registries match this server&apos;s game. Add one in <code>AddonGameRegistry</code> or use a supported egg.
                             </div>
                         ) : (
                             sources.map((s) => (

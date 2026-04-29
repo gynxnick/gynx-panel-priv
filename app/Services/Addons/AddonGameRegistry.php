@@ -104,27 +104,53 @@ class AddonGameRegistry
             $egg = $server->egg;
             $eggName = strtolower((string) ($egg?->name ?? ''));
             $nestName = strtolower((string) ($egg?->nest?->name ?? ''));
+            $features = is_array($egg?->features ?? null) ? $egg->features : [];
+            $dockerImage = strtolower((string) ($server->image ?? ''));
         } catch (\Throwable $e) {
             return null;
         }
 
-        $haystack = trim($nestName . ' ' . $eggName);
+        // Pterodactyl egg-feature flags are a strong, registry-curated
+        // game signal — the 'eula' feature is registered exclusively on
+        // Minecraft eggs. Check this first because it doesn't depend on
+        // the egg author's chosen display name (which can be anything
+        // from "Paper" to "Java" to a server-owner's vanity rename).
+        if (in_array('eula', $features, true)) {
+            return self::pack('minecraft');
+        }
+
+        // Docker image is the next-strongest signal: most MC eggs use
+        // ghcr.io/pterodactyl/yolks:java_* — anything containing 'java'
+        // in the image is reliably Minecraft. Helps when the egg name
+        // is unusual but the image is standard.
+        if (str_contains($dockerImage, 'java')) {
+            return self::pack('minecraft');
+        }
+
+        $haystack = trim($nestName . ' ' . $eggName . ' ' . $dockerImage);
         if ($haystack === '') return null;
 
         foreach (self::GAMES as $slug => $cfg) {
             foreach ($cfg['patterns'] as $pattern) {
                 if (str_contains($haystack, $pattern)) {
-                    return [
-                        'slug' => $slug,
-                        'curseforge_id' => $cfg['curseforge_id'],
-                        'thunderstore_community' => $cfg['thunderstore_community'],
-                        'supports' => $cfg['supports'],
-                    ];
+                    return self::pack($slug);
                 }
             }
         }
 
         return null;
+    }
+
+    /** @return array{slug:string, curseforge_id:?int, thunderstore_community:?string, supports:array<int,string>} */
+    private static function pack(string $slug): array
+    {
+        $cfg = self::GAMES[$slug];
+        return [
+            'slug' => $slug,
+            'curseforge_id' => $cfg['curseforge_id'],
+            'thunderstore_community' => $cfg['thunderstore_community'],
+            'supports' => $cfg['supports'],
+        ];
     }
 
     /** Convenience: does this server's game declare support for $type? */
