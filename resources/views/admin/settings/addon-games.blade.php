@@ -33,6 +33,11 @@
                     <h3 class="box-title">Diagnose a server</h3>
                 </div>
                 <div class="box-body">
+                    {{-- csrf_field renders <input type="hidden" name="_token" ...>.
+                         The diagnose form needs its own copy because jQuery's
+                         input[name="_token"] selector picked up a token from
+                         a different form scope on this page. --}}
+                    {{ csrf_field() }}
                     <div class="row">
                         <div class="form-group col-md-6">
                             <label class="control-label">Server UUID (full or short)</label>
