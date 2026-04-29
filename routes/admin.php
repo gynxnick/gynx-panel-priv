@@ -179,14 +179,17 @@ Route::group(['prefix' => 'settings'], function () {
     Route::get('/mail', [Admin\Settings\MailController::class, 'index'])->name('admin.settings.mail');
     Route::get('/advanced', [Admin\Settings\AdvancedController::class, 'index'])->name('admin.settings.advanced');
     Route::get('/gynx-ai', [Admin\Settings\GynxAiController::class, 'index'])->name('admin.settings.gynx-ai');
+    Route::get('/mail-templates', [Admin\Settings\MailTemplatesController::class, 'index'])->name('admin.settings.mail-templates');
 
     Route::post('/mail/test', [Admin\Settings\MailController::class, 'test'])->name('admin.settings.mail.test');
     Route::post('/gynx-ai/test', [Admin\Settings\GynxAiController::class, 'test'])->name('admin.settings.gynx-ai.test');
+    Route::post('/mail-templates/{key}/reset', [Admin\Settings\MailTemplatesController::class, 'reset']);
 
     Route::patch('/', [Admin\Settings\IndexController::class, 'update']);
     Route::patch('/mail', [Admin\Settings\MailController::class, 'update']);
     Route::patch('/advanced', [Admin\Settings\AdvancedController::class, 'update']);
     Route::patch('/gynx-ai', [Admin\Settings\GynxAiController::class, 'update']);
+    Route::patch('/mail-templates/{key}', [Admin\Settings\MailTemplatesController::class, 'update']);
 });
 
 /*

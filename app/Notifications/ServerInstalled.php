@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Pterodactyl\Contracts\Core\ReceivesEvents;
 use Illuminate\Contracts\Notifications\Dispatcher;
 use Illuminate\Notifications\Messages\MailMessage;
+use Pterodactyl\Services\Mail\MailTemplateService;
 
 class ServerInstalled extends Notification implements ShouldQueue, ReceivesEvents
 {
@@ -22,10 +23,6 @@ class ServerInstalled extends Notification implements ShouldQueue, ReceivesEvent
 
     public User $user;
 
-    /**
-     * Handle a direct call to this notification from the server installed event. This is configured
-     * in the event service provider.
-     */
     public function handle(Event|Installed $event): void
     {
         $event->server->loadMissing('user');
@@ -33,28 +30,20 @@ class ServerInstalled extends Notification implements ShouldQueue, ReceivesEvent
         $this->server = $event->server;
         $this->user = $event->server->user;
 
-        // Since we are calling this notification directly from an event listener we need to fire off the dispatcher
-        // to send the email now. Don't use send() or you'll end up firing off two different events.
         Container::getInstance()->make(Dispatcher::class)->sendNow($this->user, $this);
     }
 
-    /**
-     * Get the notification's delivery channels.
-     */
     public function via(): array
     {
         return ['mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(): MailMessage
     {
-        return (new MailMessage())
-            ->greeting('Hello ' . $this->user->username . '.')
-            ->line('Your server has finished installing and is now ready for you to use.')
-            ->line('Server Name: ' . $this->server->name)
-            ->action('Login and Begin Using', route('index'));
+        return app(MailTemplateService::class)->build('server_installed', [
+            'name' => $this->user->username,
+            'server_name' => $this->server->name,
+            'action_url' => route('index'),
+        ]);
     }
 }
