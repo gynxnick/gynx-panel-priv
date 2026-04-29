@@ -8,6 +8,7 @@ use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\AddonPlugin;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Addons\AddonSource;
 use Pterodactyl\Services\Addons\PluginInstallerService;
 use Pterodactyl\Services\Addons\AddonSourceRegistry;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
