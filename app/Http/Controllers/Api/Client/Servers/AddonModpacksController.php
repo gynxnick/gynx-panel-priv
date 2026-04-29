@@ -104,13 +104,20 @@ class AddonModpacksController extends ClientApiController
     {
         $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_INSTALL);
 
-        $pack = $this->installer->extract($server, $modpack);
+        // ?keep_existing=1 → preserve worlds, configs, hand-added mods.
+        // Default (false) keeps the historical clean-install behaviour so
+        // anyone calling the endpoint without the flag gets the safer,
+        // less-surprising result for first-time pack installs.
+        $keepExisting = filter_var($request->query('keep_existing', false), FILTER_VALIDATE_BOOLEAN);
+
+        $pack = $this->installer->extract($server, $modpack, $keepExisting);
 
         try {
             Activity::event('server:addon.modpack.extract')
                 ->property('source', $pack->source)
                 ->property('external_id', $pack->external_id)
                 ->property('file', $pack->file_name)
+                ->property('keep_existing', $keepExisting)
                 ->log();
         } catch (\Throwable $e) {
             report($e);
