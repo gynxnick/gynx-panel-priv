@@ -55,14 +55,11 @@
     {{-- Built-in --}}
     <div class="row">
         <div class="col-xs-12">
-            <div class="box box-default collapsed-box">
+            <div class="box">
                 <div class="box-header with-border">
-                    <h3 class="box-title">Built-in mappings <small>read-only</small></h3>
-                    <div class="box-tools pull-right">
-                        <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button>
-                    </div>
+                    <h3 class="box-title">Built-in mappings <small>read-only — extend by adding a custom row with the same slug</small></h3>
                 </div>
-                <div class="box-body" style="display:none">
+                <div class="box-body" style="overflow:auto">
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -77,7 +74,7 @@
                             @foreach($builtIn as $slug => $cfg)
                                 <tr>
                                     <td><code>{{ $slug }}</code></td>
-                                    <td><code>{{ implode(', ', $cfg['patterns']) }}</code></td>
+                                    <td style="max-width: 420px"><code style="word-break:break-word">{{ implode(', ', $cfg['patterns']) }}</code></td>
                                     <td>{{ $cfg['curseforge_id'] ?? '—' }}</td>
                                     <td>{{ $cfg['thunderstore_community'] ?? '—' }}</td>
                                     <td>{{ implode(' / ', $cfg['supports']) }}</td>
@@ -85,7 +82,6 @@
                             @endforeach
                         </tbody>
                     </table>
-                    <p class="text-muted small">To extend a built-in (e.g. add a pattern to <code>minecraft</code>), copy its row into a custom entry below using the same slug — the custom entry replaces the built-in.</p>
                 </div>
             </div>
         </div>

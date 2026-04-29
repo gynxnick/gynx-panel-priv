@@ -131,9 +131,21 @@ class AddonGamesController extends Controller
         } catch (\Throwable $e) {
             // Admin-only endpoint — surface the real exception instead
             // of the generic 500 page so the operator can see what to fix.
+            // Use Pterodactyl's standard errors[].detail shape so the
+            // existing frontend showError() picks the message up.
             report($e);
             return response()->json([
-                'error' => $e->getMessage() ?: 'Diagnose failed without an exception message.',
+                'errors' => [[
+                    'code' => 'AddonGamesDiagnoseError',
+                    'status' => '500',
+                    'detail' => sprintf(
+                        '[%s] %s @ %s:%d',
+                        class_basename($e),
+                        $e->getMessage() ?: '(no message)',
+                        basename($e->getFile()),
+                        $e->getLine(),
+                    ),
+                ]],
             ], 500);
         }
     }
