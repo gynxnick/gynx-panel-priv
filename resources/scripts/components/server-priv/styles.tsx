@@ -1491,6 +1491,150 @@ const css = `
   outline: none;
   border-color: var(--purple);
 }
+
+/* ------------------------------------------------------------------
+ * Responsive overrides — phone (<=640px) and tablet (<=900px).
+ *
+ * The desktop layout is grid-heavy (2-col main, 5-col stat row, 4-col
+ * tabs that fit naturally in ~1280px). On a phone the right rail eats
+ * half the screen, the stat tiles compress until they're unreadable,
+ * and the topbar's search box + server picker overflow into a wrapped
+ * second row. These rules collapse the layout into a single column,
+ * hide non-essential chrome, and let the tab strip scroll horizontally
+ * with touch momentum.
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  /* Right rail goes below the main column. min-height: 0 was a desktop
+   * hack to keep the console panel from outgrowing the viewport — at
+   * mobile sizes the rail content needs natural height to render. */
+  .gynx-server-priv .main {
+    grid-template-columns: 1fr;
+    padding: 10px 12px 16px;
+    min-height: auto;
+  }
+  .gynx-server-priv .col { min-height: auto; }
+  .gynx-server-priv .console-panel { min-height: 360px; }
+
+  /* Sub-main (installer / account / files) tighter padding so cards
+   * touch the viewport edges less. */
+  .gynx-server-priv .sub-main { padding: 10px 12px 16px; }
+}
+
+@media (max-width: 640px) {
+  /* Topbar: shed everything except logo + alert bell + avatar. The
+   * server picker + search + power buttons go via the tab nav and the
+   * server header below. Logo retains tap target. */
+  .gynx-server-priv .topbar {
+    height: 46px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  /* Search + first divider go away on mobile — the picker still needs
+   * to be reachable (no ⌘K on a phone) so we keep the server-pill
+   * visible but tighten its padding so it doesn't crowd the bell+avatar. */
+  .gynx-server-priv .topbar .divider-v,
+  .gynx-server-priv .topbar .search {
+    display: none !important;
+  }
+  .gynx-server-priv .topbar .server-pill {
+    padding: 4px 8px;
+    font-size: 12px;
+    max-width: 50vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Server header: pull title to its own row; status, address chip
+   * and meta wrap below. Power buttons get a flush row of their own
+   * so even four of them stay tappable on narrow screens. */
+  .gynx-server-priv .server-header { padding: 10px 12px 0; }
+  .gynx-server-priv .server-title-row {
+    gap: 8px; row-gap: 8px;
+  }
+  .gynx-server-priv .server-title {
+    font-size: 16px;
+    width: 100%;
+  }
+  .gynx-server-priv .server-title-row .spacer { flex-basis: 100%; height: 0; }
+  .gynx-server-priv .server-title-row .btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+  }
+  .gynx-server-priv .meta-text {
+    width: 100%;
+    white-space: normal;
+  }
+
+  /* Tabs: smooth touch-scroll and a soft right-edge fade so users can
+   * see there are tabs offscreen. */
+  .gynx-server-priv .tabs {
+    margin-top: 10px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* fade the right edge to hint at horizontal overflow */
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+  .gynx-server-priv .tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  /* Stats: 5-col grid is unreadable at <640px. 2 columns with the
+   * sparkline trimmed so values don't get squeezed. */
+  .gynx-server-priv .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gynx-server-priv .stat-spark { display: none; }
+
+  /* Installer + account grids: single column. */
+  .gynx-server-priv .item-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .gynx-server-priv .install-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .gynx-server-priv .install-side { display: none; }
+  .gynx-server-priv .detail-panel { display: none; }
+
+  /* Crash-log row: stack the action buttons under the file name so
+   * View / Copy / Download don't shrink to icon-only. */
+  .gynx-server-priv .panel > div[style*="grid-template-columns"] {
+    /* leave inline-styled grids alone — they're per-component */
+  }
+
+  /* Modal panels: full-bleed with a slim outer gutter. The desktop
+   * fixed widths (460/540/560/880) overflow on phones. */
+  .gynx-server-priv [class*="modal-overlay"] > .panel,
+  .gynx-server-priv .panel {
+    max-width: 100%;
+  }
+
+  /* Page header: stack title above any action cluster. */
+  .gynx-server-priv .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .gynx-server-priv .page-title { font-size: 18px; }
+  .gynx-server-priv .page-sub { font-size: 12.5px; }
+
+  /* Address chip: shrink padding so it fits next to the status pill
+   * on narrow screens without forcing a row break by itself. */
+  .gynx-server-priv .server-title-row > button {
+    font-size: 11px;
+  }
+}
+
+/* On very narrow viewports, drop the stat row to a single column —
+ * 2 columns with chunky padding still felt cramped on 360px screens. */
+@media (max-width: 380px) {
+  .gynx-server-priv .stat-row {
+    grid-template-columns: 1fr;
+  }
+}
 `;
 
 const GynxServerStyles = () => <style>{css}</style>;
