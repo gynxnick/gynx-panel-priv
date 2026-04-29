@@ -32,12 +32,16 @@ class AddonModpacksController extends ClientApiController
         // so don't surface them as "· soon" — they're n/a, not coming.
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
-            if (!$src->supports(AddonSource::TYPE_MODPACK)) continue;
-            if (!$src->availableFor($server)) continue;
-            $data[] = [
-                'slug' => $slug,
-                'available' => $src->available(),
-            ];
+            try {
+                if (!$src->supports(AddonSource::TYPE_MODPACK)) continue;
+                if (!$src->availableFor($server)) continue;
+                $data[] = [
+                    'slug' => $slug,
+                    'available' => $src->available(),
+                ];
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return new JsonResponse(['data' => $data]);

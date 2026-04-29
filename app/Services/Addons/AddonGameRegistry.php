@@ -96,8 +96,18 @@ class AddonGameRegistry
      */
     public static function forServer(Server $server): ?array
     {
-        $eggName = strtolower((string) optional($server->egg)->name);
-        $nestName = strtolower((string) optional(optional($server->egg)->nest)->name);
+        // Egg / nest relationships are lazy-loaded — wrap the access in
+        // try/catch so a transient DB hiccup or an orphaned egg row
+        // can't 500 the addon-source endpoints. We just pretend the
+        // server has no recognised game in that case.
+        try {
+            $egg = $server->egg;
+            $eggName = strtolower((string) ($egg?->name ?? ''));
+            $nestName = strtolower((string) ($egg?->nest?->name ?? ''));
+        } catch (\Throwable $e) {
+            return null;
+        }
+
         $haystack = trim($nestName . ' ' . $eggName);
         if ($haystack === '') return null;
 

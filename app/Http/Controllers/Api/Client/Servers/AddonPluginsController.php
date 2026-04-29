@@ -32,12 +32,18 @@ class AddonPluginsController extends ClientApiController
 
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
-            if (!$src->supports(AddonSource::TYPE_PLUGIN)) continue;
-            if (!$src->availableFor($server)) continue;
-            $data[] = [
-                'slug' => $slug,
-                'available' => $src->available(),
-            ];
+            try {
+                if (!$src->supports(AddonSource::TYPE_PLUGIN)) continue;
+                if (!$src->availableFor($server)) continue;
+                $data[] = [
+                    'slug' => $slug,
+                    'available' => $src->available(),
+                ];
+            } catch (\Throwable $e) {
+                // One misbehaving adapter shouldn't 500 the whole list.
+                // Log + skip so the user still sees the others.
+                report($e);
+            }
         }
 
         return new JsonResponse(['data' => $data]);
