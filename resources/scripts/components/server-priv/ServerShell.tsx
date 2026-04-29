@@ -336,6 +336,7 @@ interface ServerHeaderProps {
     statusLabel: string;
     statusClass: string;
     metaParts: string[];
+    address: string | null;
     canStart: boolean;
     canStop: boolean;
     onStart?: () => void;
@@ -346,8 +347,46 @@ interface ServerHeaderProps {
     isOffline: boolean;
 }
 
+const AddressChip = ({ address }: { address: string }) => {
+    const [copied, setCopied] = React.useState(false);
+    const onCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(address);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1400);
+        } catch {
+            // Clipboard can fail in non-secure contexts; silently noop —
+            // the chip still displays the address for manual copy.
+        }
+    };
+    return (
+        <button
+            type={'button'}
+            onClick={onCopy}
+            title={copied ? 'Copied' : 'Click to copy'}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '3px 9px', height: 24,
+                background: 'rgba(0,0,0,0.32)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 6,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11.5, color: 'var(--text)',
+                cursor: 'pointer',
+                transition: 'border-color .15s ease, color .15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--purple)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
+        >
+            <Icon name={'globe'} size={11} color={'var(--text-faint)'} />
+            <span>{address}</span>
+            <Icon name={copied ? 'check' : 'copy'} size={11} color={copied ? '#34d399' : 'var(--text-faint)'} />
+        </button>
+    );
+};
+
 const ServerHeader = ({
-    name, statusLabel, statusClass, metaParts,
+    name, statusLabel, statusClass, metaParts, address,
     canStart, canStop, onStart, onStop, onRestart, onKill, killable, isOffline,
 }: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
@@ -359,6 +398,7 @@ const ServerHeader = ({
                     <span className={'pulse'} />
                     {statusLabel}
                 </span>
+                {address && <AddressChip address={address} />}
                 <span className={'meta-text'}>
                     {metaParts.map((part, i) => (
                         <React.Fragment key={i}>
@@ -468,6 +508,18 @@ export const ServerShell = ({ children }: Props) => {
     const node = server?.node ?? '';
     const uptime = useUptime(status);
 
+    // Default allocation → connection string. Prefer alias when set
+    // (admins use it for vanity hostnames like play.example.com); fall
+    // back to the raw IP. Wraps IPv6 in brackets so the colon doesn't
+    // ambiguate with the port. Null when the server has no allocation
+    // attached, which makes the AddressChip render skip itself.
+    const address = (() => {
+        const a = server?.allocations?.find((x) => x.isDefault);
+        if (!a) return null;
+        const host = a.alias || (a.ip.includes(':') ? `[${a.ip}]` : a.ip);
+        return `${host}:${a.port}`;
+    })();
+
     const metaParts = [
         eggName || 'paper 1.21',
         node ? `node-${node.toLowerCase().replace(/\s+/g, '-')}` : 'node-fr-03',
@@ -515,6 +567,7 @@ export const ServerShell = ({ children }: Props) => {
                             statusLabel={statusLabel}
                             statusClass={statusClass}
                             metaParts={metaParts}
+                            address={address}
                             canStart={canStart}
                             canStop={canStop}
                             onStart={onStart}
