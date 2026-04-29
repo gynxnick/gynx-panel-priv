@@ -65,6 +65,20 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton('extensions.themes', function () {
             return new Theme();
         });
+
+        // gynx.ai — bind the configured AI provider to the AiProvider
+        // contract. v1 ships only the Gemini implementation; flipping
+        // GYNX_AI_PROVIDER will swap to a Claude or OpenAI binding once
+        // those classes exist.
+        $this->app->bind(\Pterodactyl\Services\Ai\AiProvider::class, function () {
+            $provider = config('services.gynx_ai.provider', 'gemini');
+            return match ($provider) {
+                'gemini' => new \Pterodactyl\Services\Ai\GeminiProvider(),
+                default => throw new \InvalidArgumentException(
+                    "Unknown gynx.ai provider '{$provider}' — only 'gemini' is wired in v1.",
+                ),
+            };
+        });
     }
 
     /**
