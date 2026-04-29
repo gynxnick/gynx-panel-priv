@@ -87,31 +87,54 @@ class AddonGamesController extends Controller
      */
     public function diagnose(Request $request): Response
     {
-        $payload = $request->validate([
-            'server_uuid' => 'required|string|max:64',
-        ]);
+        try {
+            $payload = $request->validate([
+                'server_uuid' => 'required|string|max:64',
+            ]);
 
-        $server = Server::query()
-            ->where('uuid', $payload['server_uuid'])
-            ->orWhere('uuidShort', $payload['server_uuid'])
-            ->first();
+            $needle = trim((string) $payload['server_uuid']);
 
-        if (!$server) {
-            return response()->json(['error' => 'Server not found.'], 404);
-        }
+            // Length-aware lookup: uuid is the full 36-char dashed UUID,
+            // uuidShort is char(8). Splitting the query avoids an
+            // accidental char-truncation comparison on uuidShort when
+            // the admin pastes the long form.
+            $query = Server::query();
+            if (strlen($needle) === 8) {
+                $query->where('uuidShort', $needle);
+            } else {
+                $query->where('uuid', $needle);
+            }
+            $server = $query->first();
 
-        $signals = AddonGameRegistry::extractSignals($server);
-        $resolved = AddonGameRegistry::forServer($server);
+            if (!$server) {
+                return response()->json(['error' => 'Server not found.'], 404);
+            }
 
-        return response()->json([
-            'data' => [
-                'server' => [
-                    'uuid' => $server->uuid,
-                    'name' => $server->name,
+            // Eager-load egg+nest so extractSignals reads them off the
+            // already-hydrated server rather than hitting the DB lazily
+            // (which masks any relationship errors as the generic 500).
+            $server->loadMissing('egg.nest');
+
+            $signals = AddonGameRegistry::extractSignals($server);
+            $resolved = AddonGameRegistry::forServer($server);
+
+            return response()->json([
+                'data' => [
+                    'server' => [
+                        'uuid' => $server->uuid,
+                        'name' => $server->name,
+                    ],
+                    'signals' => $signals,
+                    'resolved' => $resolved,
                 ],
-                'signals' => $signals,
-                'resolved' => $resolved,
-            ],
-        ]);
+            ]);
+        } catch (\Throwable $e) {
+            // Admin-only endpoint — surface the real exception instead
+            // of the generic 500 page so the operator can see what to fix.
+            report($e);
+            return response()->json([
+                'error' => $e->getMessage() ?: 'Diagnose failed without an exception message.',
+            ], 500);
+        }
     }
 }
