@@ -131,15 +131,18 @@ class AddonGamesController extends Controller
         } catch (\Throwable $e) {
             // Admin-only endpoint — surface the real exception instead
             // of the generic 500 page so the operator can see what to fix.
-            // Use Pterodactyl's standard errors[].detail shape so the
-            // existing frontend showError() picks the message up.
+            // The leading '[diag-v3]' marker exists so the operator can
+            // tell at a glance whether this catch block is even running:
+            // if the swal message doesn't contain the marker, the live
+            // controller is older than this commit (PHP opcache).
             report($e);
             return response()->json([
+                'error' => '[diag-v3] ' . class_basename($e) . ': ' . $e->getMessage(),
                 'errors' => [[
                     'code' => 'AddonGamesDiagnoseError',
                     'status' => '500',
                     'detail' => sprintf(
-                        '[%s] %s @ %s:%d',
+                        '[diag-v3] [%s] %s @ %s:%d',
                         class_basename($e),
                         $e->getMessage() ?: '(no message)',
                         basename($e->getFile()),
