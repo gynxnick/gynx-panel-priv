@@ -92,6 +92,43 @@
         </div>
     </div>
 
+    {{-- Per-egg Install tab override --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Per-egg Install tab <small>which eggs show "Install" on the server panel</small></h3>
+                </div>
+                <div class="box-body">
+                    <p class="text-muted small">
+                        Tick the eggs that should show the Install tab. <strong>Leaving every box unchecked</strong> reverts to pattern-matching (current behaviour — Install shows when the egg's launcher / image looks like a Java MC server). <strong>Checking any box</strong> turns this into an explicit allowlist: only ticked eggs show Install, everything else hides.
+                    </p>
+                    {{ csrf_field() }}
+                    @php($groupedEggs = $eggs->groupBy(fn ($e) => optional($e->nest)->name ?? '—'))
+                    @foreach($groupedEggs as $nestName => $group)
+                        <div style="margin-top:14px">
+                            <strong style="font-size: 13px">{{ $nestName }}</strong>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px;margin-top:6px">
+                                @foreach($group as $egg)
+                                    <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                                        <input type="checkbox" class="egg-installable-cb" value="{{ $egg->id }}" @if(in_array($egg->id, $installableEggIds, true)) checked @endif />
+                                        <span>{{ $egg->name }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="box-footer">
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-sm btn-default" id="eggsClearButton">Clear all (use pattern fallback)</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="eggsSaveButton">Save egg overrides</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Custom --}}
     <div class="row">
         <div class="col-xs-12">
@@ -227,8 +264,28 @@
             swal({ title: 'Whoops!', text: 'Could not ' + verb + ': ' + t, type: 'error' });
         }
 
+        function collectEggIds() {
+            return $('.egg-installable-cb:checked').map(function () { return parseInt(this.value, 10); }).get();
+        }
+
         $(document).ready(function () {
             $('#addRowButton').on('click', addRow);
+
+            $('#eggsClearButton').on('click', function () {
+                $('.egg-installable-cb').prop('checked', false);
+            });
+
+            $('#eggsSaveButton').on('click', function () {
+                $.ajax({
+                    method: 'PATCH',
+                    url: '/admin/settings/addon-games/installable-eggs',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ egg_ids: collectEggIds() }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function () {
+                    swal({ title: 'Saved', text: 'Per-egg Install tab overrides updated.', type: 'success', timer: 1400, showConfirmButton: false });
+                }).fail(function (jq) { showError(jq, 'save egg overrides'); });
+            });
 
             $(document).on('click', '.row-remove', function () {
                 $(this).closest('.addon-row').remove();

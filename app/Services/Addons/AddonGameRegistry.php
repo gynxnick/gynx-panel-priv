@@ -199,6 +199,50 @@ class AddonGameRegistry
         return self::customGames();
     }
 
+    /**
+     * Per-egg override for whether the Install tab should show. Admin
+     * picks specific eggs via Settings → Addon Games → Per-egg overrides.
+     *
+     * Resolution rules in isInstallable():
+     *  - If the override list is empty, fall back to pattern matching
+     *    via forServer() (default behaviour, what we shipped first).
+     *  - If non-empty, the list is the authoritative allowlist — only
+     *    these egg IDs get the Install tab, everything else hides.
+     *
+     * @return array<int,int> egg IDs marked installable by the admin
+     */
+    public static function installableEggIds(): array
+    {
+        try {
+            $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+            $raw = $repo->get('settings::addon_install_egg_ids', null);
+        } catch (\Throwable $e) {
+            return [];
+        }
+        if (!is_string($raw) || $raw === '') return [];
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) return [];
+        return array_values(array_filter(array_map('intval', $decoded)));
+    }
+
+    public static function saveInstallableEggIds(array $eggIds): void
+    {
+        $clean = array_values(array_unique(array_filter(array_map('intval', $eggIds))));
+        $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+        $repo->set('settings::addon_install_egg_ids', json_encode($clean));
+    }
+
+    /** Resolves whether a server should see the Install tab. */
+    public static function isInstallable(Server $server): bool
+    {
+        $admin = self::installableEggIds();
+        if (!empty($admin)) {
+            return in_array((int) $server->egg_id, $admin, true);
+        }
+        // Fallback: pattern-match via the existing game registry.
+        return self::forServer($server) !== null;
+    }
+
     /** Persist a fresh custom catalogue. */
     public static function saveCustom(array $games): void
     {

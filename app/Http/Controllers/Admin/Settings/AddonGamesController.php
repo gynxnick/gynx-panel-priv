@@ -32,6 +32,13 @@ class AddonGamesController extends Controller
 
     public function index(): View
     {
+        // Eager load nest so we can group eggs in the picker without
+        // hitting the DB N+1 times.
+        $eggs = \Pterodactyl\Models\Egg::query()
+            ->with('nest:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'nest_id', 'features']);
+
         return $this->view->make('admin.settings.addon-games', [
             'builtIn' => AddonGameRegistry::builtIn(),
             'custom' => AddonGameRegistry::custom(),
@@ -40,6 +47,8 @@ class AddonGamesController extends Controller
                 AddonSource::TYPE_MOD,
                 AddonSource::TYPE_MODPACK,
             ],
+            'eggs' => $eggs,
+            'installableEggIds' => AddonGameRegistry::installableEggIds(),
         ]);
     }
 
@@ -77,6 +86,20 @@ class AddonGamesController extends Controller
 
         AddonGameRegistry::saveCustom($games);
 
+        return response('', 204);
+    }
+
+    /**
+     * Save the per-egg Install-tab allowlist. Empty list = revert to
+     * pattern-matching fallback.
+     */
+    public function updateInstallableEggs(Request $request): Response
+    {
+        $payload = $request->validate([
+            'egg_ids' => 'array',
+            'egg_ids.*' => 'integer|min:1',
+        ]);
+        AddonGameRegistry::saveInstallableEggIds($payload['egg_ids'] ?? []);
         return response('', 204);
     }
 

@@ -12,6 +12,7 @@ use Illuminate\Container\Container;
 use Pterodactyl\Models\EggVariable;
 use League\Fractal\Resource\Collection;
 use League\Fractal\Resource\NullResource;
+use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Servers\StartupCommandService;
 
 class ServerTransformer extends BaseClientTransformer
@@ -61,6 +62,12 @@ class ServerTransformer extends BaseClientTransformer
             'invocation' => $service->handle($server, !$user->can(Permission::ACTION_STARTUP_READ, $server)),
             'docker_image' => $server->image,
             'egg_features' => $server->egg->inherit_features,
+            // Drives the Install tab visibility on the priv shell.
+            // Admins set the source of truth in Admin → Settings →
+            // Addon Games (per-egg override list); falls back to the
+            // AddonGameRegistry's pattern matching when the admin hasn't
+            // configured an explicit list.
+            'addon_capable' => AddonGameRegistry::isInstallable($server),
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,

@@ -40,6 +40,10 @@ export interface Server {
         allocations: number;
         backups: number;
     };
+    /** Backend-resolved flag for whether the Install tab should show.
+     *  Computed from AddonGameRegistry::isInstallable($server) — admin
+     *  per-egg overrides take precedence over pattern matching. */
+    addonCapable?: boolean;
     isTransferring: boolean;
     variables: ServerEggVariable[];
     allocations: Allocation[];
@@ -63,6 +67,7 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     limits: { ...data.limits },
     eggFeatures: data.egg_features || [],
     featureLimits: { ...data.feature_limits },
+    addonCapable: typeof data.addon_capable === 'boolean' ? data.addon_capable : undefined,
     isTransferring: data.is_transferring,
     variables: ((data.relationships?.variables as FractalResponseList | undefined)?.data || []).map(
         rawDataToServerEggVariable

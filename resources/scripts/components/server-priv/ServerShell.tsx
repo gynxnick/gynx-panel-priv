@@ -536,15 +536,17 @@ export const ServerShell = ({ children }: Props) => {
         uptime,
     ];
 
-    // Hide the Install tab on eggs that don't host any addon source
-    // (random non-MC games, custom eggs without a recognised launcher,
-    // etc.). The helper inspects invocation + docker image — see
-    // helpers/serverKind.ts for the matchers.
+    // Install-tab visibility. Prefer the backend-resolved flag (admin
+    // can override per-egg in Settings → Addon Games); fall back to
+    // local pattern matching when the backend doesn't supply a value
+    // (e.g. older API client compat).
     const addonCaps = getAddonCapabilities({
         invocation: server?.invocation,
         dockerImage: server?.dockerImage,
     });
-    const addonCapable = addonCaps.plugins || addonCaps.mods || addonCaps.modpacks;
+    const addonCapable = typeof server?.addonCapable === 'boolean'
+        ? server.addonCapable
+        : (addonCaps.plugins || addonCaps.mods || addonCaps.modpacks);
 
     const statusLabel = status === 'running' ? 'Running'
         : status === 'starting' ? 'Starting'

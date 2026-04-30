@@ -193,6 +193,7 @@ Route::group(['prefix' => 'settings'], function () {
     Route::patch('/gynx-ai', [Admin\Settings\GynxAiController::class, 'update']);
     Route::patch('/mail-templates/{key}', [Admin\Settings\MailTemplatesController::class, 'update']);
     Route::patch('/addon-games', [Admin\Settings\AddonGamesController::class, 'update']);
+    Route::patch('/addon-games/installable-eggs', [Admin\Settings\AddonGamesController::class, 'updateInstallableEggs']);
 });
 
 /*
