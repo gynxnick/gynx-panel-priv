@@ -5,6 +5,9 @@
 @endsection
 
 @section('content-header')
+    <a href="{{ route('admin.alerts.create') }}" class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;">
+        <i class="fa fa-plus"></i>&nbsp;Create Alert
+    </a>
     <h1>Panel Alerts<small>Broadcast notices to everyone, or to users on a specific node.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>

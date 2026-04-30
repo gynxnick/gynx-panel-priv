@@ -10,6 +10,9 @@
 @endsection
 
 @section('content-header')
+    <a href="{{ route('admin.nodes.new') }}" class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;">
+        <i class="fa fa-plus"></i>&nbsp;Create Node
+    </a>
     <h1>Nodes<small>All nodes available on the system.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>

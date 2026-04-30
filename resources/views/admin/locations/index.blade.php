@@ -5,6 +5,9 @@
 @endsection
 
 @section('content-header')
+    <button class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;" data-toggle="modal" data-target="#newLocationModal">
+        <i class="fa fa-plus"></i>&nbsp;Create Location
+    </button>
     <h1>Locations<small>All locations that nodes can be assigned to for easier categorization.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>
