@@ -118,9 +118,40 @@ const APIS: Record<Tab, ApiSet> = {
     },
 };
 
+// Tab id ↔ backend addon type. Used to filter the in-page Plugins/
+// Mods/Modpacks tab strip down to types this server's game actually
+// supports (Rust shouldn't see Plugins / Modpacks).
+const TAB_TO_ADDON_TYPE: Record<Tab, 'plugin' | 'mod' | 'modpack'> = {
+    plugins: 'plugin',
+    mods: 'mod',
+    modpacks: 'modpack',
+};
+
+const ALL_TAB_DEFS: ReadonlyArray<readonly [Tab, string, 'sparkles' | 'wand' | 'archive']> = [
+    ['plugins', 'Plugins', 'sparkles'],
+    ['mods', 'Mods', 'wand'],
+    ['modpacks', 'Modpacks', 'archive'],
+] as const;
+
 export const InstallerPage = () => {
     const uuid = ServerContext.useStoreState((s) => s.server.data!.uuid);
-    const [tab, setTab] = useState<Tab>('plugins');
+    const supportedTypes = ServerContext.useStoreState((s) => s.server.data?.supportedAddonTypes);
+    const visibleTabDefs = useMemo(() => {
+        // No backend hint? Show all three (back-compat with older API).
+        if (!supportedTypes || supportedTypes.length === 0) return ALL_TAB_DEFS;
+        return ALL_TAB_DEFS.filter(([id]) => supportedTypes.includes(TAB_TO_ADDON_TYPE[id]));
+    }, [supportedTypes]);
+    const initialTab: Tab = visibleTabDefs[0]?.[0] ?? 'plugins';
+    const [tab, setTab] = useState<Tab>(initialTab);
+
+    // If the server's supported types load AFTER first render and the
+    // current tab isn't in the filtered set, snap to the first visible.
+    useEffect(() => {
+        if (!visibleTabDefs.some(([id]) => id === tab)) {
+            const next = visibleTabDefs[0]?.[0];
+            if (next) setTab(next);
+        }
+    }, [visibleTabDefs, tab]);
     const [sources, setSources] = useState<PluginSourceInfo[]>([]);
     const [sourcesLoaded, setSourcesLoaded] = useState(false);
     const [activeSource, setActiveSource] = useState<PluginSourceSlug | null>(null);
@@ -222,7 +253,7 @@ export const InstallerPage = () => {
                 </div>
                 <div className={'spacer'} />
                 <div className={'seg'}>
-                    {([['plugins', 'Plugins', 'sparkles'], ['mods', 'Mods', 'wand'], ['modpacks', 'Modpacks', 'archive']] as const).map(([id, lbl, ic]) => (
+                    {visibleTabDefs.map(([id, lbl, ic]) => (
                         <button
                             key={id}
                             className={`seg-btn ${tab === id ? 'active' : ''}`}

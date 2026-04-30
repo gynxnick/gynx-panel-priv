@@ -71,6 +71,9 @@ class ServerTransformer extends BaseClientTransformer
             // Tabs the priv shell should hide for this server's egg.
             // Admin sets per-egg via Admin → Settings → Addon Games.
             'hidden_tabs' => AddonGameRegistry::hiddenTabsForServer($server),
+            // Which addon types this server's game supports — drives the
+            // Plugins / Mods / Modpacks tabs inside the install page.
+            'supported_addon_types' => AddonGameRegistry::supportedAddonTypes($server),
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,

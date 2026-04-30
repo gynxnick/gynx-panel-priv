@@ -302,6 +302,19 @@ class AddonGameRegistry
         return $map[(int) $server->egg_id] ?? [];
     }
 
+    /**
+     * Addon types this server's game supports (plugin / mod / modpack).
+     * Drives the per-type tab buttons on the install page — Rust shouldn't
+     * see Plugins / Modpacks tabs since uMod only does mods.
+     *
+     * @return array<int,string>
+     */
+    public static function supportedAddonTypes(Server $server): array
+    {
+        $game = self::forServer($server);
+        return $game['supports'] ?? [];
+    }
+
     /** Persist a fresh custom catalogue. */
     public static function saveCustom(array $games): void
     {
