@@ -83,6 +83,14 @@ class AddonGameRegistry
             'patterns' => ['lethal company'],
             'curseforge_id' => null,
             'thunderstore_community' => 'lethal-company',
+            'umod_game' => null,
+            'supports' => [AddonSource::TYPE_MOD],
+        ],
+        'rust' => [
+            'patterns' => ['rust'],
+            'curseforge_id' => null,
+            'thunderstore_community' => null,
+            'umod_game' => 'rust',
             'supports' => [AddonSource::TYPE_MOD],
         ],
     ];
@@ -299,15 +307,16 @@ class AddonGameRegistry
         return $out;
     }
 
-    /** @return array{slug:string, curseforge_id:?int, thunderstore_community:?string, supports:array<int,string>} */
+    /** @return array{slug:string, curseforge_id:?int, thunderstore_community:?string, umod_game:?string, supports:array<int,string>} */
     private static function pack(string $slug, array $games): array
     {
         $cfg = $games[$slug];
         return [
             'slug' => $slug,
-            'curseforge_id' => $cfg['curseforge_id'],
-            'thunderstore_community' => $cfg['thunderstore_community'],
-            'supports' => $cfg['supports'],
+            'curseforge_id' => $cfg['curseforge_id'] ?? null,
+            'thunderstore_community' => $cfg['thunderstore_community'] ?? null,
+            'umod_game' => $cfg['umod_game'] ?? null,
+            'supports' => $cfg['supports'] ?? [],
         ];
     }
 

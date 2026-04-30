@@ -86,7 +86,16 @@ class ModInstallerService
         $dl = $source->resolveDownload(AddonSource::TYPE_MOD, $externalId, $versionId, $gameVersion, $server);
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
-        $this->daemonFiles->setServer($server)->pull($dl['url'], '/mods', [
+        // Most adapters drop into /mods/. uMod (Rust + other Oxide
+        // games) wants /oxide/plugins/ — pick the path from the
+        // adapter when it knows, default to /mods/ otherwise.
+        $installPath = $sourceSlug === 'umod'
+            ? \Pterodactyl\Services\Addons\Sources\UmodAdapter::installPathFor(
+                AddonGameRegistry::forServer($server)['umod_game'] ?? null
+            )
+            : '/mods';
+
+        $this->daemonFiles->setServer($server)->pull($dl['url'], $installPath, [
             'filename' => $dl['file_name'],
             'foreground' => true,
         ]);
@@ -113,8 +122,16 @@ class ModInstallerService
             throw new ConflictHttpException('Mod does not belong to this server.');
         }
 
+        // Mirror the install-time path derivation so uMod plugins are
+        // removed from /oxide/plugins/, not /mods/.
+        $removePath = $mod->source === 'umod'
+            ? \Pterodactyl\Services\Addons\Sources\UmodAdapter::installPathFor(
+                AddonGameRegistry::forServer($server)['umod_game'] ?? null
+            )
+            : '/mods';
+
         try {
-            $this->daemonFiles->setServer($server)->deleteFiles('/mods', [$mod->file_name]);
+            $this->daemonFiles->setServer($server)->deleteFiles($removePath, [$mod->file_name]);
         } catch (\Throwable $e) {
             // Leave the DB row removal happening — symmetric with plugins.
         }

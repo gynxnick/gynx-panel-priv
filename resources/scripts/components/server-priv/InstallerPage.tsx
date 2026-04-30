@@ -50,18 +50,24 @@ const SOURCE_BG: Record<string, string> = {
     curseforge: '#c25638',
     hangar: '#2c6a96',
     spigot: '#b87a26',
+    thunderstore: '#5b6794',
+    umod: '#7a4ec2',
 };
 const SOURCE_LABEL: Record<string, string> = {
     modrinth: 'Modrinth',
     curseforge: 'CurseForge',
     hangar: 'Hangar',
     spigot: 'SpigotMC',
+    thunderstore: 'Thunderstore',
+    umod: 'uMod',
 };
 const SOURCE_INITIAL: Record<string, string> = {
     modrinth: 'M',
     curseforge: 'C',
     hangar: 'H',
     spigot: 'S',
+    thunderstore: 'T',
+    umod: 'U',
 };
 
 const ICON_GRADIENT = (i: number): string =>
