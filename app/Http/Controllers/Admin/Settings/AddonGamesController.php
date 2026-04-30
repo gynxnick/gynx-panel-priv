@@ -65,6 +65,7 @@ class AddonGamesController extends Controller
             'games.*.patterns' => 'nullable|string|max:2000',
             'games.*.curseforge_id' => 'nullable|integer|min:1',
             'games.*.thunderstore_community' => 'nullable|string|max:120',
+            'games.*.umod_game' => 'nullable|string|max:64',
             'games.*.supports' => 'array',
             'games.*.supports.*' => 'string|in:plugin,mod,modpack',
         ]);
@@ -80,6 +81,7 @@ class AddonGamesController extends Controller
                 'patterns' => $patterns,
                 'curseforge_id' => $row['curseforge_id'] ?? null,
                 'thunderstore_community' => $row['thunderstore_community'] ?? null,
+                'umod_game' => $row['umod_game'] ?? null,
                 'supports' => $row['supports'] ?? [],
             ];
         }

@@ -148,7 +148,7 @@
                                     <input type="text" class="form-control row-slug" value="{{ $slug }}" />
                                     <p class="text-muted small">Use a built-in slug (e.g. <code>minecraft</code>) to extend it; or anything else for a new game.</p>
                                 </div>
-                                <div class="form-group col-md-3">
+                                <div class="form-group col-md-2">
                                     <label class="control-label">CurseForge gameId <span class="field-optional"></span></label>
                                     <input type="number" min="1" class="form-control row-cfid" value="{{ $cfg['curseforge_id'] ?? '' }}" />
                                 </div>
@@ -156,7 +156,11 @@
                                     <label class="control-label">Thunderstore community <span class="field-optional"></span></label>
                                     <input type="text" class="form-control row-tscomm" value="{{ $cfg['thunderstore_community'] ?? '' }}" placeholder="e.g. valheim, lethal-company" />
                                 </div>
-                                <div class="form-group col-md-3">
+                                <div class="form-group col-md-2">
+                                    <label class="control-label">uMod game <span class="field-optional"></span></label>
+                                    <input type="text" class="form-control row-umod" value="{{ $cfg['umod_game'] ?? '' }}" placeholder="e.g. rust, hurtworld" />
+                                </div>
+                                <div class="form-group col-md-2">
                                     <label class="control-label">Supports</label>
                                     <div>
                                         @foreach($addonTypes as $t)
@@ -197,7 +201,7 @@
                 <label class="control-label">Slug</label>
                 <input type="text" class="form-control row-slug" />
             </div>
-            <div class="form-group col-md-3">
+            <div class="form-group col-md-2">
                 <label class="control-label">CurseForge gameId</label>
                 <input type="number" min="1" class="form-control row-cfid" />
             </div>
@@ -205,7 +209,11 @@
                 <label class="control-label">Thunderstore community</label>
                 <input type="text" class="form-control row-tscomm" placeholder="e.g. valheim" />
             </div>
-            <div class="form-group col-md-3">
+            <div class="form-group col-md-2">
+                <label class="control-label">uMod game</label>
+                <input type="text" class="form-control row-umod" placeholder="e.g. rust" />
+            </div>
+            <div class="form-group col-md-2">
                 <label class="control-label">Supports</label>
                 <div>
                     <label class="checkbox-inline"><input type="checkbox" class="row-supports" value="plugin" /> plugin</label>
@@ -237,6 +245,7 @@
                     patterns: $r.find('.row-patterns').val(),
                     curseforge_id: $r.find('.row-cfid').val() || null,
                     thunderstore_community: $r.find('.row-tscomm').val() || null,
+                    umod_game: $r.find('.row-umod').val() || null,
                     supports: $r.find('.row-supports:checked').map(function () { return this.value; }).get(),
                 });
             });

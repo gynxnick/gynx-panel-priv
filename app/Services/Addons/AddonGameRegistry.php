@@ -267,10 +267,13 @@ class AddonGameRegistry
             $cf = ($cf === '' || $cf === null) ? null : (int) $cf;
             $ts = $cfg['thunderstore_community'] ?? null;
             $ts = ($ts === '' || $ts === null) ? null : (string) $ts;
+            $um = $cfg['umod_game'] ?? null;
+            $um = ($um === '' || $um === null) ? null : (string) $um;
             $clean[$slug] = [
                 'patterns' => $patterns,
                 'curseforge_id' => $cf,
                 'thunderstore_community' => $ts,
+                'umod_game' => $um,
                 'supports' => $supports,
             ];
         }
@@ -300,6 +303,9 @@ class AddonGameRegistry
                 'curseforge_id' => isset($cfg['curseforge_id']) && $cfg['curseforge_id'] !== null ? (int) $cfg['curseforge_id'] : null,
                 'thunderstore_community' => isset($cfg['thunderstore_community']) && $cfg['thunderstore_community'] !== ''
                     ? (string) $cfg['thunderstore_community']
+                    : null,
+                'umod_game' => isset($cfg['umod_game']) && $cfg['umod_game'] !== ''
+                    ? (string) $cfg['umod_game']
                     : null,
                 'supports' => is_array($cfg['supports'] ?? null) ? array_values($cfg['supports']) : [],
             ];
