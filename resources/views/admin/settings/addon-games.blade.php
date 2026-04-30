@@ -331,6 +331,7 @@
                         lines.push('=> resolved to: ' + data.resolved.slug);
                         lines.push('   curseforge_id: ' + (data.resolved.curseforge_id || '—'));
                         lines.push('   thunderstore_community: ' + (data.resolved.thunderstore_community || '—'));
+                        lines.push('   umod_game: ' + (data.resolved.umod_game || '—'));
                         lines.push('   supports: ' + (data.resolved.supports || []).join(', '));
                     } else {
                         lines.push('=> NO MATCH. Add a custom row with a pattern that appears in the haystack.');
