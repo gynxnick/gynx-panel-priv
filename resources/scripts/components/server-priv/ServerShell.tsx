@@ -13,6 +13,7 @@ import AlertBell from '@/components/gynx/AlertBell';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import GynxServerStyles from './styles';
 import { Icon, IconName } from './Icon';
+import { getAddonCapabilities } from '@/helpers/serverKind';
 
 /**
  * Shell for the gynx-priv per-server view: topbar + server header (title /
@@ -33,11 +34,14 @@ interface TabSpec {
     badge?: string;
     /** "new" badge gets the purple-tint variant */
     newBadge?: boolean;
+    /** Hide this tab when the server's egg can't host any addon source.
+     *  Kept off the spec by default; only the Install tab opts in. */
+    requiresAddons?: boolean;
 }
 
 const TABS: TabSpec[] = [
     { id: 'console',   label: 'Console',   icon: 'console',  path: '' },
-    { id: 'install',   label: 'Install',   icon: 'sparkles', path: 'install', newBadge: true, badge: 'new' },
+    { id: 'install',   label: 'Install',   icon: 'sparkles', path: 'install', newBadge: true, badge: 'new', requiresAddons: true },
     { id: 'files',     label: 'Files',     icon: 'folder',   path: 'files' },
     { id: 'databases', label: 'Databases', icon: 'db',       path: 'databases' },
     { id: 'schedules', label: 'Schedules', icon: 'clock',    path: 'schedules' },
@@ -345,6 +349,10 @@ interface ServerHeaderProps {
     onKill?: () => void;
     killable: boolean;
     isOffline: boolean;
+    /** True when the egg supports at least one of plugin/mod/modpack — gates
+     *  the Install tab. Mistakenly hiding it on a real MC server is worse
+     *  than showing it on an unsupported one, so default to true upstream. */
+    addonCapable: boolean;
 }
 
 const AddressChip = ({ address }: { address: string }) => {
@@ -388,8 +396,10 @@ const AddressChip = ({ address }: { address: string }) => {
 const ServerHeader = ({
     name, statusLabel, statusClass, metaParts, address,
     canStart, canStop, onStart, onStop, onRestart, onKill, killable, isOffline,
+    addonCapable,
 }: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
+    const visibleTabs = TABS.filter((t) => !t.requiresAddons || addonCapable);
     return (
         <div className={'server-header'}>
             <div className={'server-title-row'}>
@@ -430,7 +440,7 @@ const ServerHeader = ({
             </div>
 
             <div className={'tabs'}>
-                {TABS.map((t) => {
+                {visibleTabs.map((t) => {
                     const to = `${match.url.replace(/\/+$/, '')}${t.path ? '/' + t.path : ''}`;
                     return (
                         <NavLink
@@ -526,6 +536,16 @@ export const ServerShell = ({ children }: Props) => {
         uptime,
     ];
 
+    // Hide the Install tab on eggs that don't host any addon source
+    // (random non-MC games, custom eggs without a recognised launcher,
+    // etc.). The helper inspects invocation + docker image — see
+    // helpers/serverKind.ts for the matchers.
+    const addonCaps = getAddonCapabilities({
+        invocation: server?.invocation,
+        dockerImage: server?.dockerImage,
+    });
+    const addonCapable = addonCaps.plugins || addonCaps.mods || addonCaps.modpacks;
+
     const statusLabel = status === 'running' ? 'Running'
         : status === 'starting' ? 'Starting'
         : status === 'stopping' ? 'Stopping'
@@ -576,6 +596,7 @@ export const ServerShell = ({ children }: Props) => {
                             onKill={onKill}
                             killable={killable}
                             isOffline={isOffline}
+                            addonCapable={addonCapable}
                         />
                         {children}
                     </div>
