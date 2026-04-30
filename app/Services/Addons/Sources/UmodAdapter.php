@@ -83,24 +83,45 @@ class UmodAdapter implements AddonSource
         $game = $this->resolveGame($server);
         if ($game === null) return [];
 
-        $params = [
-            'query' => $query,
-            'page' => 1,
-            'sort' => trim($query) === '' ? 'downloads' : 'related',
-            'sortdir' => 'desc',
-            'categories' => [$game],
-        ];
+        $limit = max(1, min($limit, 60));
+        // uMod's search.json defaults to 10/page and ignores per_page-style
+        // hints. Walk pages 1..N until we hit $limit or the API runs dry.
+        // Cap at 6 pages to keep latency reasonable on slow connections —
+        // 10 items × 6 pages = 60 results, which matches the other
+        // adapters' caps.
+        $hits = [];
+        $maxPages = 6;
+        for ($page = 1; $page <= $maxPages && count($hits) < $limit; $page++) {
+            $params = [
+                'query' => $query,
+                'page' => $page,
+                'sort' => trim($query) === '' ? 'downloads' : 'related',
+                'sortdir' => 'desc',
+                'categories' => [$game],
+            ];
 
-        try {
-            $res = $this->http->get('plugins/search.json', ['query' => $params]);
-        } catch (TransferException $e) {
-            throw new BadGatewayHttpException('uMod search failed: ' . $e->getMessage());
+            try {
+                $res = $this->http->get('plugins/search.json', ['query' => $params]);
+            } catch (TransferException $e) {
+                throw new BadGatewayHttpException('uMod search failed: ' . $e->getMessage());
+            }
+
+            $body = json_decode((string) $res->getBody(), true) ?: [];
+            $pageHits = $body['data'] ?? $body['plugins'] ?? [];
+            if (empty($pageHits)) break;
+
+            foreach ($pageHits as $h) {
+                if (!is_array($h)) continue;
+                $hits[] = $h;
+                if (count($hits) >= $limit) break;
+            }
+
+            // uMod sometimes returns a fixed page size that's the same
+            // every page even when there are no more results — break out
+            // when a page comes back smaller than the previous (signal of
+            // "this is the last page").
+            if (count($pageHits) < 10) break;
         }
-
-        $body = json_decode((string) $res->getBody(), true) ?: [];
-        $hits = $body['data'] ?? $body['plugins'] ?? [];
-
-        $sliced = array_slice($hits, 0, max(1, min($limit, 60)));
 
         return array_map(function (array $h) {
             $author = (string) ($h['author'] ?? '');
@@ -116,7 +137,7 @@ class UmodAdapter implements AddonSource
                 'latest_version' => $h['latest_release_version'] ?? null,
                 'source' => 'umod',
             ];
-        }, $sliced);
+        }, $hits);
     }
 
     public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null, ?Server $server = null): array
