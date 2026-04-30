@@ -251,6 +251,57 @@ class AddonGameRegistry
         return self::forServer($server) !== null;
     }
 
+    /**
+     * Per-egg tab-visibility override. {egg_id: [tab_id, ...]} where the
+     * tab IDs are HIDDEN for servers running that egg. Used to drop tabs
+     * that don't make sense for a given game (e.g. Install + Game on a
+     * Discord-bot egg).
+     *
+     * @return array<int, array<int,string>>
+     */
+    public static function hiddenTabsByEgg(): array
+    {
+        try {
+            $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+            $raw = $repo->get('settings::tab_overrides_by_egg', null);
+        } catch (\Throwable $e) {
+            return [];
+        }
+        if (!is_string($raw) || $raw === '') return [];
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) return [];
+
+        $out = [];
+        foreach ($decoded as $eggId => $tabIds) {
+            $eggInt = (int) $eggId;
+            if ($eggInt <= 0 || !is_array($tabIds)) continue;
+            $clean = array_values(array_filter(array_map(fn ($t) => (string) $t, $tabIds)));
+            if (!empty($clean)) $out[$eggInt] = $clean;
+        }
+        return $out;
+    }
+
+    public static function saveHiddenTabsByEgg(array $map): void
+    {
+        $clean = [];
+        foreach ($map as $eggId => $tabIds) {
+            $eggInt = (int) $eggId;
+            if ($eggInt <= 0) continue;
+            if (!is_array($tabIds)) continue;
+            $tabs = array_values(array_unique(array_filter(array_map(fn ($t) => (string) $t, $tabIds))));
+            if (!empty($tabs)) $clean[$eggInt] = $tabs;
+        }
+        $repo = app(\Pterodactyl\Contracts\Repository\SettingsRepositoryInterface::class);
+        $repo->set('settings::tab_overrides_by_egg', json_encode($clean));
+    }
+
+    /** Hidden tab IDs for the server's current egg (empty when no override). */
+    public static function hiddenTabsForServer(Server $server): array
+    {
+        $map = self::hiddenTabsByEgg();
+        return $map[(int) $server->egg_id] ?? [];
+    }
+
     /** Persist a fresh custom catalogue. */
     public static function saveCustom(array $games): void
     {

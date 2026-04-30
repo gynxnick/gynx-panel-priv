@@ -353,6 +353,8 @@ interface ServerHeaderProps {
      *  the Install tab. Mistakenly hiding it on a real MC server is worse
      *  than showing it on an unsupported one, so default to true upstream. */
     addonCapable: boolean;
+    /** Tab IDs to hide for this server's egg (admin-configured). */
+    hiddenTabs: string[];
 }
 
 const AddressChip = ({ address }: { address: string }) => {
@@ -396,10 +398,14 @@ const AddressChip = ({ address }: { address: string }) => {
 const ServerHeader = ({
     name, statusLabel, statusClass, metaParts, address,
     canStart, canStop, onStart, onStop, onRestart, onKill, killable, isOffline,
-    addonCapable,
+    addonCapable, hiddenTabs,
 }: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
-    const visibleTabs = TABS.filter((t) => !t.requiresAddons || addonCapable);
+    const visibleTabs = TABS.filter((t) => {
+        if (t.requiresAddons && !addonCapable) return false;
+        if (hiddenTabs.includes(t.id)) return false;
+        return true;
+    });
     return (
         <div className={'server-header'}>
             <div className={'server-title-row'}>
@@ -547,6 +553,7 @@ export const ServerShell = ({ children }: Props) => {
     const addonCapable = typeof server?.addonCapable === 'boolean'
         ? server.addonCapable
         : (addonCaps.plugins || addonCaps.mods || addonCaps.modpacks);
+    const hiddenTabs = server?.hiddenTabs ?? [];
 
     const statusLabel = status === 'running' ? 'Running'
         : status === 'starting' ? 'Starting'
@@ -599,6 +606,7 @@ export const ServerShell = ({ children }: Props) => {
                             killable={killable}
                             isOffline={isOffline}
                             addonCapable={addonCapable}
+                            hiddenTabs={hiddenTabs}
                         />
                         {children}
                     </div>

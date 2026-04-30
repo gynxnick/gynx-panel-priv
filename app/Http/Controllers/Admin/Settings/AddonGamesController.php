@@ -49,6 +49,20 @@ class AddonGamesController extends Controller
             ],
             'eggs' => $eggs,
             'installableEggIds' => AddonGameRegistry::installableEggIds(),
+            'hiddenTabsByEgg' => AddonGameRegistry::hiddenTabsByEgg(),
+            // Tab IDs must match the TABS array in resources/scripts/
+            // components/server-priv/ServerShell.tsx. Console + Files +
+            // Settings + Startup are excluded from the picker because
+            // hiding them would break basic server management.
+            'hideableTabs' => [
+                'install'   => 'Install',
+                'databases' => 'Databases',
+                'schedules' => 'Schedules',
+                'users'     => 'Users',
+                'backups'   => 'Backups',
+                'network'   => 'Network',
+                'game'      => 'Game (egg switcher)',
+            ],
         ]);
     }
 
@@ -102,6 +116,21 @@ class AddonGamesController extends Controller
             'egg_ids.*' => 'integer|min:1',
         ]);
         AddonGameRegistry::saveInstallableEggIds($payload['egg_ids'] ?? []);
+        return response('', 204);
+    }
+
+    /**
+     * Save the per-egg tab-hide map.
+     * Payload: { egg_id: ['tab_id', 'tab_id', ...], ... }
+     */
+    public function updateHiddenTabs(Request $request): Response
+    {
+        $payload = $request->validate([
+            'map' => 'array',
+            'map.*' => 'array',
+            'map.*.*' => 'string|max:64',
+        ]);
+        AddonGameRegistry::saveHiddenTabsByEgg($payload['map'] ?? []);
         return response('', 204);
     }
 

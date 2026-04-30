@@ -194,6 +194,7 @@ Route::group(['prefix' => 'settings'], function () {
     Route::patch('/mail-templates/{key}', [Admin\Settings\MailTemplatesController::class, 'update']);
     Route::patch('/addon-games', [Admin\Settings\AddonGamesController::class, 'update']);
     Route::patch('/addon-games/installable-eggs', [Admin\Settings\AddonGamesController::class, 'updateInstallableEggs']);
+    Route::patch('/addon-games/hidden-tabs', [Admin\Settings\AddonGamesController::class, 'updateHiddenTabs']);
 });
 
 /*

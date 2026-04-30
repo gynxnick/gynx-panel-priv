@@ -129,6 +129,57 @@
         </div>
     </div>
 
+    {{-- Per-egg tab visibility --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Per-egg tab visibility <small>hide tabs that don't apply to a given egg</small></h3>
+                </div>
+                <div class="box-body">
+                    <p class="text-muted small">
+                        Tick the tabs you want to <strong>hide</strong> for each egg. Discord-bot eggs probably want Install + Game hidden; trial-account eggs might want Backups hidden, etc. Console / Files / Settings / Startup aren't hideable — they're essential for managing any server.
+                    </p>
+                    {{ csrf_field() }}
+                    <div class="table-responsive">
+                        <table class="table table-condensed" style="font-size: 12px">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 220px">Egg</th>
+                                    @foreach($hideableTabs as $tabId => $tabLabel)
+                                        <th class="text-center" style="min-width: 90px"><code>{{ $tabId }}</code><br/><small>{{ $tabLabel }}</small></th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($eggs as $egg)
+                                    @php($hidden = $hiddenTabsByEgg[$egg->id] ?? [])
+                                    <tr data-egg-id="{{ $egg->id }}">
+                                        <td>
+                                            <strong>{{ $egg->name }}</strong>
+                                            <br/><small class="text-muted">{{ optional($egg->nest)->name }}</small>
+                                        </td>
+                                        @foreach($hideableTabs as $tabId => $tabLabel)
+                                            <td class="text-center">
+                                                <input type="checkbox" class="tab-hide-cb" data-tab="{{ $tabId }}" @if(in_array($tabId, $hidden, true)) checked @endif />
+                                            </td>
+                                        @endforeach
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-sm btn-default" id="tabsClearButton">Clear all hides</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="tabsSaveButton">Save tab overrides</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Custom --}}
     <div class="row">
         <div class="col-xs-12">
@@ -294,6 +345,28 @@
                 }).done(function () {
                     swal({ title: 'Saved', text: 'Per-egg Install tab overrides updated.', type: 'success', timer: 1400, showConfirmButton: false });
                 }).fail(function (jq) { showError(jq, 'save egg overrides'); });
+            });
+
+            $('#tabsClearButton').on('click', function () {
+                $('.tab-hide-cb').prop('checked', false);
+            });
+
+            $('#tabsSaveButton').on('click', function () {
+                var map = {};
+                $('tr[data-egg-id]').each(function () {
+                    var eggId = $(this).data('egg-id');
+                    var hides = $(this).find('.tab-hide-cb:checked').map(function () { return $(this).data('tab'); }).get();
+                    if (hides.length > 0) map[eggId] = hides;
+                });
+                $.ajax({
+                    method: 'PATCH',
+                    url: '/admin/settings/addon-games/hidden-tabs',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ map: map }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function () {
+                    swal({ title: 'Saved', text: 'Per-egg tab overrides updated.', type: 'success', timer: 1400, showConfirmButton: false });
+                }).fail(function (jq) { showError(jq, 'save tab overrides'); });
             });
 
             $(document).on('click', '.row-remove', function () {

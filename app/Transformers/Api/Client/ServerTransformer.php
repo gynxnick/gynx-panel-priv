@@ -68,6 +68,9 @@ class ServerTransformer extends BaseClientTransformer
             // AddonGameRegistry's pattern matching when the admin hasn't
             // configured an explicit list.
             'addon_capable' => AddonGameRegistry::isInstallable($server),
+            // Tabs the priv shell should hide for this server's egg.
+            // Admin sets per-egg via Admin → Settings → Addon Games.
+            'hidden_tabs' => AddonGameRegistry::hiddenTabsForServer($server),
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,
