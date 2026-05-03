@@ -5,6 +5,9 @@
 @endsection
 
 @section('content-header')
+    <a href="{{ route('admin.nests.new') }}" class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;">
+        <i class="fa fa-plus"></i>&nbsp;Create Nest
+    </a>
     <h1>Nests<small>All nests currently available on this system.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>

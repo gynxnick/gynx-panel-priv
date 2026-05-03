@@ -72,6 +72,11 @@ Route::group([
     Route::post('/command', [Client\Servers\CommandController::class, 'index']);
     Route::post('/power', [Client\Servers\PowerController::class, 'index']);
 
+    // gynx.ai — diagnostic assistant. status returns availability +
+    // remaining quota so the frontend knows whether to render the card.
+    Route::get('/ai/status', [Client\Servers\AiAssistantController::class, 'status']);
+    Route::post('/ai/ask',   [Client\Servers\AiAssistantController::class, 'ask']);
+
     Route::group(['prefix' => '/databases'], function () {
         Route::get('/', [Client\Servers\DatabaseController::class, 'index']);
         Route::post('/', [Client\Servers\DatabaseController::class, 'store']);

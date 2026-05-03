@@ -30,9 +30,9 @@ class ModpackInstallerService
     public function search(Server $server, string $sourceSlug, string $query, ?string $gameVersion = null): array
     {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK)) return [];
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion);
+        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion, 60, $server);
         $installed = AddonModpack::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
@@ -80,8 +80,8 @@ class ModpackInstallerService
         ?string $gameVersion = null,
     ): AddonModpack {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK)) {
-            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for modpacks.");
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK) || !$source->availableFor($server)) {
+            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for modpacks on this server.");
         }
 
         if (AddonModpack::query()
@@ -93,7 +93,7 @@ class ModpackInstallerService
             throw new ConflictHttpException('This modpack is already downloaded on this server.');
         }
 
-        $dl = $source->resolveDownload(AddonSource::TYPE_MODPACK, $externalId, $versionId, $gameVersion);
+        $dl = $source->resolveDownload(AddonSource::TYPE_MODPACK, $externalId, $versionId, $gameVersion, $server);
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
         $this->daemonFiles->setServer($server)->pull($dl['url'], '/modpacks', [
@@ -153,7 +153,7 @@ class ModpackInstallerService
      *
      * @throws \Throwable
      */
-    public function extract(Server $server, AddonModpack $pack): AddonModpack
+    public function extract(Server $server, AddonModpack $pack, bool $keepExisting = false): AddonModpack
     {
         if ($pack->server_id !== $server->id) {
             throw new ConflictHttpException('Modpack does not belong to this server.');
@@ -193,7 +193,16 @@ class ModpackInstallerService
             // 3a. Clean install: wipe /mods/ contents so the new pack defines
             // the mod set. Old leftover jars otherwise coexist with the new
             // pack's mods and the server crashes on startup.
-            $this->wipeDirContents($files, '/mods');
+            //
+            // When the caller asks to keep existing files (preserves mods
+            // they added by hand, custom configs, etc.) we skip the wipe
+            // and let the manifest's downloads merge into the existing dir.
+            // Conflicts in /mods/ on identical filenames will overwrite,
+            // which is what users want — the new pack's version of a jar
+            // should replace any same-name leftover.
+            if (!$keepExisting) {
+                $this->wipeDirContents($files, '/mods');
+            }
 
             // 4. Fan out mod downloads. Skip entries marked unsupported on
             // the server side (mostly client-only mods like Sodium).
@@ -242,11 +251,21 @@ class ModpackInstallerService
                     // target (file or directory) before renaming the new
                     // one in. Without this the rename fails on conflict
                     // and stale configs from the previous pack persist.
-                    try {
-                        $files->deleteFiles('/', [$name]);
-                    } catch (\Throwable $e) {
-                        // No existing entry, or delete refused — fine, the
-                        // rename below will succeed if the slot is empty.
+                    //
+                    // In keep-existing mode we instead skip top-level
+                    // entries that already exist, so worlds/configs the
+                    // user has already customized survive untouched.
+                    if ($keepExisting && $this->topLevelEntryExists($files, $name)) {
+                        continue;
+                    }
+
+                    if (!$keepExisting) {
+                        try {
+                            $files->deleteFiles('/', [$name]);
+                        } catch (\Throwable $e) {
+                            // No existing entry, or delete refused — fine, the
+                            // rename below will succeed if the slot is empty.
+                        }
                     }
 
                     try {
@@ -283,6 +302,25 @@ class ModpackInstallerService
         $base = preg_replace('/\.(mrpack|zip|jar)$/i', '', $file);
         $base = preg_replace('/[-_][vV]?\d+(\.\d+)*.*$/', '', $base);
         return $base ?: $file;
+    }
+
+    /**
+     * Probe whether a top-level entry exists at the server root. Used by
+     * the keep-existing extract path to decide whether to skip overrides
+     * that would otherwise clobber the user's data.
+     */
+    private function topLevelEntryExists(\Pterodactyl\Repositories\Wings\DaemonFileRepository $files, string $name): bool
+    {
+        try {
+            $listing = $files->getDirectory('/');
+        } catch (\Throwable $e) {
+            return false;
+        }
+        foreach ($listing as $entry) {
+            $existing = is_array($entry) ? ($entry['name'] ?? null) : null;
+            if ($existing === $name) return true;
+        }
+        return false;
     }
 
     /**

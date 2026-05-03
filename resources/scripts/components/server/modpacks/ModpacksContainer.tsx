@@ -164,6 +164,12 @@ export default () => {
     const [installed, setInstalled] = useState<InstalledModpack[]>([]);
     const [loadingInstalled, setLoadingInstalled] = useState(true);
     const [extracting, setExtracting] = useState<number | null>(null);
+    // When true, extract calls pass keep_existing=1: skip the /mods/ wipe
+    // and skip overrides that would clobber existing root entries. Default
+    // off — first-time installs want a clean slate, the merge mode is for
+    // updating an in-place pack while preserving the user's worlds, configs,
+    // and hand-added mods.
+    const [keepExistingFiles, setKeepExistingFiles] = useState(false);
 
     useEffect(() => {
         clearFlashes('modpacks');
@@ -241,7 +247,7 @@ export default () => {
             }
 
             try {
-                const extracted = await extractInstalledModpack(uuid, newId);
+                const extracted = await extractInstalledModpack(uuid, newId, { keepExisting: keepExistingFiles });
                 setInstalled((prev) => prev.map((x) => (x.id === newId ? { ...x, status: extracted.status } : x)));
                 addFlash({
                     key: 'modpacks',
@@ -258,23 +264,35 @@ export default () => {
         } finally {
             setInstalling(null);
         }
-    }, [uuid]);
+    }, [uuid, keepExistingFiles]);
 
     const onExtract = useCallback(async (p: InstalledModpack) => {
-        const ok = window.confirm(
-            `Extract "${p.name}" into the server filesystem?\n\n` +
-            `This will:\n` +
-            `  • Download every mod listed in the .mrpack manifest into /mods/\n` +
-            `  • Copy overrides (configs, scripts, resources) into the server root\n` +
-            `  • SKIP any override file that would overwrite an existing file\n\n` +
+        const merge = keepExistingFiles;
+        const lines = merge ? [
+            `Extract "${p.name}" in MERGE mode?`,
+            ``,
+            `This will:`,
+            `  • Download every mod listed in the .mrpack manifest into /mods/`,
+            `  • Copy overrides into the server root, SKIPPING any top-level entry that already exists`,
+            `  • PRESERVE your existing /mods/ contents, /world, /configs, etc.`,
+            ``,
+            `Use this for in-place pack updates. Stop the server first.`,
+        ] : [
+            `Extract "${p.name}" with a CLEAN install?`,
+            ``,
+            `This will:`,
+            `  • Wipe /mods/ first, then download every mod listed in the .mrpack manifest`,
+            `  • Copy overrides into the server root, OVERWRITING any conflicting top-level entries`,
+            ``,
             `Stop the server first and back up your current world / configs if you have anything you can't afford to lose.`,
-        );
+        ];
+        const ok = window.confirm(lines.join('\n'));
         if (!ok) return;
 
         setExtracting(p.id);
         clearFlashes('modpacks');
         try {
-            const updated = await extractInstalledModpack(uuid, p.id);
+            const updated = await extractInstalledModpack(uuid, p.id, { keepExisting: merge });
             setInstalled((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: updated.status } : x)));
             addFlash({
                 key: 'modpacks',
@@ -291,7 +309,7 @@ export default () => {
         } finally {
             setExtracting(null);
         }
-    }, [uuid]);
+    }, [uuid, keepExistingFiles]);
 
     const onRemove = useCallback(async (p: InstalledModpack) => {
         if (!window.confirm(`Delete the archive ${p.fileName}? Already-extracted files are NOT removed.`)) return;
@@ -380,8 +398,33 @@ export default () => {
         }
 
         return (
-            <GynxCard>
-                {installed.map((p) => (
+            <>
+                <label
+                    css={tw`flex items-start gap-3 p-3 mb-3 rounded-md cursor-pointer select-none`}
+                    style={{
+                        background: keepExistingFiles ? 'rgba(124, 58, 237, 0.10)' : 'rgba(255, 255, 255, 0.03)',
+                        border: `1px solid ${keepExistingFiles ? 'rgba(124, 58, 237, 0.35)' : 'var(--gynx-edge)'}`,
+                    }}
+                >
+                    <input
+                        type={'checkbox'}
+                        checked={keepExistingFiles}
+                        onChange={(e) => setKeepExistingFiles(e.currentTarget.checked)}
+                        css={tw`mt-0.5`}
+                    />
+                    <div css={tw`flex-1`}>
+                        <div css={tw`text-sm font-medium`} style={{ color: 'var(--gynx-text)' }}>
+                            Keep existing files (merge install)
+                        </div>
+                        <div css={tw`text-xs mt-1`} style={{ color: 'var(--gynx-text-dim)', lineHeight: 1.5 }}>
+                            Skip the <code>/mods/</code> wipe and don&apos;t overwrite top-level entries that already exist
+                            (worlds, configs, mods you added by hand). Default is a clean install — newer pack files
+                            replace existing ones, removed pack files vanish.
+                        </div>
+                    </div>
+                </label>
+                <GynxCard>
+                    {installed.map((p) => (
                     <InstalledRow key={p.id}>
                         <div style={{ color: '#C4B5FD', width: 20, textAlign: 'center' }}>
                             <FontAwesomeIcon icon={faBoxes} />
@@ -411,7 +454,8 @@ export default () => {
                         </IconButton>
                     </InstalledRow>
                 ))}
-            </GynxCard>
+                </GynxCard>
+            </>
         );
     };
 

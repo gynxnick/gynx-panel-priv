@@ -40,6 +40,17 @@ export interface Server {
         allocations: number;
         backups: number;
     };
+    /** Backend-resolved flag for whether the Install tab should show.
+     *  Computed from AddonGameRegistry::isInstallable($server) — admin
+     *  per-egg overrides take precedence over pattern matching. */
+    addonCapable?: boolean;
+    /** Tab IDs the priv shell should HIDE for this server. Admin sets
+     *  per-egg via Admin → Settings → Addon Games. */
+    hiddenTabs?: string[];
+    /** Addon types ('plugin' | 'mod' | 'modpack') this server's game
+     *  supports. Filters the Plugins / Mods / Modpacks tabs inside
+     *  the install page. */
+    supportedAddonTypes?: string[];
     isTransferring: boolean;
     variables: ServerEggVariable[];
     allocations: Allocation[];
@@ -63,6 +74,11 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     limits: { ...data.limits },
     eggFeatures: data.egg_features || [],
     featureLimits: { ...data.feature_limits },
+    addonCapable: typeof data.addon_capable === 'boolean' ? data.addon_capable : undefined,
+    hiddenTabs: Array.isArray(data.hidden_tabs) ? data.hidden_tabs.map((t: unknown) => String(t)) : undefined,
+    supportedAddonTypes: Array.isArray(data.supported_addon_types)
+        ? data.supported_addon_types.map((t: unknown) => String(t))
+        : undefined,
     isTransferring: data.is_transferring,
     variables: ((data.relationships?.variables as FractalResponseList | undefined)?.data || []).map(
         rawDataToServerEggVariable

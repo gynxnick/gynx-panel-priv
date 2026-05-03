@@ -21,9 +21,9 @@ class ModInstallerService
     public function search(Server $server, string $sourceSlug, string $query, ?string $gameVersion = null): array
     {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD)) return [];
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion);
+        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion, 60, $server);
         $installed = AddonMod::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
@@ -70,8 +70,8 @@ class ModInstallerService
         ?string $gameVersion = null,
     ): AddonMod {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD)) {
-            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for mods.");
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD) || !$source->availableFor($server)) {
+            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for mods on this server.");
         }
 
         if (AddonMod::query()
@@ -83,10 +83,19 @@ class ModInstallerService
             throw new ConflictHttpException('This mod is already installed on this server.');
         }
 
-        $dl = $source->resolveDownload(AddonSource::TYPE_MOD, $externalId, $versionId, $gameVersion);
+        $dl = $source->resolveDownload(AddonSource::TYPE_MOD, $externalId, $versionId, $gameVersion, $server);
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
-        $this->daemonFiles->setServer($server)->pull($dl['url'], '/mods', [
+        // Most adapters drop into /mods/. uMod (Rust + other Oxide
+        // games) wants /oxide/plugins/ — pick the path from the
+        // adapter when it knows, default to /mods/ otherwise.
+        $installPath = $sourceSlug === 'umod'
+            ? \Pterodactyl\Services\Addons\Sources\UmodAdapter::installPathFor(
+                AddonGameRegistry::forServer($server)['umod_game'] ?? null
+            )
+            : '/mods';
+
+        $this->daemonFiles->setServer($server)->pull($dl['url'], $installPath, [
             'filename' => $dl['file_name'],
             'foreground' => true,
         ]);
@@ -113,8 +122,16 @@ class ModInstallerService
             throw new ConflictHttpException('Mod does not belong to this server.');
         }
 
+        // Mirror the install-time path derivation so uMod plugins are
+        // removed from /oxide/plugins/, not /mods/.
+        $removePath = $mod->source === 'umod'
+            ? \Pterodactyl\Services\Addons\Sources\UmodAdapter::installPathFor(
+                AddonGameRegistry::forServer($server)['umod_game'] ?? null
+            )
+            : '/mods';
+
         try {
-            $this->daemonFiles->setServer($server)->deleteFiles('/mods', [$mod->file_name]);
+            $this->daemonFiles->setServer($server)->deleteFiles($removePath, [$mod->file_name]);
         } catch (\Throwable $e) {
             // Leave the DB row removal happening — symmetric with plugins.
         }

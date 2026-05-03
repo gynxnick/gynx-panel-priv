@@ -6,6 +6,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
 use Pterodactyl\Contracts\Repository\SettingsRepositoryInterface;
 use Pterodactyl\Http\Controllers\Admin\IntegrationsController;
+use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
 use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -88,12 +90,33 @@ class CurseForgeAdapter implements AddonSource
         return isset(self::CLASS_BY_TYPE[$type]);
     }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
+    public function availableFor(Server $server): bool
+    {
+        if (!$this->available()) return false;
+        return $this->resolveGameId($server) !== null;
+    }
+
+    /**
+     * Pull the CurseForge gameId for this server's egg via the registry.
+     * Falls back to Minecraft (432) when no server is available — the
+     * adapter's older single-game callers still work that way.
+     */
+    private function resolveGameId(?Server $server): ?int
+    {
+        if ($server === null) return self::GAME_ID_MINECRAFT;
+        $game = AddonGameRegistry::forServer($server);
+        if ($game === null) return null;
+        return $game['curseforge_id'];
+    }
+
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60, ?Server $server = null): array
     {
         $this->assertSupports($type);
+        $gameId = $this->resolveGameId($server);
+        if ($gameId === null) return [];
 
         $params = [
-            'gameId' => self::GAME_ID_MINECRAFT,
+            'gameId' => $gameId,
             'classId' => self::CLASS_BY_TYPE[$type],
             'pageSize' => min(max($limit, 1), 50),
             // sortField 2=popularity (best for browse), 6=totalDownloads
@@ -137,7 +160,7 @@ class CurseForgeAdapter implements AddonSource
         }, $data);
     }
 
-    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null): array
+    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null, ?Server $server = null): array
     {
         $this->assertSupports($type);
 
@@ -211,7 +234,7 @@ class CurseForgeAdapter implements AddonSource
         ];
     }
 
-    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20): array
+    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20, ?Server $server = null): array
     {
         $this->assertSupports($type);
 

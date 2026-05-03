@@ -25,9 +25,9 @@ class PluginInstallerService
     public function search(Server $server, string $sourceSlug, string $query, ?string $gameVersion = null): array
     {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_PLUGIN)) return [];
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_PLUGIN) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_PLUGIN, $query, $gameVersion);
+        $hits = $source->search(AddonSource::TYPE_PLUGIN, $query, $gameVersion, 60, $server);
         $installed = AddonPlugin::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
@@ -73,8 +73,8 @@ class PluginInstallerService
         ?string $gameVersion = null,
     ): AddonPlugin {
         $source = $this->registry->get($sourceSlug);
-        if (!$source->available() || !$source->supports(AddonSource::TYPE_PLUGIN)) {
-            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for plugins.");
+        if (!$source->available() || !$source->supports(AddonSource::TYPE_PLUGIN) || !$source->availableFor($server)) {
+            throw new ConflictHttpException("Source '{$sourceSlug}' is not available for plugins on this server.");
         }
 
         if (AddonPlugin::query()
@@ -86,7 +86,7 @@ class PluginInstallerService
             throw new ConflictHttpException('This plugin is already installed on this server.');
         }
 
-        $dl = $source->resolveDownload(AddonSource::TYPE_PLUGIN, $externalId, $versionId, $gameVersion);
+        $dl = $source->resolveDownload(AddonSource::TYPE_PLUGIN, $externalId, $versionId, $gameVersion, $server);
 
         // Resolve the display name + slug from the same source's search
         // payload isn't cheap; lean on the resolveDownload metadata + the

@@ -125,6 +125,11 @@ export const FilesPage = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState<{ name: string; pct: number } | null>(null);
 
+    // Drag-drop overlay state. Document-level dragenter flips this on; the
+    // overlay itself owns dragleave/drop so the closure stays fresh and we
+    // don't capture stale uuid/directory values.
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+
     // Reset selection + filter when directory changes.
     useEffect(() => {
         setSelected(new Set());
@@ -135,6 +140,31 @@ export const FilesPage = () => {
     useEffect(() => {
         if (filterOpen) filterInputRef.current?.focus();
     }, [filterOpen]);
+
+    // Surface the drop overlay whenever a file drag enters the window.
+    useEffect(() => {
+        const isFileDrag = (e: DragEvent): boolean =>
+            e.dataTransfer?.types
+                ? Array.from(e.dataTransfer.types).some((t) => t.toLowerCase() === 'files')
+                : false;
+
+        const onDragEnter = (e: DragEvent) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+            setIsDraggingOver(true);
+        };
+        const onDragOver = (e: DragEvent) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+        };
+
+        document.addEventListener('dragenter', onDragEnter);
+        document.addEventListener('dragover', onDragOver);
+        return () => {
+            document.removeEventListener('dragenter', onDragEnter);
+            document.removeEventListener('dragover', onDragOver);
+        };
+    }, []);
 
     const toggleSelect = (name: string) => {
         setSelected((prev) => {
@@ -310,6 +340,83 @@ export const FilesPage = () => {
 
     return (
         <div className={'sub-main'}>
+            {isDraggingOver && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(11, 11, 15, 0.78)',
+                        backdropFilter: 'blur(6px)',
+                        WebkitBackdropFilter: 'blur(6px)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                    onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }}
+                    onDragLeave={(e) => {
+                        // Hide only when leaving the window (related target outside the overlay)
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setIsDraggingOver(false);
+                        }
+                    }}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            handleUpload(e.dataTransfer.files);
+                        }
+                    }}
+                >
+                    <div
+                        style={{
+                            background: 'rgba(124, 58, 237, 0.12)',
+                            border: '2px dashed var(--purple, #7C3AED)',
+                            borderRadius: 16,
+                            padding: '40px 56px',
+                            textAlign: 'center',
+                            boxShadow:
+                                '0 0 0 1px rgba(124, 58, 237, 0.35), 0 24px 48px -24px rgba(124, 58, 237, 0.5)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <Icon name={'download'} size={40} color={'var(--purple, #7C3AED)'} />
+                        <div
+                            style={{
+                                fontFamily:
+                                    "'Space Grotesk', system-ui, sans-serif",
+                                fontSize: 22,
+                                fontWeight: 600,
+                                color: 'white',
+                                marginTop: 14,
+                                marginBottom: 6,
+                                letterSpacing: '-0.01em',
+                            }}
+                        >
+                            drop to upload
+                        </div>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                color: 'var(--text-faint, #9CA3AF)',
+                                fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                        >
+                            files land in{' '}
+                            <strong style={{ color: 'white' }}>{directory}</strong>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className={'page-header'}>
                 <div>
                     <div className={'page-title'}>Files</div>

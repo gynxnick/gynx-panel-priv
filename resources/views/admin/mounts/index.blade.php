@@ -6,6 +6,9 @@
 @endsection
 
 @section('content-header')
+    <button class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;" data-toggle="modal" data-target="#newMountModal">
+        <i class="fa fa-plus"></i>&nbsp;Create Mount
+    </button>
     <h1>Mounts<small>Configure and manage additional mount points for servers.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>

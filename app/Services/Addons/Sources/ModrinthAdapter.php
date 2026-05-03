@@ -4,6 +4,8 @@ namespace Pterodactyl\Services\Addons\Sources;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
+use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
 use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -50,7 +52,17 @@ class ModrinthAdapter implements AddonSource
         return in_array($type, [self::TYPE_PLUGIN, self::TYPE_MOD, self::TYPE_MODPACK], true);
     }
 
-    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60): array
+    public function availableFor(Server $server): bool
+    {
+        // Modrinth is Minecraft-only today — gate per-server on the
+        // egg's classified game so non-MC servers don't see it as a
+        // selectable source. Drops out cleanly when a future Modrinth
+        // adds non-MC content; bump the registry then.
+        $game = AddonGameRegistry::forServer($server);
+        return $this->available() && $game !== null && $game['slug'] === 'minecraft';
+    }
+
+    public function search(string $type, string $query, ?string $gameVersion = null, int $limit = 60, ?Server $server = null): array
     {
         $this->assertSupports($type);
 
@@ -92,7 +104,7 @@ class ModrinthAdapter implements AddonSource
         }, $hits);
     }
 
-    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null): array
+    public function resolveDownload(string $type, string $externalId, ?string $versionId, ?string $gameVersion = null, ?Server $server = null): array
     {
         $this->assertSupports($type);
 
@@ -138,7 +150,7 @@ class ModrinthAdapter implements AddonSource
         ];
     }
 
-    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20): array
+    public function listVersions(string $type, string $externalId, ?string $gameVersion = null, int $limit = 20, ?Server $server = null): array
     {
         $this->assertSupports($type);
 

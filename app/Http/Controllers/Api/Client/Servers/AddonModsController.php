@@ -33,11 +33,16 @@ class AddonModsController extends ClientApiController
         // as "· soon" forever, which isn't true — they're n/a.
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
-            if (!$src->supports(AddonSource::TYPE_MOD)) continue;
-            $data[] = [
-                'slug' => $slug,
-                'available' => $src->available(),
-            ];
+            try {
+                if (!$src->supports(AddonSource::TYPE_MOD)) continue;
+                if (!$src->availableFor($server)) continue;
+                $data[] = [
+                    'slug' => $slug,
+                    'available' => $src->available(),
+                ];
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return new JsonResponse(['data' => $data]);

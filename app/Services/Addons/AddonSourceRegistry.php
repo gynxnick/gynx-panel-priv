@@ -6,6 +6,8 @@ use Pterodactyl\Services\Addons\Sources\CurseForgeAdapter;
 use Pterodactyl\Services\Addons\Sources\HangarAdapter;
 use Pterodactyl\Services\Addons\Sources\ModrinthAdapter;
 use Pterodactyl\Services\Addons\Sources\SpigotAdapter;
+use Pterodactyl\Services\Addons\Sources\ThunderstoreAdapter;
+use Pterodactyl\Services\Addons\Sources\UmodAdapter;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AddonSourceRegistry
@@ -18,12 +20,16 @@ class AddonSourceRegistry
         HangarAdapter $hangar,
         SpigotAdapter $spigot,
         CurseForgeAdapter $curseforge,
+        ThunderstoreAdapter $thunderstore,
+        UmodAdapter $umod,
     ) {
         $this->sources = [
             $modrinth->slug() => $modrinth,
             $hangar->slug() => $hangar,
             $spigot->slug() => $spigot,
             $curseforge->slug() => $curseforge,
+            $thunderstore->slug() => $thunderstore,
+            $umod->slug() => $umod,
         ];
     }
 

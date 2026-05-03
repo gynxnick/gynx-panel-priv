@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useHistory, useRouteMatch } from 'react-router-dom';
+import { Link, NavLink, useHistory, useRouteMatch } from 'react-router-dom';
 import { ServerContext } from '@/state/server';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
@@ -13,6 +13,7 @@ import AlertBell from '@/components/gynx/AlertBell';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import GynxServerStyles from './styles';
 import { Icon, IconName } from './Icon';
+import { getAddonCapabilities } from '@/helpers/serverKind';
 
 /**
  * Shell for the gynx-priv per-server view: topbar + server header (title /
@@ -33,11 +34,14 @@ interface TabSpec {
     badge?: string;
     /** "new" badge gets the purple-tint variant */
     newBadge?: boolean;
+    /** Hide this tab when the server's egg can't host any addon source.
+     *  Kept off the spec by default; only the Install tab opts in. */
+    requiresAddons?: boolean;
 }
 
 const TABS: TabSpec[] = [
     { id: 'console',   label: 'Console',   icon: 'console',  path: '' },
-    { id: 'install',   label: 'Install',   icon: 'sparkles', path: 'install', newBadge: true, badge: 'new' },
+    { id: 'install',   label: 'Install',   icon: 'sparkles', path: 'install', newBadge: true, badge: 'new', requiresAddons: true },
     { id: 'files',     label: 'Files',     icon: 'folder',   path: 'files' },
     { id: 'databases', label: 'Databases', icon: 'db',       path: 'databases' },
     { id: 'schedules', label: 'Schedules', icon: 'clock',    path: 'schedules' },
@@ -288,11 +292,16 @@ const Topbar = ({ serverName, currentId }: { serverName: string; currentId: stri
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
+    // Logo target: the current server's console. Linking to "/" here would
+    // bounce through DashboardRouter → RootRedirect → /server/<id>, and the
+    // legacy AppShell flashes for the duration of the getServers call. Going
+    // straight to the current server avoids that round-trip entirely.
+    const logoHref = currentId ? `/server/${currentId}` : '/';
     return (
         <div className={'topbar'}>
-            <a href={'/'} className={'logo'} aria-label={'gynx.gg home'}>
+            <Link to={logoHref} className={'logo'} aria-label={'gynx.gg home'}>
                 <LogoMark size={26} alt={'gynx.gg'} />
-            </a>
+            </Link>
             <div className={'divider-v'} />
             <ServerPicker
                 currentId={currentId}
@@ -331,17 +340,72 @@ interface ServerHeaderProps {
     statusLabel: string;
     statusClass: string;
     metaParts: string[];
+    address: string | null;
+    canStart: boolean;
     canStop: boolean;
+    onStart?: () => void;
     onStop?: () => void;
     onRestart?: () => void;
     onKill?: () => void;
     killable: boolean;
+    isOffline: boolean;
+    /** True when the egg supports at least one of plugin/mod/modpack — gates
+     *  the Install tab. Mistakenly hiding it on a real MC server is worse
+     *  than showing it on an unsupported one, so default to true upstream. */
+    addonCapable: boolean;
+    /** Tab IDs to hide for this server's egg (admin-configured). */
+    hiddenTabs: string[];
 }
 
+const AddressChip = ({ address }: { address: string }) => {
+    const [copied, setCopied] = React.useState(false);
+    const onCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(address);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1400);
+        } catch {
+            // Clipboard can fail in non-secure contexts; silently noop —
+            // the chip still displays the address for manual copy.
+        }
+    };
+    return (
+        <button
+            type={'button'}
+            onClick={onCopy}
+            title={copied ? 'Copied' : 'Click to copy'}
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '3px 9px', height: 24,
+                background: 'rgba(0,0,0,0.32)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 6,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11.5, color: 'var(--text)',
+                cursor: 'pointer',
+                transition: 'border-color .15s ease, color .15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--purple)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
+        >
+            <Icon name={'globe'} size={11} color={'var(--text-faint)'} />
+            <span>{address}</span>
+            <Icon name={copied ? 'check' : 'copy'} size={11} color={copied ? '#34d399' : 'var(--text-faint)'} />
+        </button>
+    );
+};
+
 const ServerHeader = ({
-    name, statusLabel, statusClass, metaParts, canStop, onStop, onRestart, onKill, killable,
+    name, statusLabel, statusClass, metaParts, address,
+    canStart, canStop, onStart, onStop, onRestart, onKill, killable, isOffline,
+    addonCapable, hiddenTabs,
 }: ServerHeaderProps) => {
     const match = useRouteMatch<{ id: string }>();
+    const visibleTabs = TABS.filter((t) => {
+        if (t.requiresAddons && !addonCapable) return false;
+        if (hiddenTabs.includes(t.id)) return false;
+        return true;
+    });
     return (
         <div className={'server-header'}>
             <div className={'server-title-row'}>
@@ -350,6 +414,7 @@ const ServerHeader = ({
                     <span className={'pulse'} />
                     {statusLabel}
                 </span>
+                {address && <AddressChip address={address} />}
                 <span className={'meta-text'}>
                     {metaParts.map((part, i) => (
                         <React.Fragment key={i}>
@@ -359,19 +424,29 @@ const ServerHeader = ({
                     ))}
                 </span>
                 <div className={'spacer'} />
-                <button className={'btn'} onClick={onStop} disabled={!canStop}>
-                    <Icon name={'pause'} size={13} />{killable ? 'Stop' : 'Stop'}
-                </button>
-                <button className={'btn'} onClick={onRestart}>
+                {/* Power buttons. Start and Stop swap based on state so the
+                 * primary action is always whichever transition makes sense
+                 * for the current power state. Restart stays available on
+                 * running, Kill only when the daemon is mid-stop. */}
+                {isOffline ? (
+                    <button className={'btn btn-primary'} onClick={onStart} disabled={!canStart}>
+                        <Icon name={'play'} size={13} />Start
+                    </button>
+                ) : (
+                    <button className={'btn'} onClick={onStop} disabled={!canStop}>
+                        <Icon name={'pause'} size={13} />{killable ? 'Force stop' : 'Stop'}
+                    </button>
+                )}
+                <button className={'btn'} onClick={onRestart} disabled={isOffline}>
                     <Icon name={'restart'} size={13} />Restart
                 </button>
-                <button className={'btn btn-danger'} onClick={onKill}>
+                <button className={'btn btn-danger'} onClick={onKill} disabled={isOffline}>
                     <Icon name={'zap'} size={13} />Kill
                 </button>
             </div>
 
             <div className={'tabs'}>
-                {TABS.map((t) => {
+                {visibleTabs.map((t) => {
                     const to = `${match.url.replace(/\/+$/, '')}${t.path ? '/' + t.path : ''}`;
                     return (
                         <NavLink
@@ -449,11 +524,36 @@ export const ServerShell = ({ children }: Props) => {
     const node = server?.node ?? '';
     const uptime = useUptime(status);
 
+    // Default allocation → connection string. Prefer alias when set
+    // (admins use it for vanity hostnames like play.example.com); fall
+    // back to the raw IP. Wraps IPv6 in brackets so the colon doesn't
+    // ambiguate with the port. Null when the server has no allocation
+    // attached, which makes the AddressChip render skip itself.
+    const address = (() => {
+        const a = server?.allocations?.find((x) => x.isDefault);
+        if (!a) return null;
+        const host = a.alias || (a.ip.includes(':') ? `[${a.ip}]` : a.ip);
+        return `${host}:${a.port}`;
+    })();
+
     const metaParts = [
         eggName || 'paper 1.21',
         node ? `node-${node.toLowerCase().replace(/\s+/g, '-')}` : 'node-fr-03',
         uptime,
     ];
+
+    // Install-tab visibility. Prefer the backend-resolved flag (admin
+    // can override per-egg in Settings → Addon Games); fall back to
+    // local pattern matching when the backend doesn't supply a value
+    // (e.g. older API client compat).
+    const addonCaps = getAddonCapabilities({
+        invocation: server?.invocation,
+        dockerImage: server?.dockerImage,
+    });
+    const addonCapable = typeof server?.addonCapable === 'boolean'
+        ? server.addonCapable
+        : (addonCaps.plugins || addonCaps.mods || addonCaps.modpacks);
+    const hiddenTabs = server?.hiddenTabs ?? [];
 
     const statusLabel = status === 'running' ? 'Running'
         : status === 'starting' ? 'Starting'
@@ -467,12 +567,15 @@ export const ServerShell = ({ children }: Props) => {
         : '';
 
     const killable = status === 'stopping';
+    const isOffline = status === 'offline' || !status;
+    const canStart = isOffline && connected && !!instance;
     const canStop = !!status && status !== 'offline';
 
     const send = (action: 'start' | 'restart' | 'stop' | 'kill') => {
         if (!instance || !connected) return;
         instance.send('set state', action);
     };
+    const onStart = () => send('start');
     const onStop = () => send(killable ? 'kill' : 'stop');
     const onRestart = () => send('restart');
     const onKill = () => {
@@ -493,11 +596,17 @@ export const ServerShell = ({ children }: Props) => {
                             statusLabel={statusLabel}
                             statusClass={statusClass}
                             metaParts={metaParts}
+                            address={address}
+                            canStart={canStart}
                             canStop={canStop}
+                            onStart={onStart}
                             onStop={onStop}
                             onRestart={onRestart}
                             onKill={onKill}
                             killable={killable}
+                            isOffline={isOffline}
+                            addonCapable={addonCapable}
+                            hiddenTabs={hiddenTabs}
                         />
                         {children}
                     </div>

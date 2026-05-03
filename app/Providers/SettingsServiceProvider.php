@@ -30,6 +30,15 @@ class SettingsServiceProvider extends ServiceProvider
         'pterodactyl:client_features:allocations:enabled',
         'pterodactyl:client_features:allocations:range_start',
         'pterodactyl:client_features:allocations:range_end',
+
+        // gynx.ai — DB values override .env defaults so admins can manage
+        // the API key from the panel without redeploying. The api_key
+        // entry is encrypted at rest (see $encrypted below).
+        'services:gynx_ai:enabled',
+        'services:gynx_ai:provider',
+        'services:gynx_ai:gemini:api_key',
+        'services:gynx_ai:gemini:model',
+        'services:gynx_ai:daily_cap_per_server',
     ];
 
     /**
@@ -52,6 +61,7 @@ class SettingsServiceProvider extends ServiceProvider
      */
     protected static array $encrypted = [
         'mail:mailers:smtp:password',
+        'services:gynx_ai:gemini:api_key',
     ];
 
     /**

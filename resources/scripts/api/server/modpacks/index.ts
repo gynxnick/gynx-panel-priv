@@ -33,8 +33,14 @@ export const installModpack = async (
     return data?.data;
 };
 
-export const extractInstalledModpack = async (uuid: string, id: number): Promise<InstalledModpack> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/addons/modpacks/${id}/extract`);
+export const extractInstalledModpack = async (
+    uuid: string,
+    id: number,
+    options: { keepExisting?: boolean } = {},
+): Promise<InstalledModpack> => {
+    const { data } = await http.post(`/api/client/servers/${uuid}/addons/modpacks/${id}/extract`, null, {
+        params: options.keepExisting ? { keep_existing: 1 } : undefined,
+    });
     return data?.data as InstalledModpack;
 };
 

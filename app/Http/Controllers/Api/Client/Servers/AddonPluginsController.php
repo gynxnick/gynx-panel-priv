@@ -8,6 +8,7 @@ use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\AddonPlugin;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Addons\AddonSource;
 use Pterodactyl\Services\Addons\PluginInstallerService;
 use Pterodactyl\Services\Addons\AddonSourceRegistry;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
@@ -32,10 +33,18 @@ class AddonPluginsController extends ClientApiController
 
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
-            $data[] = [
-                'slug' => $slug,
-                'available' => $src->available(),
-            ];
+            try {
+                if (!$src->supports(AddonSource::TYPE_PLUGIN)) continue;
+                if (!$src->availableFor($server)) continue;
+                $data[] = [
+                    'slug' => $slug,
+                    'available' => $src->available(),
+                ];
+            } catch (\Throwable $e) {
+                // One misbehaving adapter shouldn't 500 the whole list.
+                // Log + skip so the user still sees the others.
+                report($e);
+            }
         }
 
         return new JsonResponse(['data' => $data]);

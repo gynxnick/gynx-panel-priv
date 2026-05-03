@@ -5,6 +5,9 @@
 @endsection
 
 @section('content-header')
+    <a href="{{ route('admin.api.new') }}" class="btn btn-sm btn-primary pull-right" style="margin-top: 8px;">
+        <i class="fa fa-plus"></i>&nbsp;Create API Key
+    </a>
     <h1>Application API<small>Control access credentials for managing this Panel via the API.</small></h1>
     <ol class="breadcrumb">
         <li><a href="{{ route('admin.index') }}">Admin</a></li>

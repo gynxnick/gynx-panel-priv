@@ -11,6 +11,11 @@ import { Sparkline } from './Sparkline';
 import { PlayerManager } from './PlayerManager';
 import { useServerRoster } from './useServerRoster';
 import { useTps } from './useTps';
+import { CrashLogsPanel } from './CrashLogsPanel';
+import { DiscordCta } from './DiscordCta';
+import { PlayerSlotsCard } from './PlayerSlotsCard';
+import { WorldSwitcherCard } from './WorldSwitcherCard';
+import { AiCard } from './AiCard';
 
 /**
  * Console page — wireframe layout backed by real WebSocket data.
@@ -203,26 +208,7 @@ const ConsolePanel = () => {
     );
 };
 
-const AiCard = () => (
-    <div className={'panel ai-card'}>
-        <div className={'ai-card-bg'} />
-        <div className={'ai-card-inner'}>
-            <div className={'row'} style={{ justifyContent: 'space-between' }}>
-                <span className={'ai-badge'}>gynx ai
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: "'JetBrains Mono',monospace" }}>
-                    coming soon
-                </span>
-            </div>
-            <p className={'ai-msg'}>
-                gynx ai will keep an eye on TPS, lag spikes, and crash patterns — and suggest fixes you can apply with one click.
-            </p>
-            <div className={'ai-actions'}>
-                <button className={'btn btn-sm'} disabled>Notify me</button>
-            </div>
-        </div>
-    </div>
-);
+// Real AiCard now lives in its own file. Imported below.
 
 const QuickActions = () => {
     const history = useHistory();
@@ -258,9 +244,13 @@ export const ConsolePage = () => (
         <div className={'col'}>
             <StatRow />
             <ConsolePanel />
+            <DiscordCta />
+            <CrashLogsPanel />
         </div>
         <div className={'col'}>
             <AiCard />
+            <WorldSwitcherCard />
+            <PlayerSlotsCard />
             <PlayerManager />
             <QuickActions />
         </div>

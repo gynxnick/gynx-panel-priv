@@ -1,0 +1,426 @@
+@extends('layouts.admin')
+@include('partials/admin.settings.nav', ['activeTab' => 'addon-games'])
+
+@section('title')
+    Addon Game Registry
+@endsection
+
+@section('content-header')
+    <h1>Addon Game Registry<small>Map server eggs to addon source catalogues (CurseForge / Thunderstore / Modrinth).</small></h1>
+    <ol class="breadcrumb">
+        <li><a href="{{ route('admin.index') }}">Admin</a></li>
+        <li><a href="{{ route('admin.settings') }}">Settings</a></li>
+        <li class="active">Addon Games</li>
+    </ol>
+@endsection
+
+@section('content')
+    @yield('settings::nav')
+
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="alert alert-info">
+                The installer side panel only lists sources that match the server's classified game. Detection runs against the egg's <code>features</code> array, the docker image, and the egg + nest names. If a server lands on "No registries match", look at <strong>Diagnose this server</strong> below to see what the egg actually exposes, then add a custom row whose <strong>Pattern</strong> contains a substring of any of those values.
+            </div>
+        </div>
+    </div>
+
+    {{-- Diagnose --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Diagnose a server</h3>
+                </div>
+                <div class="box-body">
+                    {{-- csrf_field renders <input type="hidden" name="_token" ...>.
+                         The diagnose form needs its own copy because jQuery's
+                         input[name="_token"] selector picked up a token from
+                         a different form scope on this page. --}}
+                    {{ csrf_field() }}
+                    <div class="row">
+                        <div class="form-group col-md-6">
+                            <label class="control-label">Server UUID (full or short)</label>
+                            <input id="diagUuid" type="text" class="form-control" placeholder="e.g. 1a7ce997 or 1a7ce997-..." />
+                            <p class="text-muted small">Returns the egg / nest / image / features the registry sees and whether any rule currently matches.</p>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="control-label">&nbsp;</label>
+                            <div>
+                                <button type="button" id="diagButton" class="btn btn-sm btn-default">Diagnose</button>
+                            </div>
+                        </div>
+                    </div>
+                    <pre id="diagOutput" style="display:none; background:#f5f5f5; padding:8px 12px; border-radius:3px; max-height:300px; overflow:auto;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Built-in --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Built-in mappings <small>read-only — extend by adding a custom row with the same slug</small></h3>
+                </div>
+                <div class="box-body" style="overflow:auto">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Slug</th>
+                                <th>Patterns</th>
+                                <th>CF gameId</th>
+                                <th>TS community</th>
+                                <th>Supports</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($builtIn as $slug => $cfg)
+                                <tr>
+                                    <td><code>{{ $slug }}</code></td>
+                                    <td style="max-width: 420px"><code style="word-break:break-word">{{ implode(', ', $cfg['patterns']) }}</code></td>
+                                    <td>{{ $cfg['curseforge_id'] ?? '—' }}</td>
+                                    <td>{{ $cfg['thunderstore_community'] ?? '—' }}</td>
+                                    <td>{{ implode(' / ', $cfg['supports']) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Per-egg Install tab override --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Per-egg Install tab <small>which eggs show "Install" on the server panel</small></h3>
+                </div>
+                <div class="box-body">
+                    <p class="text-muted small">
+                        Tick the eggs that should show the Install tab. <strong>Leaving every box unchecked</strong> reverts to pattern-matching (current behaviour — Install shows when the egg's launcher / image looks like a Java MC server). <strong>Checking any box</strong> turns this into an explicit allowlist: only ticked eggs show Install, everything else hides.
+                    </p>
+                    {{ csrf_field() }}
+                    @php($groupedEggs = $eggs->groupBy(fn ($e) => optional($e->nest)->name ?? '—'))
+                    @foreach($groupedEggs as $nestName => $group)
+                        <div style="margin-top:14px">
+                            <strong style="font-size: 13px">{{ $nestName }}</strong>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px;margin-top:6px">
+                                @foreach($group as $egg)
+                                    <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                                        <input type="checkbox" class="egg-installable-cb" value="{{ $egg->id }}" @if(in_array($egg->id, $installableEggIds, true)) checked @endif />
+                                        <span>{{ $egg->name }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="box-footer">
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-sm btn-default" id="eggsClearButton">Clear all (use pattern fallback)</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="eggsSaveButton">Save egg overrides</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Per-egg tab visibility --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Per-egg tab visibility <small>hide tabs that don't apply to a given egg</small></h3>
+                </div>
+                <div class="box-body">
+                    <p class="text-muted small">
+                        Tick the tabs you want to <strong>hide</strong> for each egg. Discord-bot eggs probably want Install + Game hidden; trial-account eggs might want Backups hidden, etc. Console / Files / Settings / Startup aren't hideable — they're essential for managing any server.
+                    </p>
+                    {{ csrf_field() }}
+                    <div class="table-responsive">
+                        <table class="table table-condensed" style="font-size: 12px">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 220px">Egg</th>
+                                    @foreach($hideableTabs as $tabId => $tabLabel)
+                                        <th class="text-center" style="min-width: 90px"><code>{{ $tabId }}</code><br/><small>{{ $tabLabel }}</small></th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($eggs as $egg)
+                                    @php($hidden = $hiddenTabsByEgg[$egg->id] ?? [])
+                                    <tr data-egg-id="{{ $egg->id }}">
+                                        <td>
+                                            <strong>{{ $egg->name }}</strong>
+                                            <br/><small class="text-muted">{{ optional($egg->nest)->name }}</small>
+                                        </td>
+                                        @foreach($hideableTabs as $tabId => $tabLabel)
+                                            <td class="text-center">
+                                                <input type="checkbox" class="tab-hide-cb" data-tab="{{ $tabId }}" @if(in_array($tabId, $hidden, true)) checked @endif />
+                                            </td>
+                                        @endforeach
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-sm btn-default" id="tabsClearButton">Clear all hides</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="tabsSaveButton">Save tab overrides</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Custom --}}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Custom mappings</h3>
+                    <div class="box-tools pull-right">
+                        <button type="button" class="btn btn-sm btn-default" id="addRowButton"><i class="fa fa-plus"></i>&nbsp;Add row</button>
+                    </div>
+                </div>
+                <div class="box-body">
+                    <div id="rowsContainer">
+                        @forelse($custom as $slug => $cfg)
+                            <div class="row addon-row" style="border:1px solid var(--gynx-edge,#e0e0e0); border-radius:4px; padding:12px 12px 0; margin: 0 0 12px;">
+                                <div class="form-group col-md-3">
+                                    <label class="control-label">Slug</label>
+                                    <input type="text" class="form-control row-slug" value="{{ $slug }}" />
+                                    <p class="text-muted small">Use a built-in slug (e.g. <code>minecraft</code>) to extend it; or anything else for a new game.</p>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label class="control-label">CurseForge gameId <span class="field-optional"></span></label>
+                                    <input type="number" min="1" class="form-control row-cfid" value="{{ $cfg['curseforge_id'] ?? '' }}" />
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label class="control-label">Thunderstore community <span class="field-optional"></span></label>
+                                    <input type="text" class="form-control row-tscomm" value="{{ $cfg['thunderstore_community'] ?? '' }}" placeholder="e.g. valheim, lethal-company" />
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label class="control-label">uMod game <span class="field-optional"></span></label>
+                                    <input type="text" class="form-control row-umod" value="{{ $cfg['umod_game'] ?? '' }}" placeholder="e.g. rust, hurtworld" />
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label class="control-label">Supports</label>
+                                    <div>
+                                        @foreach($addonTypes as $t)
+                                            <label class="checkbox-inline">
+                                                <input type="checkbox" class="row-supports" value="{{ $t }}" @if(in_array($t, $cfg['supports'] ?? [], true)) checked @endif /> {{ $t }}
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <label class="control-label">Patterns (one per line, lower-case substring match against egg name + nest + docker image)</label>
+                                    <textarea class="form-control row-patterns" rows="3">{{ implode("\n", $cfg['patterns'] ?? []) }}</textarea>
+                                </div>
+                                <div class="form-group col-md-12" style="text-align:right;">
+                                    <button type="button" class="btn btn-sm btn-danger row-remove">Remove</button>
+                                </div>
+                            </div>
+                        @empty
+                            {{-- empty state — JS adds rows on Add row --}}
+                        @endforelse
+                    </div>
+                    <p class="text-muted small" id="emptyHint" @if(count($custom) > 0) style="display:none" @endif>No custom mappings. Built-ins above are active. Click "Add row" to extend Minecraft patterns or wire a new game.</p>
+                </div>
+                <div class="box-footer">
+                    {{ csrf_field() }}
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-sm btn-primary" id="saveButton">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Row template (cloned by JS) --}}
+    <template id="rowTemplate">
+        <div class="row addon-row" style="border:1px solid #e0e0e0; border-radius:4px; padding:12px 12px 0; margin: 0 0 12px;">
+            <div class="form-group col-md-3">
+                <label class="control-label">Slug</label>
+                <input type="text" class="form-control row-slug" />
+            </div>
+            <div class="form-group col-md-2">
+                <label class="control-label">CurseForge gameId</label>
+                <input type="number" min="1" class="form-control row-cfid" />
+            </div>
+            <div class="form-group col-md-3">
+                <label class="control-label">Thunderstore community</label>
+                <input type="text" class="form-control row-tscomm" placeholder="e.g. valheim" />
+            </div>
+            <div class="form-group col-md-2">
+                <label class="control-label">uMod game</label>
+                <input type="text" class="form-control row-umod" placeholder="e.g. rust" />
+            </div>
+            <div class="form-group col-md-2">
+                <label class="control-label">Supports</label>
+                <div>
+                    <label class="checkbox-inline"><input type="checkbox" class="row-supports" value="plugin" /> plugin</label>
+                    <label class="checkbox-inline"><input type="checkbox" class="row-supports" value="mod" /> mod</label>
+                    <label class="checkbox-inline"><input type="checkbox" class="row-supports" value="modpack" /> modpack</label>
+                </div>
+            </div>
+            <div class="form-group col-md-12">
+                <label class="control-label">Patterns (one per line)</label>
+                <textarea class="form-control row-patterns" rows="3"></textarea>
+            </div>
+            <div class="form-group col-md-12" style="text-align:right;">
+                <button type="button" class="btn btn-sm btn-danger row-remove">Remove</button>
+            </div>
+        </div>
+    </template>
+@endsection
+
+@section('footer-scripts')
+    @parent
+
+    <script>
+        function collectRows() {
+            var rows = [];
+            $('#rowsContainer .addon-row').each(function () {
+                var $r = $(this);
+                rows.push({
+                    slug: $r.find('.row-slug').val(),
+                    patterns: $r.find('.row-patterns').val(),
+                    curseforge_id: $r.find('.row-cfid').val() || null,
+                    thunderstore_community: $r.find('.row-tscomm').val() || null,
+                    umod_game: $r.find('.row-umod').val() || null,
+                    supports: $r.find('.row-supports:checked').map(function () { return this.value; }).get(),
+                });
+            });
+            return rows;
+        }
+
+        function addRow() {
+            var tpl = document.getElementById('rowTemplate').content.cloneNode(true);
+            $('#rowsContainer').append(tpl);
+            $('#emptyHint').hide();
+        }
+
+        function showError(jqXHR, verb) {
+            console.error(jqXHR);
+            var t = '';
+            if (!jqXHR.responseJSON) {
+                t = jqXHR.responseText || jqXHR.statusText;
+            } else if (jqXHR.responseJSON.errors) {
+                $.each(jqXHR.responseJSON.errors, function (i, v) {
+                    if (v.detail) t += v.detail + ' ';
+                });
+            } else if (jqXHR.responseJSON.error) {
+                t = jqXHR.responseJSON.error;
+            }
+            swal({ title: 'Whoops!', text: 'Could not ' + verb + ': ' + t, type: 'error' });
+        }
+
+        function collectEggIds() {
+            return $('.egg-installable-cb:checked').map(function () { return parseInt(this.value, 10); }).get();
+        }
+
+        $(document).ready(function () {
+            $('#addRowButton').on('click', addRow);
+
+            $('#eggsClearButton').on('click', function () {
+                $('.egg-installable-cb').prop('checked', false);
+            });
+
+            $('#eggsSaveButton').on('click', function () {
+                $.ajax({
+                    method: 'PATCH',
+                    url: '/admin/settings/addon-games/installable-eggs',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ egg_ids: collectEggIds() }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function () {
+                    swal({ title: 'Saved', text: 'Per-egg Install tab overrides updated.', type: 'success', timer: 1400, showConfirmButton: false });
+                }).fail(function (jq) { showError(jq, 'save egg overrides'); });
+            });
+
+            $('#tabsClearButton').on('click', function () {
+                $('.tab-hide-cb').prop('checked', false);
+            });
+
+            $('#tabsSaveButton').on('click', function () {
+                var map = {};
+                $('tr[data-egg-id]').each(function () {
+                    var eggId = $(this).data('egg-id');
+                    var hides = $(this).find('.tab-hide-cb:checked').map(function () { return $(this).data('tab'); }).get();
+                    if (hides.length > 0) map[eggId] = hides;
+                });
+                $.ajax({
+                    method: 'PATCH',
+                    url: '/admin/settings/addon-games/hidden-tabs',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ map: map }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function () {
+                    swal({ title: 'Saved', text: 'Per-egg tab overrides updated.', type: 'success', timer: 1400, showConfirmButton: false });
+                }).fail(function (jq) { showError(jq, 'save tab overrides'); });
+            });
+
+            $(document).on('click', '.row-remove', function () {
+                $(this).closest('.addon-row').remove();
+                if ($('#rowsContainer .addon-row').length === 0) $('#emptyHint').show();
+            });
+
+            $('#saveButton').on('click', function () {
+                $.ajax({
+                    method: 'PATCH',
+                    url: '/admin/settings/addon-games',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ games: collectRows() }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function () {
+                    swal({ title: 'Saved', text: 'Addon game mappings updated.', type: 'success', timer: 1400, showConfirmButton: false });
+                }).fail(function (jq) { showError(jq, 'save'); });
+            });
+
+            $('#diagButton').on('click', function () {
+                var uuid = $('#diagUuid').val().trim();
+                if (!uuid) return;
+                $.ajax({
+                    method: 'POST',
+                    url: '/admin/settings/addon-games/diagnose',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ server_uuid: uuid }),
+                    headers: { 'X-CSRF-Token': $('input[name="_token"]').val() }
+                }).done(function (res) {
+                    var data = res.data || {};
+                    var $out = $('#diagOutput');
+                    var lines = [];
+                    lines.push('Server: ' + (data.server && data.server.name) + ' (' + (data.server && data.server.uuid) + ')');
+                    if (data.signals) {
+                        lines.push('');
+                        lines.push('egg name:   ' + (data.signals.egg_name || '(empty)'));
+                        lines.push('nest name:  ' + (data.signals.nest_name || '(empty)'));
+                        lines.push('image:      ' + (data.signals.image || '(empty)'));
+                        lines.push('features:   ' + (data.signals.features || []).join(', '));
+                        lines.push('haystack:   ' + (data.signals.haystack || ''));
+                    }
+                    lines.push('');
+                    if (data.resolved) {
+                        lines.push('=> resolved to: ' + data.resolved.slug);
+                        lines.push('   curseforge_id: ' + (data.resolved.curseforge_id || '—'));
+                        lines.push('   thunderstore_community: ' + (data.resolved.thunderstore_community || '—'));
+                        lines.push('   umod_game: ' + (data.resolved.umod_game || '—'));
+                        lines.push('   supports: ' + (data.resolved.supports || []).join(', '));
+                    } else {
+                        lines.push('=> NO MATCH. Add a custom row with a pattern that appears in the haystack.');
+                    }
+                    $out.text(lines.join('\n')).show();
+                }).fail(function (jq) { showError(jq, 'diagnose'); });
+            });
+        });
+    </script>
+@endsection

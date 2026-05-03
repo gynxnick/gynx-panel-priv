@@ -178,12 +178,23 @@ Route::group(['prefix' => 'settings'], function () {
     Route::get('/', [Admin\Settings\IndexController::class, 'index'])->name('admin.settings');
     Route::get('/mail', [Admin\Settings\MailController::class, 'index'])->name('admin.settings.mail');
     Route::get('/advanced', [Admin\Settings\AdvancedController::class, 'index'])->name('admin.settings.advanced');
+    Route::get('/gynx-ai', [Admin\Settings\GynxAiController::class, 'index'])->name('admin.settings.gynx-ai');
+    Route::get('/mail-templates', [Admin\Settings\MailTemplatesController::class, 'index'])->name('admin.settings.mail-templates');
+    Route::get('/addon-games', [Admin\Settings\AddonGamesController::class, 'index'])->name('admin.settings.addon-games');
 
     Route::post('/mail/test', [Admin\Settings\MailController::class, 'test'])->name('admin.settings.mail.test');
+    Route::post('/gynx-ai/test', [Admin\Settings\GynxAiController::class, 'test'])->name('admin.settings.gynx-ai.test');
+    Route::post('/mail-templates/{key}/reset', [Admin\Settings\MailTemplatesController::class, 'reset']);
+    Route::post('/addon-games/diagnose', [Admin\Settings\AddonGamesController::class, 'diagnose']);
 
     Route::patch('/', [Admin\Settings\IndexController::class, 'update']);
     Route::patch('/mail', [Admin\Settings\MailController::class, 'update']);
     Route::patch('/advanced', [Admin\Settings\AdvancedController::class, 'update']);
+    Route::patch('/gynx-ai', [Admin\Settings\GynxAiController::class, 'update']);
+    Route::patch('/mail-templates/{key}', [Admin\Settings\MailTemplatesController::class, 'update']);
+    Route::patch('/addon-games', [Admin\Settings\AddonGamesController::class, 'update']);
+    Route::patch('/addon-games/installable-eggs', [Admin\Settings\AddonGamesController::class, 'updateInstallableEggs']);
+    Route::patch('/addon-games/hidden-tabs', [Admin\Settings\AddonGamesController::class, 'updateHiddenTabs']);
 });
 
 /*
