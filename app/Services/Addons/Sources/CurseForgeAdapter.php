@@ -9,8 +9,8 @@ use Pterodactyl\Http\Controllers\Admin\IntegrationsController;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
-use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
@@ -135,7 +135,7 @@ class CurseForgeAdapter implements AddonSource
         try {
             $res = $this->client()->get('mods/search', ['query' => $params]);
         } catch (TransferException $e) {
-            throw new BadGatewayHttpException('CurseForge search failed: ' . $e->getMessage());
+            throw new HttpException(502, 'CurseForge search failed: ' . $e->getMessage());
         }
 
         $body = json_decode((string) $res->getBody(), true) ?: [];

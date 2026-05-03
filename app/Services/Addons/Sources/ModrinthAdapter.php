@@ -7,7 +7,7 @@ use GuzzleHttp\Exception\TransferException;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
-use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -83,7 +83,7 @@ class ModrinthAdapter implements AddonSource
         try {
             $res = $this->http->get('search', ['query' => $params]);
         } catch (TransferException $e) {
-            throw new BadGatewayHttpException('Modrinth search failed: ' . $e->getMessage());
+            throw new HttpException(502, 'Modrinth search failed: ' . $e->getMessage());
         }
 
         $data = json_decode((string) $res->getBody(), true);

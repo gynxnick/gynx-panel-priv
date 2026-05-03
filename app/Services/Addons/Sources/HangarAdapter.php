@@ -7,7 +7,7 @@ use GuzzleHttp\Exception\TransferException;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
-use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -60,7 +60,7 @@ class HangarAdapter implements AddonSource
         try {
             $res = $this->http->get('projects', ['query' => $params]);
         } catch (TransferException $e) {
-            throw new BadGatewayHttpException('Hangar search failed: ' . $e->getMessage());
+            throw new HttpException(502, 'Hangar search failed: ' . $e->getMessage());
         }
 
         $data = json_decode((string) $res->getBody(), true);
