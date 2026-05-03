@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Cache;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
-use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -92,7 +92,7 @@ class ThunderstoreAdapter implements AddonSource
                 try {
                     $res = $this->http->get('c/' . urlencode($community) . '/api/v1/package/');
                 } catch (TransferException $e) {
-                    throw new BadGatewayHttpException('Thunderstore fetch failed: ' . $e->getMessage());
+                    throw new HttpException(502, 'Thunderstore fetch failed: ' . $e->getMessage());
                 }
                 $data = json_decode((string) $res->getBody(), true);
                 return is_array($data) ? $data : [];

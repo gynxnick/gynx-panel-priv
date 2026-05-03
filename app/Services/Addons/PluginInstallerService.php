@@ -8,6 +8,7 @@ use Pterodactyl\Models\Server;
 use Pterodactyl\Models\User;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PluginInstallerService
 {
@@ -94,10 +95,30 @@ class PluginInstallerService
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
         // Tell Wings to download the jar directly into /plugins/.
-        $this->daemonFiles->setServer($server)->pull($dl['url'], '/plugins', [
-            'filename' => $dl['file_name'],
-            'foreground' => true,
-        ]);
+        //
+        // Wings can fail this for source-specific reasons that would
+        // otherwise surface as opaque 500s on the client:
+        //   - SpigotMC's /resources/{id}/download often hits Cloudflare
+        //     bot challenges, returning 403/redirect-loops to Wings.
+        //   - CurseForge `downloadUrl` may be blank for authors who
+        //     opted out of third-party access.
+        //   - Hangar/Modrinth/Thunderstore can throttle or 503 transiently.
+        // Wrap so the user sees a clear 502 with source attribution + a
+        // workable next step. The original exception still lands in
+        // storage/logs/laravel.log via report() for diagnostics.
+        try {
+            $this->daemonFiles->setServer($server)->pull($dl['url'], '/plugins', [
+                'filename' => $dl['file_name'],
+                'foreground' => true,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            throw new HttpException(502, sprintf(
+                "%s couldn't deliver this plugin's jar to your server. Common cause: the source blocks automated downloads (SpigotMC's anti-bot is the usual culprit). Try downloading the jar manually from the source page and uploading it via your panel's File Manager. (%s)",
+                ucfirst($sourceSlug),
+                $e->getMessage(),
+            ));
+        }
 
         return $this->connection->transaction(function () use ($server, $actor, $sourceSlug, $externalId, $dl, $displayName) {
             return AddonPlugin::query()->create([

@@ -7,8 +7,8 @@ use GuzzleHttp\Exception\TransferException;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
-use Symfony\Component\HttpKernel\Exception\BadGatewayHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -103,7 +103,7 @@ class UmodAdapter implements AddonSource
             try {
                 $res = $this->http->get('plugins/search.json', ['query' => $params]);
             } catch (TransferException $e) {
-                throw new BadGatewayHttpException('uMod search failed: ' . $e->getMessage());
+                throw new HttpException(502, 'uMod search failed: ' . $e->getMessage());
             }
 
             $body = json_decode((string) $res->getBody(), true) ?: [];
