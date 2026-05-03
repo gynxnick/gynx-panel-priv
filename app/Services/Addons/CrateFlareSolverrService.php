@@ -143,7 +143,7 @@ class CrateFlareSolverrService
         if (str_contains($sniffLower, '<!doctype html') || str_contains($sniffLower, '<html')) {
             @unlink($stagedPath);
             throw new \RuntimeException(
-                'Bypass returned an HTML page instead of a download. The resource is likely premium (requires a SpigotMC login) or behind an additional gate. Download manually from spigotmc.org and upload via your panel\'s File Manager.',
+                'Bypass returned an HTML page instead of a download. Possible causes: (1) the resource is premium and requires a logged-in SpigotMC account; (2) the author hosts the file on an external site (Discord, MediaFire, etc.) that has its own gate; (3) the redirect target uses a different Cloudflare-protected domain than the one we solved. Download manually from spigotmc.org and upload via your panel\'s File Manager.',
             );
         }
 
@@ -173,16 +173,26 @@ class CrateFlareSolverrService
      */
     private function solveCloudflare(string $url): array
     {
-        $domain = parse_url($url, PHP_URL_HOST);
-        if (! is_string($domain) || $domain === '') {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (! is_string($host) || $host === '') {
             throw new \RuntimeException('Cannot extract domain from URL for Cloudflare bypass: ' . $url);
         }
+
+        // Domain-routing for redirect chains:
+        //   - api.spiget.org doesn't itself sit behind Cloudflare. Its
+        //     /resources/{id}/download endpoint 302-redirects to
+        //     spigotmc.org, which DOES have CF. Solving CF for
+        //     api.spiget.org returns useless cookies; solving for
+        //     spigotmc.org gives cookies that satisfy the redirect target.
+        //   - Same goes for any other indirection: solve CF on the
+        //     domain that actually serves the file, not the API gateway.
+        $cfDomain = str_ends_with($host, 'spiget.org') ? 'www.spigotmc.org' : $host;
 
         try {
             $res = $this->http->post($this->endpoint . '/v1', [
                 'json' => [
                     'cmd' => 'request.get',
-                    'url' => "https://{$domain}/",
+                    'url' => "https://{$cfDomain}/",
                     'maxTimeout' => 60000,
                 ],
                 'timeout' => 90,
