@@ -70,6 +70,22 @@ const SOURCE_INITIAL: Record<string, string> = {
     umod: 'U',
 };
 
+// Inline SVG path data per registry, drawn against a 24×24 viewBox.
+// Rendered as a monochrome glyph inside the colored square — replaces
+// the bare letter initial when present, falls back otherwise.
+const SOURCE_ICON_PATH: Record<string, string> = {
+    modrinth:
+        'M3.5 12.5a8.5 8.5 0 0 1 15-5.5l-1.4 1.4A6.6 6.6 0 0 0 12 5.5a6.6 6.6 0 0 0-6.5 6.5h2c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5h2A8.5 8.5 0 0 1 12 20.5l-1.4-1.4a6.6 6.6 0 0 0 5-2.6 6.6 6.6 0 0 0 1.4-4 4.5 4.5 0 0 0-9-.4 8.5 8.5 0 0 1-4.5 0z',
+    curseforge:
+        'M5 19l3-3-2-2 2-2-3-3 4-4 3 3 2-2 2 2 3-3 3 3-3 3 2 2-2 2 3 3-4 4-3-3-2 2-2-2-3 3z',
+    hangar: 'M3 11 12 4l9 7v9h-6v-6h-6v6H3z',
+    spigot:
+        'M4 6h7V4h6v8h-2v-2h-3v3H8v3l-2 2-2-2v-7h2zM12 18a3 3 0 0 0 6 0c0-1.5-3-5-3-5s-3 3.5-3 5z',
+    thunderstore: 'M13 2 4 14h6l-2 8 9-13h-6l2-7z',
+    umod:
+        'M14.7 6.3a4 4 0 0 0-5.4 5.4l-6.3 6.3 1.6 1.6 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-1.6-1.6 2.3-2.3z',
+};
+
 const ICON_GRADIENT = (i: number): string =>
     i % 3 === 0 ? 'linear-gradient(135deg, #4c1d95, #1e3a8a)'
     : i % 3 === 1 ? 'linear-gradient(135deg, #831843, #4c1d95)'
@@ -312,11 +328,23 @@ export const InstallerPage = () => {
                                             width: 18, height: 18, borderRadius: 4,
                                             background: SOURCE_BG[s.slug] ?? '#666',
                                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 9, fontWeight: 700, color: '#0b0b0f',
+                                            fontSize: 9, fontWeight: 700, color: '#fff',
                                             fontFamily: "'Space Grotesk',sans-serif",
                                         }}
+                                        aria-hidden='true'
                                     >
-                                        {SOURCE_INITIAL[s.slug] ?? s.slug[0].toUpperCase()}
+                                        {SOURCE_LOGO_SVG[s.slug] ? (
+                                            <span
+                                                style={{ width: 11, height: 11, display: 'inline-flex', color: 'currentColor' }}
+                                                dangerouslySetInnerHTML={{ __html: SOURCE_LOGO_SVG[s.slug] }}
+                                            />
+                                        ) : SOURCE_ICON_PATH[s.slug] ? (
+                                            <svg viewBox='0 0 24 24' width='11' height='11' fill='currentColor' aria-hidden='true'>
+                                                <path d={SOURCE_ICON_PATH[s.slug]} />
+                                            </svg>
+                                        ) : (
+                                            SOURCE_INITIAL[s.slug] ?? s.slug[0].toUpperCase()
+                                        )}
                                     </span>
                                     {SOURCE_LABEL[s.slug] ?? s.slug}
                                     {!s.available && (

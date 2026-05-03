@@ -16,6 +16,7 @@ class PluginInstallerService
         private ConnectionInterface $connection,
         private AddonSourceRegistry $registry,
         private DaemonFileRepository $daemonFiles,
+        private CrateFlareSolverrService $flareSolverr,
     ) {
     }
 
@@ -94,30 +95,74 @@ class PluginInstallerService
         // external id / slug we stored. Use filename as a readable fallback.
         $displayName = $this->readableNameFromFile($dl['file_name']);
 
-        // Tell Wings to download the jar directly into /plugins/.
+        // Two delivery paths:
         //
-        // Wings can fail this for source-specific reasons that would
-        // otherwise surface as opaque 500s on the client:
-        //   - SpigotMC's /resources/{id}/download often hits Cloudflare
-        //     bot challenges, returning 403/redirect-loops to Wings.
-        //   - CurseForge `downloadUrl` may be blank for authors who
-        //     opted out of third-party access.
-        //   - Hangar/Modrinth/Thunderstore can throttle or 503 transiently.
-        // Wrap so the user sees a clear 502 with source attribution + a
-        // workable next step. The original exception still lands in
-        // storage/logs/laravel.log via report() for diagnostics.
-        try {
-            $this->daemonFiles->setServer($server)->pull($dl['url'], '/plugins', [
-                'filename' => $dl['file_name'],
-                'foreground' => true,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-            throw new HttpException(502, sprintf(
-                "%s couldn't deliver this plugin's jar to your server. Common cause: the source blocks automated downloads (SpigotMC's anti-bot is the usual culprit). Try downloading the jar manually from the source page and uploading it via your panel's File Manager. (%s)",
-                ucfirst($sourceSlug),
-                $e->getMessage(),
-            ));
+        // (a) Direct: hand the URL to Wings, Wings curl's it. Works for
+        //     Modrinth/Hangar/CurseForge/Thunderstore. Fails for SpigotMC
+        //     resources hidden behind Cloudflare's anti-bot.
+        //
+        // (b) Bypass: fetch via CrateFlareSolverrService (sidecar
+        //     Chromium container that solves CF challenges), stage the
+        //     bytes locally, then upload to Wings via putContent(). No
+        //     Cloudflare touch from Wings. Only enabled when the
+        //     operator has run `install.sh --with-flaresolverr` and
+        //     CRATE_FLARESOLVERR_URL is set in the panel's .env.
+        //
+        // We pick path (b) for SpigotMC when bypass is configured;
+        // everything else stays on path (a). Customer-facing error
+        // messages tell them what failed and how to recover (download
+        // manually from the source page + upload via File Manager).
+        $useBypass = $sourceSlug === 'spigot' && $this->flareSolverr->available();
+
+        if ($useBypass) {
+            $stagedPath = null;
+            try {
+                $bypass = $this->flareSolverr->fetchViaCloudflareBypass($dl['url']);
+                $stagedPath = $bypass['staged_path'];
+
+                $content = @file_get_contents($stagedPath);
+                if ($content === false) {
+                    throw new \RuntimeException('Failed to read staged plugin file after Cloudflare bypass.');
+                }
+
+                $this->daemonFiles->setServer($server)->putContent(
+                    '/plugins/' . $dl['file_name'],
+                    $content,
+                );
+            } catch (\Throwable $e) {
+                report($e);
+                $msg = $e instanceof \RuntimeException
+                    ? $e->getMessage()
+                    : sprintf(
+                        'Spigot install via Cloudflare bypass failed: %s. Download manually from spigotmc.org and upload via your panel\'s File Manager.',
+                        $e->getMessage(),
+                    );
+                throw new HttpException(502, $msg);
+            } finally {
+                if ($stagedPath !== null) {
+                    $this->flareSolverr->deleteStaged($stagedPath);
+                }
+            }
+        } else {
+            try {
+                $this->daemonFiles->setServer($server)->pull($dl['url'], '/plugins', [
+                    'filename' => $dl['file_name'],
+                    'foreground' => true,
+                ]);
+            } catch (\Throwable $e) {
+                report($e);
+
+                $hint = $sourceSlug === 'spigot'
+                    ? 'For SpigotMC plugins blocked by Cloudflare, re-run install.sh with --with-flaresolverr to enable automated bypass via a sidecar Docker container. Or download manually from spigotmc.org and upload via your panel\'s File Manager.'
+                    : 'Try downloading the jar manually from the source page and uploading it via your panel\'s File Manager.';
+
+                throw new HttpException(502, sprintf(
+                    "%s couldn't deliver this plugin's jar to your server. %s (%s)",
+                    ucfirst($sourceSlug),
+                    $hint,
+                    $e->getMessage(),
+                ));
+            }
         }
 
         return $this->connection->transaction(function () use ($server, $actor, $sourceSlug, $externalId, $dl, $displayName) {
