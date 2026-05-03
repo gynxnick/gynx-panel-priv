@@ -4,6 +4,7 @@ namespace Pterodactyl\Services\Addons\Sources;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
+use Illuminate\Support\Facades\Cache;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
@@ -85,12 +86,17 @@ class SpigotAdapter implements AddonSource
             $iconPath = $r['icon']['url'] ?? null;
             $icon = $iconPath ? 'https://www.spigotmc.org/' . ltrim((string) $iconPath, '/') : null;
             $authorId = $r['author']['id'] ?? null;
+            // Spiget's resource search returns only `author.id` — no name.
+            // Resolve via cached `/authors/{id}` lookup; soft-fails to ''
+            // on Spiget errors. 24h cache means a warm catalog avoids
+            // the N+1 cost on subsequent searches.
+            $authorName = $authorId !== null ? $this->resolveAuthorName((int) $authorId) : '';
 
             return [
                 'external_id' => (string) ($r['id'] ?? ''),
                 'slug' => (string) ($r['id'] ?? ''),
                 'name' => (string) ($r['name'] ?? 'Unknown'),
-                'author' => $authorId ? "author #{$authorId}" : '',
+                'author' => $authorName,
                 'description' => (string) ($r['tag'] ?? ''),
                 'icon_url' => $icon,
                 'downloads' => (int) ($r['downloads'] ?? 0),
@@ -201,5 +207,32 @@ class SpigotAdapter implements AddonSource
         if ($type !== self::TYPE_PLUGIN) {
             throw new NotFoundHttpException('SpigotMC only serves plugins.');
         }
+    }
+
+    /**
+     * Look up the SpigotMC author display name for a given numeric
+     * author ID. Spiget's resource search response only carries
+     * `author.id`; the username comes from a separate `/authors/{id}`
+     * call. Cached for 24h since usernames rarely change. Soft-fails
+     * to '' on any network or parse error so a flaky Spiget can't
+     * break the search response shape.
+     */
+    private function resolveAuthorName(int $authorId): string
+    {
+        return Cache::remember(
+            'crate:spigot:author:' . $authorId,
+            86400,
+            function () use ($authorId): string {
+                try {
+                    $res = $this->http->get("authors/{$authorId}", [
+                        'query' => ['fields' => 'name'],
+                    ]);
+                    $data = json_decode((string) $res->getBody(), true);
+                    return (string) ($data['name'] ?? '');
+                } catch (TransferException $e) {
+                    return '';
+                }
+            },
+        );
     }
 }
