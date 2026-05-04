@@ -130,6 +130,24 @@ class SpigotAdapter implements AddonSource
                 throw new NotFoundHttpException('SpigotMC resource has no downloadable file.');
             }
 
+            // Reject malformed file metadata up-front. Some SpigotMC
+            // postings have file.type='.' (just a dot, no extension) and
+            // file.size=0 — usually a broken/stub upload where the real
+            // file lives on the resource description page. If we let
+            // those through, Spiget's proxy fails over to streaming the
+            // spigotmc.org HTML page (46 KB of XenForo markup served as
+            // application/octet-stream with Content-disposition: undefined),
+            // which makes Wings 500 with an opaque "communication" error.
+            // Refuse with a clean manual-install pointer instead.
+            if (!preg_match('/^\.[A-Za-z0-9]+$/', $fileType)
+                || (isset($r['file']['size']) && (float) $r['file']['size'] <= 0)
+            ) {
+                throw new ConflictHttpException(sprintf(
+                    'This SpigotMC resource has no clean downloadable file on Spiget — likely an external/off-site upload or a stub posting. Download manually from https://www.spigotmc.org/resources/%s/ and upload via your panel\'s File Manager.',
+                    $externalId,
+                ));
+            }
+
             // Spiget's proxy endpoint requires a concrete version id —
             // it does not accept "latest" as a path arg (that's a
             // sibling endpoint). When the caller didn't pin a version,
