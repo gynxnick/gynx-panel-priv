@@ -58,7 +58,7 @@
                     <i class="fa fa-wrench"></i><span>Settings</span>
                 </a>
                 <a href="{{ route('admin.api.index') }}" class="sidebar__link {{ starts_with($route, 'admin.api') ? 'is-active' : '' }}">
-                    <i class="fa fa-gamepad"></i><span>Application API</span>
+                    <i class="fa fa-key"></i><span>Application API</span>
                 </a>
 
                 <div class="sidebar__group-label">Management</div>
@@ -88,6 +88,8 @@
                 <a href="{{ route('admin.egg-switch.index') }}" class="sidebar__link {{ starts_with($route, 'admin.egg-switch') ? 'is-active' : '' }}">
                     <i class="fa fa-random"></i><span>Egg Switch</span>
                 </a>
+
+                <div class="sidebar__group-label">Crate</div>
                 <a href="{{ route('admin.addons.plugins') }}" class="sidebar__link {{ starts_with($route, 'admin.addons') ? 'is-active' : '' }}">
                     <i class="fa fa-puzzle-piece"></i><span>Add-ons</span>
                 </a>
