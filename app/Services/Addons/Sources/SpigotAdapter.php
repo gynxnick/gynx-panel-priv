@@ -130,20 +130,44 @@ class SpigotAdapter implements AddonSource
                 throw new NotFoundHttpException('SpigotMC resource has no downloadable file.');
             }
 
-            // Reject malformed file metadata up-front. Some SpigotMC
-            // postings have file.type='.' (just a dot, no extension) and
-            // file.size=0 — usually a broken/stub upload where the real
-            // file lives on the resource description page. If we let
-            // those through, Spiget's proxy fails over to streaming the
-            // spigotmc.org HTML page (46 KB of XenForo markup served as
-            // application/octet-stream with Content-disposition: undefined),
-            // which makes Wings 500 with an opaque "communication" error.
-            // Refuse with a clean manual-install pointer instead.
-            if (!preg_match('/^\.[A-Za-z0-9]+$/', $fileType)
-                || (isset($r['file']['size']) && (float) $r['file']['size'] <= 0)
-            ) {
+            // Spiget reports three classes of resource:
+            //
+            //   (a) Spiget-hosted — file.type is a real extension
+            //       (.jar, .zip, etc.) and external=false. Spiget
+            //       mirrors the file on cdn.spiget.org. Falls through
+            //       to the proxy-URL branch below.
+            //
+            //   (b) External — file.type='external' or external=true.
+            //       The author hosts the file off-site (GitHub releases,
+            //       CodeMC, MediaFire, Discord, etc.). Spiget can't
+            //       proxy; it would 302 us at the landing page, which
+            //       Wings can't reliably curl into a single jar.
+            //       Spiget exposes the off-site URL on file.externalUrl
+            //       — point the user there and let them download by
+            //       hand. SkinsRestorer / EssentialsX / ViaVersion /
+            //       ProtocolLib / Multiverse-Core / AuthMe etc. all
+            //       fall here; they're the most popular plugins on
+            //       SpigotMC and none of them are auto-installable via
+            //       Spiget.
+            //
+            //   (c) Malformed — file.type is something like '.' or any
+            //       other non-extension, non-'external' value. Stub
+            //       posting where the real file lives in the resource
+            //       description. Refuse with a spigotmc.org link.
+            $isExternal = $fileType === 'external' || (bool) ($r['external'] ?? false);
+
+            if ($isExternal) {
+                $extUrl = (string) ($r['file']['externalUrl'] ?? '');
+                $linkTarget = $extUrl !== '' ? $extUrl : "https://www.spigotmc.org/resources/{$externalId}/";
                 throw new ConflictHttpException(sprintf(
-                    'This SpigotMC resource has no clean downloadable file on Spiget — likely an external/off-site upload or a stub posting. Download manually from https://www.spigotmc.org/resources/%s/ and upload via your panel\'s File Manager.',
+                    'This SpigotMC resource is hosted off-site (the author links out to GitHub, MediaFire, Discord, or another file host) — Crate cannot auto-install it. Download it from %s and upload via your panel\'s File Manager.',
+                    $linkTarget,
+                ));
+            }
+
+            if (!preg_match('/^\.[A-Za-z0-9]+$/', $fileType)) {
+                throw new ConflictHttpException(sprintf(
+                    'This SpigotMC resource has no clean downloadable file on Spiget — likely a stub posting where the real file lives in the resource description. Download manually from https://www.spigotmc.org/resources/%s/ and upload via your panel\'s File Manager.',
                     $externalId,
                 ));
             }
