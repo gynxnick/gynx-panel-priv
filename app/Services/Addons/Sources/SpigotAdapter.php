@@ -125,23 +125,47 @@ class SpigotAdapter implements AddonSource
 
             $r = json_decode((string) $res->getBody(), true) ?: [];
 
-            // SpiGet flags resources whose author hosts the file off-site
-            // (GitHub releases, Cloudflare CDN, MediaFire, Discord, etc.)
-            // as `external: true`. Many of those redirect cleanly through
-            // SpiGet's `/download` endpoint and Wings can follow the 302 —
-            // we used to hard-reject here with a 409, but that locked out
-            // ~70% of perfectly-installable resources. Now we attempt the
-            // download regardless; if Wings can't follow the redirect
-            // (Cloudflare bot challenge, dead link), the BadGateway wrap
-            // in the outer try surfaces it as a clean 502 with attribution.
-
             $fileType = (string) ($r['file']['type'] ?? '');
             if ($fileType === '') {
                 throw new NotFoundHttpException('SpigotMC resource has no downloadable file.');
             }
 
-            // SpiGet's download endpoint 302s to the current latest file.
-            $url = "https://api.spiget.org/v2/resources/{$externalId}/download";
+            // Spiget's proxy endpoint requires a concrete version id —
+            // it does not accept "latest" as a path arg (that's a
+            // sibling endpoint). When the caller didn't pin a version,
+            // ask Spiget which one is current.
+            $resolvedVersionId = $versionId !== null && $versionId !== '' && $versionId !== 'latest'
+                ? $versionId
+                : null;
+            if ($resolvedVersionId === null) {
+                try {
+                    $vRes = $this->http->get("resources/{$externalId}/versions/latest");
+                    $vData = json_decode((string) $vRes->getBody(), true) ?: [];
+                    $resolvedVersionId = isset($vData['id']) ? (string) $vData['id'] : '';
+                } catch (TransferException $e) {
+                    throw new HttpException(502, 'SpigotMC version lookup failed: ' . $e->getMessage());
+                }
+                if ($resolvedVersionId === '') {
+                    throw new NotFoundHttpException('SpigotMC resource has no published version.');
+                }
+            }
+
+            // Use Spiget's `/download/proxy` endpoint — it streams the
+            // file bytes from Spiget's own CDN (cdn.spiget.org), which
+            // is NOT behind Cloudflare. The plain `/download` endpoint
+            // 302s to spigotmc.org (which IS Cloudflare-protected) and
+            // Wings's curl gets bot-challenged on the redirect target,
+            // which is what was breaking installs.
+            //
+            // Caveats per Spiget's docs:
+            //   - Rate-limited (~1 request per couple of seconds per
+            //     IP). Fine for human-paced installs.
+            //   - "External" resources (where the author hosts the file
+            //     off-site — Discord, MediaFire, etc.) still 302 to the
+            //     off-site host and may fail there. Caller surfaces a
+            //     clean 502 with a "download manually from spigotmc.org"
+            //     hint when that happens.
+            $url = "https://api.spiget.org/v2/resources/{$externalId}/versions/{$resolvedVersionId}/download/proxy";
 
             $fileName = ((string) ($r['name'] ?? 'resource')) . $fileType;
             $fileName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $fileName);
@@ -150,8 +174,8 @@ class SpigotAdapter implements AddonSource
                 'url' => $url,
                 'file_name' => $fileName,
                 'file_hash' => null,
-                'version' => (string) ($versionId ?? 'latest'),
-                'version_id' => (string) ($versionId ?? 'latest'),
+                'version' => (string) $resolvedVersionId,
+                'version_id' => (string) $resolvedVersionId,
             ];
         } catch (\Throwable $e) {
             // Pass HTTP exceptions through unchanged so 404/409 stay
