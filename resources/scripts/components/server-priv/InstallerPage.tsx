@@ -320,6 +320,53 @@ export const InstallerPage = () => {
                 </div>
             </div>
 
+            {/* Spigot one-click caveat — explains why some search results carry
+                a "Manual" pill instead of installing on click. */}
+            {activeSource === 'spigot' && (
+                <div
+                    className={'notice'}
+                    style={{
+                        background: 'rgba(56, 189, 248, 0.07)',
+                        color: 'var(--text)',
+                        border: '1px solid rgba(56, 189, 248, 0.28)',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        marginTop: 10,
+                        marginBottom: 4,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                    }}
+                >
+                    <Icon name={'zap'} size={14} color={'rgba(56, 189, 248, 0.9)'} />
+                    <div>
+                        <strong>Heads up — </strong>
+                        because of how SpigotMC distributes resources, we can&apos;t offer
+                        full one-click installs on every plugin. Resources hosted directly
+                        on Spigot install fine (look for the{' '}
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                background: 'rgba(16, 185, 129, 0.85)',
+                                color: '#fff',
+                                border: '1px solid rgba(16, 185, 129, 0.95)',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                padding: '1px 6px',
+                                borderRadius: 999,
+                                margin: '0 2px',
+                                verticalAlign: 'baseline',
+                            }}
+                        >Auto-install</span>
+                        badge); others where the author links out to GitHub, MediaFire,
+                        Discord, etc., will give you a direct download link instead.
+                    </div>
+                </div>
+            )}
+
             <div className={'install-layout'}>
                 <div className={'install-side'}>
                     <div className={'side-section'}>
@@ -467,6 +514,32 @@ export const InstallerPage = () => {
                                     <div className={'item-tags'}>
                                         {installed && (
                                             <span className={'tag compat'}>installed</span>
+                                        )}
+                                        {/* Auto-install / Manual pill — only the
+                                            Spigot adapter populates `installable`;
+                                            other sources leave it undefined and
+                                            render no pill. */}
+                                        {it.installable === true && (
+                                            <span
+                                                className={'tag'}
+                                                style={{
+                                                    background: 'rgba(16, 185, 129, 0.18)',
+                                                    color: 'rgba(16, 185, 129, 0.95)',
+                                                    borderColor: 'rgba(16, 185, 129, 0.4)',
+                                                }}
+                                                title={'One-click install supported'}
+                                            >Auto-install</span>
+                                        )}
+                                        {it.installable === false && (
+                                            <span
+                                                className={'tag'}
+                                                style={{
+                                                    background: 'rgba(249, 115, 22, 0.18)',
+                                                    color: 'rgba(249, 115, 22, 0.95)',
+                                                    borderColor: 'rgba(249, 115, 22, 0.4)',
+                                                }}
+                                                title={'Manual download required'}
+                                            >Manual</span>
                                         )}
                                         {it.latest_version && (
                                             <span className={'tag'}>v{it.latest_version}</span>

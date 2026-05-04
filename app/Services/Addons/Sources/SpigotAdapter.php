@@ -92,6 +92,14 @@ class SpigotAdapter implements AddonSource
             // the N+1 cost on subsequent searches.
             $authorName = $authorId !== null ? $this->resolveAuthorName((int) $authorId) : '';
 
+            // Mirror the classification resolveDownload does, so the UI
+            // can show an "Auto-install" / "Manual" badge before the
+            // user clicks Install. Cheap — uses fields we already
+            // requested in the search query.
+            $fileType = (string) ($r['file']['type'] ?? '');
+            $isExternal = $fileType === 'external' || (bool) ($r['external'] ?? false);
+            $installable = !$isExternal && $fileType !== '' && preg_match('/^\.[A-Za-z0-9]+$/', $fileType) === 1;
+
             return [
                 'external_id' => (string) ($r['id'] ?? ''),
                 'slug' => (string) ($r['id'] ?? ''),
@@ -102,6 +110,7 @@ class SpigotAdapter implements AddonSource
                 'downloads' => (int) ($r['downloads'] ?? 0),
                 'latest_version' => null,
                 'source' => 'spigot',
+                'installable' => $installable,
             ];
         }, $hits);
     }
