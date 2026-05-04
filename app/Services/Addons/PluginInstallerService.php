@@ -30,7 +30,7 @@ class PluginInstallerService
         $source = $this->registry->get($sourceSlug);
         if (!$source->available() || !$source->supports(AddonSource::TYPE_PLUGIN) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_PLUGIN, $query, $gameVersion, 60, $server);
+        $hits = $source->search(AddonSource::TYPE_PLUGIN, $query, $gameVersion, 100, $server);
         $installed = AddonPlugin::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)

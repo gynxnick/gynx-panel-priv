@@ -23,7 +23,7 @@ class ModInstallerService
         $source = $this->registry->get($sourceSlug);
         if (!$source->available() || !$source->supports(AddonSource::TYPE_MOD) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion, 60, $server);
+        $hits = $source->search(AddonSource::TYPE_MOD, $query, $gameVersion, 100, $server);
         $installed = AddonMod::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)
