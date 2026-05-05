@@ -26,7 +26,7 @@ class AddonModsController extends ClientApiController
 
     public function sources(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MOD_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         // Only return sources that *can* serve mods at all. Sources like
         // Hangar / SpigotMC that are plugin-only would otherwise show up
@@ -50,7 +50,7 @@ class AddonModsController extends ClientApiController
 
     public function search(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MOD_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         $source = (string) $request->query('source', 'modrinth');
         $query = trim((string) $request->query('q', ''));
@@ -66,7 +66,7 @@ class AddonModsController extends ClientApiController
 
     public function installed(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MOD_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         return new JsonResponse([
             'data' => $this->installer->listInstalled($server),
@@ -75,6 +75,10 @@ class AddonModsController extends ClientApiController
 
     public function install(InstallModRequest $request, Server $server): JsonResponse
     {
+        if (!$request->user()->can('file.create', $server)) {
+            abort(403, 'You do not have permission to install mods on this server.');
+        }
+
         $mod = $this->installer->install(
             $server,
             $request->user(),
@@ -108,7 +112,7 @@ class AddonModsController extends ClientApiController
 
     public function destroy(ClientApiRequest $request, Server $server, AddonMod $mod): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MOD_DELETE);
+        $this->ensurePermission($request, $server, 'file.delete');
         $this->installer->remove($server, $mod);
 
         try {

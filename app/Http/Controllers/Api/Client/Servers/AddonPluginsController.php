@@ -29,7 +29,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function sources(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         $data = [];
         foreach ($this->sources->all() as $slug => $src) {
@@ -56,7 +56,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function search(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         $source = (string) $request->query('source', 'modrinth');
         $query = trim((string) $request->query('q', ''));
@@ -74,7 +74,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function installed(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         return new JsonResponse([
             'data' => $this->installer->listInstalled($server),
@@ -88,6 +88,10 @@ class AddonPluginsController extends ClientApiController
      */
     public function install(InstallPluginRequest $request, Server $server): JsonResponse
     {
+        if (!$request->user()->can('file.create', $server)) {
+            abort(403, 'You do not have permission to install plugins on this server.');
+        }
+
         $plugin = $this->installer->install(
             $server,
             $request->user(),
@@ -125,7 +129,7 @@ class AddonPluginsController extends ClientApiController
      */
     public function destroy(ClientApiRequest $request, Server $server, AddonPlugin $plugin): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_PLUGIN_DELETE);
+        $this->ensurePermission($request, $server, 'file.delete');
 
         $this->installer->remove($server, $plugin);
 

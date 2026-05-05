@@ -26,7 +26,7 @@ class AddonModpacksController extends ClientApiController
 
     public function sources(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         // Plugin-only sources (Hangar, SpigotMC) don't host modpacks at all,
         // so don't surface them as "· soon" — they're n/a, not coming.
@@ -49,7 +49,7 @@ class AddonModpacksController extends ClientApiController
 
     public function search(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         $source = (string) $request->query('source', 'modrinth');
         $query = trim((string) $request->query('q', ''));
@@ -64,7 +64,7 @@ class AddonModpacksController extends ClientApiController
 
     public function installed(ClientApiRequest $request, Server $server): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_READ);
+        $this->ensurePermission($request, $server, 'file.read');
 
         return new JsonResponse([
             'data' => $this->installer->listInstalled($server),
@@ -73,6 +73,10 @@ class AddonModpacksController extends ClientApiController
 
     public function install(InstallModpackRequest $request, Server $server): JsonResponse
     {
+        if (!$request->user()->can('file.create', $server)) {
+            abort(403, 'You do not have permission to install modpacks on this server.');
+        }
+
         $pack = $this->installer->install(
             $server,
             $request->user(),
@@ -107,7 +111,7 @@ class AddonModpacksController extends ClientApiController
 
     public function extract(ClientApiRequest $request, Server $server, AddonModpack $modpack): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_INSTALL);
+        $this->ensurePermission($request, $server, 'file.create');
 
         // ?keep_existing=1 → preserve worlds, configs, hand-added mods.
         // Default (false) keeps the historical clean-install behaviour so
@@ -143,7 +147,7 @@ class AddonModpacksController extends ClientApiController
 
     public function destroy(ClientApiRequest $request, Server $server, AddonModpack $modpack): JsonResponse
     {
-        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_DELETE);
+        $this->ensurePermission($request, $server, 'file.delete');
         $this->installer->remove($server, $modpack);
 
         try {
