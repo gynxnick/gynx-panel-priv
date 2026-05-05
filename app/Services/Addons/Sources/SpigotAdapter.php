@@ -4,6 +4,7 @@ namespace Pterodactyl\Services\Addons\Sources;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\TransferException;
+use Illuminate\Support\Facades\Cache;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonGameRegistry;
 use Pterodactyl\Services\Addons\AddonSource;
@@ -85,17 +86,31 @@ class SpigotAdapter implements AddonSource
             $iconPath = $r['icon']['url'] ?? null;
             $icon = $iconPath ? 'https://www.spigotmc.org/' . ltrim((string) $iconPath, '/') : null;
             $authorId = $r['author']['id'] ?? null;
+            // Spiget's resource search returns only `author.id` — no name.
+            // Resolve via cached `/authors/{id}` lookup; soft-fails to ''
+            // on Spiget errors. 24h cache means a warm catalog avoids
+            // the N+1 cost on subsequent searches.
+            $authorName = $authorId !== null ? $this->resolveAuthorName((int) $authorId) : '';
+
+            // Mirror the classification resolveDownload does, so the UI
+            // can show an "Auto-install" / "Manual" badge before the
+            // user clicks Install. Cheap — uses fields we already
+            // requested in the search query.
+            $fileType = (string) ($r['file']['type'] ?? '');
+            $isExternal = $fileType === 'external' || (bool) ($r['external'] ?? false);
+            $installable = !$isExternal && $fileType !== '' && preg_match('/^\.[A-Za-z0-9]+$/', $fileType) === 1;
 
             return [
                 'external_id' => (string) ($r['id'] ?? ''),
                 'slug' => (string) ($r['id'] ?? ''),
                 'name' => (string) ($r['name'] ?? 'Unknown'),
-                'author' => $authorId ? "author #{$authorId}" : '',
+                'author' => $authorName,
                 'description' => (string) ($r['tag'] ?? ''),
                 'icon_url' => $icon,
                 'downloads' => (int) ($r['downloads'] ?? 0),
                 'latest_version' => null,
                 'source' => 'spigot',
+                'installable' => $installable,
             ];
         }, $hits);
     }
@@ -119,23 +134,89 @@ class SpigotAdapter implements AddonSource
 
             $r = json_decode((string) $res->getBody(), true) ?: [];
 
-            // SpiGet flags resources whose author hosts the file off-site
-            // (GitHub releases, Cloudflare CDN, MediaFire, Discord, etc.)
-            // as `external: true`. Many of those redirect cleanly through
-            // SpiGet's `/download` endpoint and Wings can follow the 302 —
-            // we used to hard-reject here with a 409, but that locked out
-            // ~70% of perfectly-installable resources. Now we attempt the
-            // download regardless; if Wings can't follow the redirect
-            // (Cloudflare bot challenge, dead link), the BadGateway wrap
-            // in the outer try surfaces it as a clean 502 with attribution.
-
             $fileType = (string) ($r['file']['type'] ?? '');
             if ($fileType === '') {
                 throw new NotFoundHttpException('SpigotMC resource has no downloadable file.');
             }
 
-            // SpiGet's download endpoint 302s to the current latest file.
-            $url = "https://api.spiget.org/v2/resources/{$externalId}/download";
+            // Spiget reports three classes of resource:
+            //
+            //   (a) Spiget-hosted — file.type is a real extension
+            //       (.jar, .zip, etc.) and external=false. Spiget
+            //       mirrors the file on cdn.spiget.org. Falls through
+            //       to the proxy-URL branch below.
+            //
+            //   (b) External — file.type='external' or external=true.
+            //       The author hosts the file off-site (GitHub releases,
+            //       CodeMC, MediaFire, Discord, etc.). Spiget can't
+            //       proxy; it would 302 us at the landing page, which
+            //       Wings can't reliably curl into a single jar.
+            //       Spiget exposes the off-site URL on file.externalUrl
+            //       — point the user there and let them download by
+            //       hand. SkinsRestorer / EssentialsX / ViaVersion /
+            //       ProtocolLib / Multiverse-Core / AuthMe etc. all
+            //       fall here; they're the most popular plugins on
+            //       SpigotMC and none of them are auto-installable via
+            //       Spiget.
+            //
+            //   (c) Malformed — file.type is something like '.' or any
+            //       other non-extension, non-'external' value. Stub
+            //       posting where the real file lives in the resource
+            //       description. Refuse with a spigotmc.org link.
+            $isExternal = $fileType === 'external' || (bool) ($r['external'] ?? false);
+
+            if ($isExternal) {
+                $extUrl = (string) ($r['file']['externalUrl'] ?? '');
+                $linkTarget = $extUrl !== '' ? $extUrl : "https://www.spigotmc.org/resources/{$externalId}/";
+                throw new ConflictHttpException(sprintf(
+                    'This SpigotMC resource is hosted off-site (the author links out to GitHub, MediaFire, Discord, or another file host) — Crate cannot auto-install it. Download it from %s and upload via your panel\'s File Manager.',
+                    $linkTarget,
+                ));
+            }
+
+            if (!preg_match('/^\.[A-Za-z0-9]+$/', $fileType)) {
+                throw new ConflictHttpException(sprintf(
+                    'This SpigotMC resource has no clean downloadable file on Spiget — likely a stub posting where the real file lives in the resource description. Download manually from https://www.spigotmc.org/resources/%s/ and upload via your panel\'s File Manager.',
+                    $externalId,
+                ));
+            }
+
+            // Spiget's proxy endpoint requires a concrete version id —
+            // it does not accept "latest" as a path arg (that's a
+            // sibling endpoint). When the caller didn't pin a version,
+            // ask Spiget which one is current.
+            $resolvedVersionId = $versionId !== null && $versionId !== '' && $versionId !== 'latest'
+                ? $versionId
+                : null;
+            if ($resolvedVersionId === null) {
+                try {
+                    $vRes = $this->http->get("resources/{$externalId}/versions/latest");
+                    $vData = json_decode((string) $vRes->getBody(), true) ?: [];
+                    $resolvedVersionId = isset($vData['id']) ? (string) $vData['id'] : '';
+                } catch (TransferException $e) {
+                    throw new HttpException(502, 'SpigotMC version lookup failed: ' . $e->getMessage());
+                }
+                if ($resolvedVersionId === '') {
+                    throw new NotFoundHttpException('SpigotMC resource has no published version.');
+                }
+            }
+
+            // Use Spiget's `/download/proxy` endpoint — it streams the
+            // file bytes from Spiget's own CDN (cdn.spiget.org), which
+            // is NOT behind Cloudflare. The plain `/download` endpoint
+            // 302s to spigotmc.org (which IS Cloudflare-protected) and
+            // Wings's curl gets bot-challenged on the redirect target,
+            // which is what was breaking installs.
+            //
+            // Caveats per Spiget's docs:
+            //   - Rate-limited (~1 request per couple of seconds per
+            //     IP). Fine for human-paced installs.
+            //   - "External" resources (where the author hosts the file
+            //     off-site — Discord, MediaFire, etc.) still 302 to the
+            //     off-site host and may fail there. Caller surfaces a
+            //     clean 502 with a "download manually from spigotmc.org"
+            //     hint when that happens.
+            $url = "https://api.spiget.org/v2/resources/{$externalId}/versions/{$resolvedVersionId}/download/proxy";
 
             $fileName = ((string) ($r['name'] ?? 'resource')) . $fileType;
             $fileName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $fileName);
@@ -144,8 +225,8 @@ class SpigotAdapter implements AddonSource
                 'url' => $url,
                 'file_name' => $fileName,
                 'file_hash' => null,
-                'version' => (string) ($versionId ?? 'latest'),
-                'version_id' => (string) ($versionId ?? 'latest'),
+                'version' => (string) $resolvedVersionId,
+                'version_id' => (string) $resolvedVersionId,
             ];
         } catch (\Throwable $e) {
             // Pass HTTP exceptions through unchanged so 404/409 stay
@@ -201,5 +282,32 @@ class SpigotAdapter implements AddonSource
         if ($type !== self::TYPE_PLUGIN) {
             throw new NotFoundHttpException('SpigotMC only serves plugins.');
         }
+    }
+
+    /**
+     * Look up the SpigotMC author display name for a given numeric
+     * author ID. Spiget's resource search response only carries
+     * `author.id`; the username comes from a separate `/authors/{id}`
+     * call. Cached for 24h since usernames rarely change. Soft-fails
+     * to '' on any network or parse error so a flaky Spiget can't
+     * break the search response shape.
+     */
+    private function resolveAuthorName(int $authorId): string
+    {
+        return Cache::remember(
+            'crate:spigot:author:' . $authorId,
+            86400,
+            function () use ($authorId): string {
+                try {
+                    $res = $this->http->get("authors/{$authorId}", [
+                        'query' => ['fields' => 'name'],
+                    ]);
+                    $data = json_decode((string) $res->getBody(), true);
+                    return (string) ($data['name'] ?? '');
+                } catch (TransferException $e) {
+                    return '';
+                }
+            },
+        );
     }
 }

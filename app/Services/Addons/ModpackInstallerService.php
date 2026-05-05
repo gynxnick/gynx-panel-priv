@@ -32,7 +32,7 @@ class ModpackInstallerService
         $source = $this->registry->get($sourceSlug);
         if (!$source->available() || !$source->supports(AddonSource::TYPE_MODPACK) || !$source->availableFor($server)) return [];
 
-        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion, 60, $server);
+        $hits = $source->search(AddonSource::TYPE_MODPACK, $query, $gameVersion, 100, $server);
         $installed = AddonModpack::query()
             ->where('server_id', $server->id)
             ->where('source', $sourceSlug)

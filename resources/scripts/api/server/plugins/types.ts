@@ -11,6 +11,13 @@ export interface PluginSearchHit {
     latest_version: string | null;
     source: PluginSourceSlug;
     installed: boolean;
+    /**
+     * Whether this hit can be auto-installed end-to-end. False only on
+     * Spigot when the resource is "external" (author hosts off-site)
+     * or has malformed file metadata. Undefined means "yes" — used so
+     * Modrinth/CurseForge/Hangar adapters don't have to populate it.
+     */
+    installable?: boolean;
 }
 
 export interface InstalledPlugin {

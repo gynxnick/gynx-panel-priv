@@ -83,7 +83,7 @@ class UmodAdapter implements AddonSource
         $game = $this->resolveGame($server);
         if ($game === null) return [];
 
-        $limit = max(1, min($limit, 60));
+        $limit = max(1, min($limit, 100));
         // uMod's search.json defaults to 10/page and ignores per_page-style
         // hints. Walk pages 1..N until we hit $limit or the API runs dry.
         // Cap at 6 pages to keep latency reasonable on slow connections —

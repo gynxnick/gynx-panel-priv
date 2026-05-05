@@ -11,6 +11,13 @@ export interface ModSearchHit {
     latest_version: string | null;
     source: PluginSourceSlug;
     installed: boolean;
+    /**
+     * Optional auto-install hint mirrored from PluginSearchHit so the
+     * shared installer UI can union all three hit types without
+     * narrowing for the badge check. Mod adapters don't populate it
+     * today, so the badge stays absent on the mods tab.
+     */
+    installable?: boolean;
 }
 
 export interface InstalledMod {

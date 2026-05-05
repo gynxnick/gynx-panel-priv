@@ -21,9 +21,9 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 class AddonVersionsController extends ClientApiController
 {
     private const TYPE_PERMISSIONS = [
-        AddonSource::TYPE_PLUGIN => Permission::ACTION_ADDON_PLUGIN_READ,
-        AddonSource::TYPE_MOD => Permission::ACTION_ADDON_MOD_READ,
-        AddonSource::TYPE_MODPACK => Permission::ACTION_ADDON_MODPACK_READ,
+        AddonSource::TYPE_PLUGIN => 'file.read',
+        AddonSource::TYPE_MOD => 'file.read',
+        AddonSource::TYPE_MODPACK => 'file.read',
     ];
 
     public function __construct(

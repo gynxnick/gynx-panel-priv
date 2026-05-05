@@ -28,7 +28,12 @@ export const installPlugin = async (
     uuid: string,
     body: { source: PluginSourceSlug; external_id: string; version_id?: string; game_version?: string },
 ) => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/addons/plugins/install`, body);
+    // 3-min timeout (default axios is 20s). Spigot installs that route
+    // through FlareSolverr boot Chromium + solve a CF challenge + stream
+    // the file — comfortably 30–90s, occasionally longer on cold start.
+    const { data } = await http.post(`/api/client/servers/${uuid}/addons/plugins/install`, body, {
+        timeout: 180000,
+    });
     return data?.data;
 };
 

@@ -135,7 +135,7 @@ class ThunderstoreAdapter implements AddonSource
             return $bd <=> $ad;
         });
 
-        $matches = array_slice($matches, 0, max(1, min($limit, 60)));
+        $matches = array_slice($matches, 0, max(1, min($limit, 100)));
 
         return array_map(function (array $pkg) {
             $latest = $pkg['versions'][0] ?? [];
