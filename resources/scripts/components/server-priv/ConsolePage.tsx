@@ -246,12 +246,12 @@ export const ConsolePage = () => (
             <ConsolePanel />
             <DiscordCta />
             <CrashLogsPanel />
+            <PlayerManager />
         </div>
         <div className={'col'}>
             <AiCard />
             <WorldSwitcherCard />
             <PlayerSlotsCard />
-            <PlayerManager />
             <QuickActions />
         </div>
     </div>

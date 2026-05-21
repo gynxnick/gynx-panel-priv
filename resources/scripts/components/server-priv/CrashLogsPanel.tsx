@@ -20,12 +20,24 @@ import { formatDistanceToNowStrict } from 'date-fns';
 const CRASH_DIRS = ['/crash-reports', '/logs/crashes'];
 const MAX_DISPLAYED = 4;
 
+// Render guards. Pulling a 50 MB modpack crash through navigator.clipboard
+// and stuffing it into a <pre> will lock the tab — so we cap what we hold
+// in memory and warn the user when we had to slice.
+const MAX_DISPLAY_CHARS = 200 * 1024;
+
 interface DiscoveredCrash {
-    /** Full server-relative path used by the file APIs. */
     path: string;
     name: string;
     size: number;
     modifiedAt: Date;
+}
+
+interface ViewerState {
+    name: string;
+    content: string;
+    loading: boolean;
+    truncated: boolean;
+    error: string | null;
 }
 
 const fmtSize = (n: number): string => {
@@ -34,10 +46,15 @@ const fmtSize = (n: number): string => {
     return `${(n / 1024 / 1024).toFixed(1)} MB`;
 };
 
+const tailSlice = (text: string): { content: string; truncated: boolean } => {
+    if (text.length <= MAX_DISPLAY_CHARS) return { content: text, truncated: false };
+    return { content: text.slice(text.length - MAX_DISPLAY_CHARS), truncated: true };
+};
+
 const ViewerModal = ({
     crash, onDismiss,
 }: {
-    crash: { name: string; content: string; loading: boolean };
+    crash: ViewerState;
     onDismiss: () => void;
 }) => (
     <div
@@ -70,17 +87,34 @@ const ViewerModal = ({
                     <Icon name={'plus'} size={12} style={{ transform: 'rotate(45deg)' }} />
                 </button>
             </div>
+            {crash.truncated && !crash.loading && !crash.error && (
+                <div style={{
+                    padding: '8px 16px',
+                    background: 'rgba(251, 191, 36, 0.08)',
+                    borderBottom: '1px solid var(--line)',
+                    fontSize: 11, color: '#fbbf24',
+                    fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                    Large file — showing last {fmtSize(MAX_DISPLAY_CHARS)}. Download for the full report.
+                </div>
+            )}
             <pre
                 style={{
                     flex: 1, margin: 0, padding: 16,
                     background: 'var(--surface-2)',
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 11.5, lineHeight: 1.55,
-                    color: 'var(--text-soft)',
+                    color: crash.error ? '#f87171' : 'var(--text-soft)',
                     overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
                 }}
             >
-                {crash.loading ? '— loading crash report —' : crash.content || '— empty —'}
+                {crash.loading
+                    ? '— loading crash report —'
+                    : crash.error
+                        ? crash.error
+                        : crash.content || '— empty —'}
             </pre>
         </div>
     </div>
@@ -92,13 +126,17 @@ export const CrashLogsPanel = () => {
     const match = useRouteMatch<{ id: string }>();
 
     const [crashes, setCrashes] = useState<DiscoveredCrash[] | null>(null);
+    const [scanning, setScanning] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [busyKey, setBusyKey] = useState<string | null>(null);
-    const [viewer, setViewer] = useState<{ name: string; content: string; loading: boolean } | null>(null);
+    const [viewer, setViewer] = useState<ViewerState | null>(null);
     const [copied, setCopied] = useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         let alive = true;
+        setScanning(true);
+        setError(null);
 
         const probe = async () => {
             const all: DiscoveredCrash[] = [];
@@ -126,26 +164,48 @@ export const CrashLogsPanel = () => {
             setCrashes(all.slice(0, MAX_DISPLAYED));
         };
 
-        probe().catch((e) => alive && setError(httpErrorToHuman(e as Error)));
+        probe()
+            .catch((e) => alive && setError(httpErrorToHuman(e as Error)))
+            .finally(() => alive && setScanning(false));
         return () => { alive = false; };
-    }, [uuid]);
+    }, [uuid, refreshKey]);
+
+    const onRefresh = () => setRefreshKey((k) => k + 1);
 
     const onView = async (c: DiscoveredCrash) => {
-        setViewer({ name: c.name, content: '', loading: true });
+        setViewer({ name: c.name, content: '', loading: true, truncated: false, error: null });
         try {
             const text = await getFileContents(uuid, c.path);
-            setViewer({ name: c.name, content: text, loading: false });
+            const sliced = tailSlice(text);
+            setViewer({
+                name: c.name,
+                content: sliced.content,
+                loading: false,
+                truncated: sliced.truncated,
+                error: null,
+            });
         } catch (e) {
-            setViewer({ name: c.name, content: `Failed to load: ${httpErrorToHuman(e as Error)}`, loading: false });
+            setViewer({
+                name: c.name,
+                content: '',
+                loading: false,
+                truncated: false,
+                error: `Failed to load: ${httpErrorToHuman(e as Error)}`,
+            });
         }
     };
 
     const onCopy = async (c: DiscoveredCrash) => {
         const key = `copy:${c.path}`;
         setBusyKey(key);
+        setError(null);
         try {
             const text = await getFileContents(uuid, c.path);
-            await navigator.clipboard.writeText(text);
+            // Copying a 50 MB string into the clipboard can hang the tab too.
+            // Tail-slice for clipboard the same way we do for the modal so the
+            // "ship this to a Discord ticket" flow stays snappy.
+            const sliced = tailSlice(text);
+            await navigator.clipboard.writeText(sliced.content);
             setCopied(c.path);
             window.setTimeout(() => setCopied((p) => (p === c.path ? null : p)), 1800);
         } catch (e) {
@@ -192,12 +252,39 @@ export const CrashLogsPanel = () => {
                     last {MAX_DISPLAYED}
                 </span>
                 <div style={{ flex: 1 }} />
-                {error && (
-                    <span style={{ fontSize: 11, color: '#f87171' }} title={error}>
-                        error
-                    </span>
-                )}
+                <button
+                    className={'icon-btn'}
+                    onClick={onRefresh}
+                    disabled={scanning}
+                    title={'Rescan crash directories'}
+                    aria-label={'Refresh crash logs'}
+                    style={{ width: 24, height: 24 }}
+                >
+                    <Icon name={'restart'} size={11} className={scanning ? 'spin' : undefined} />
+                </button>
             </div>
+
+            {error && (
+                <div style={{
+                    padding: '8px 14px',
+                    background: 'rgba(248, 113, 113, 0.08)',
+                    borderBottom: '1px solid var(--line)',
+                    fontSize: 11, color: '#f87171',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                    <span style={{ flex: 1 }}>{error}</span>
+                    <button
+                        className={'icon-btn'}
+                        onClick={() => setError(null)}
+                        title={'Dismiss'}
+                        aria-label={'Dismiss error'}
+                        style={{ width: 20, height: 20 }}
+                    >
+                        <Icon name={'plus'} size={9} style={{ transform: 'rotate(45deg)' }} />
+                    </button>
+                </div>
+            )}
 
             {isLoading ? (
                 <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>
