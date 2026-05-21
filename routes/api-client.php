@@ -191,4 +191,12 @@ Route::group([
         Route::post('/', [Client\Servers\SubdomainController::class, 'store']);
         Route::delete('/{record}', [Client\Servers\SubdomainController::class, 'destroy']);
     });
+
+    // Admin-only resource limit edits surfaced on the user-facing server page
+    // (the Slot Manager card). Controller asserts root_admin per request — no
+    // separate route middleware needed.
+    Route::group(['prefix' => '/admin'], function () {
+        Route::get('/limits', [Client\Servers\Admin\ServerLimitsController::class, 'show']);
+        Route::patch('/limits', [Client\Servers\Admin\ServerLimitsController::class, 'update']);
+    });
 });

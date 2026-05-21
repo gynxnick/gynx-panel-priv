@@ -14,6 +14,7 @@ import { useTps } from './useTps';
 import { CrashLogsPanel } from './CrashLogsPanel';
 import { DiscordCta } from './DiscordCta';
 import { PlayerSlotsCard } from './PlayerSlotsCard';
+import { SlotManagerCard } from './SlotManagerCard';
 import { WorldSwitcherCard } from './WorldSwitcherCard';
 import { AiCard } from './AiCard';
 
@@ -252,6 +253,7 @@ export const ConsolePage = () => (
             <AiCard />
             <WorldSwitcherCard />
             <PlayerSlotsCard />
+            <SlotManagerCard />
             <QuickActions />
         </div>
     </div>
