@@ -1,115 +1,84 @@
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ServerContext } from '@/state/server';
 import { Icon } from './Icon';
-import getServerStartup from '@/api/swr/getServerStartup';
-import updateStartupVariable from '@/api/server/updateStartupVariable';
-import { ServerEggVariable } from '@/api/server/types';
+import { getSlotConfig, updateSlotConfig, SlotConfig } from '@/api/server/slotConfig';
 import { httpErrorToHuman } from '@/api/http';
 
-// Player-slot editor accessible to anyone who can see the server. Writes
-// through the existing startup-variable endpoint so the value stays in
-// sync with whatever the legacy Startup page shows; the change takes
-// effect on the next restart since Wings rebuilds server.properties (or
-// the equivalent) from env vars at boot.
-
-// Env-var names recognized as "max players" across our supported eggs.
-// First hit wins; add new names here when a new egg is onboarded.
-const SLOT_ENV_VARS = [
-    'MAX_PLAYERS',
-    'MAXPLAYERS',
-    'SERVER_MAX_PLAYERS',
-    'MAX_SLOTS',
-    'SLOTS',
-];
-
-const findSlotVariable = (vars: ServerEggVariable[]): ServerEggVariable | null => {
-    for (const env of SLOT_ENV_VARS) {
-        const m = vars.find((v) => v.envVariable.toUpperCase() === env);
-        if (m) return m;
-    }
-    return vars.find((v) => /max\s*(players|slots)/i.test(v.name)) ?? null;
-};
-
-const parseLimit = (rules: string[]): { min: number; max: number } => {
-    let min = 1;
-    let max = 999;
-    for (const rule of rules) {
-        const minMatch = rule.match(/^min:(\d+)$/i);
-        if (minMatch) min = Math.max(min, parseInt(minMatch[1], 10));
-        const maxMatch = rule.match(/^max:(\d+)$/i);
-        if (maxMatch) max = Math.min(max, parseInt(maxMatch[1], 10));
-        const betweenMatch = rule.match(/^between:(\d+),(\d+)$/i);
-        if (betweenMatch) {
-            min = Math.max(min, parseInt(betweenMatch[1], 10));
-            max = Math.min(max, parseInt(betweenMatch[2], 10));
-        }
-    }
-    return { min, max };
-};
+// Universal player-slot editor. Always renders so the right rail layout
+// stays consistent across eggs; the actual editability is driven by the
+// backend /slot-config endpoint, which respects:
+//   - config('gynx.slot_manager.excluded_nests') — nest-level kill switch
+//   - the egg's own user_editable flag on the slot variable
+//   - per-egg min/max/between rules
+//
+// When the server type doesn't expose a slot variable, the card renders
+// a neutral "not applicable" state instead of returning null, so the
+// admin can see at a glance that the feature is unavailable here.
 
 export const SlotManagerCard = () => {
     const uuid = ServerContext.useStoreState((s) => s.server.data!.uuid);
-    const { data, error: swrError, mutate } = getServerStartup(uuid);
 
-    const slotVar = useMemo(() => (data ? findSlotVariable(data.variables) : null), [data]);
-    const limits = useMemo(() => (slotVar ? parseLimit(slotVar.rules) : { min: 1, max: 999 }), [slotVar]);
-
+    const [config, setConfig] = useState<SlotConfig | null>(null);
     const [draft, setDraft] = useState<number | null>(null);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [savedAt, setSavedAt] = useState<number | null>(null);
 
     useEffect(() => {
-        if (!slotVar) return;
-        const current = parseInt(slotVar.serverValue ?? slotVar.defaultValue ?? '0', 10);
-        if (Number.isFinite(current)) setDraft(current);
-    }, [slotVar?.serverValue, slotVar?.defaultValue]);
+        let alive = true;
+        setLoading(true);
+        setError(null);
+        getSlotConfig(uuid)
+            .then((c) => {
+                if (!alive) return;
+                setConfig(c);
+                setDraft(c.current_value);
+            })
+            .catch((e) => alive && setError(httpErrorToHuman(e as Error)))
+            .finally(() => alive && setLoading(false));
+        return () => { alive = false; };
+    }, [uuid]);
 
-    if (swrError) {
-        return (
-            <div className={'panel rail-card'}>
-                <div className={'rail-title'}>
-                    <Icon name={'users'} size={12} color={'var(--purple)'} />
-                    <span>Slot Manager</span>
-                </div>
-                <div style={{ fontSize: 12, color: '#f87171' }}>
-                    {httpErrorToHuman(swrError)}
-                </div>
+    const renderShell = (body: React.ReactNode) => (
+        <div className={'panel rail-card'}>
+            <div className={'rail-title'} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+                <Icon name={'users'} size={12} color={'var(--purple)'} />
+                <span>Slot Manager</span>
             </div>
+            {body}
+        </div>
+    );
+
+    if (loading) {
+        return renderShell(
+            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>loading…</div>
         );
     }
 
-    if (!data) {
-        return (
-            <div className={'panel rail-card'}>
-                <div className={'rail-title'}>
-                    <Icon name={'users'} size={12} color={'var(--purple)'} />
-                    <span>Slot Manager</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>loading…</div>
-            </div>
+    if (error && !config) {
+        return renderShell(
+            <div style={{ fontSize: 11, color: '#f87171' }}>{error}</div>
         );
     }
 
-    if (!slotVar || draft === null) {
-        // Egg has no max-players-style variable (rare — games without a hard
-        // slot cap, or eggs we haven't taught yet). Render nothing rather
-        // than a confusing empty card.
-        return null;
-    }
+    if (!config) return renderShell(null);
 
-    const editable = slotVar.isEditable;
-    const dirty = String(draft) !== (slotVar.serverValue ?? slotVar.defaultValue);
-    const clamp = (n: number) => Math.max(limits.min, Math.min(limits.max, n));
+    const clamp = (n: number) => Math.max(config.min, Math.min(config.max, n));
+    const canEdit = config.editable;
+    const dirty = draft !== null && config.current_value !== null && draft !== config.current_value;
 
     const onCommit = async () => {
-        if (!dirty) return;
+        if (!dirty || draft === null) return;
         setSaving(true);
         setError(null);
         try {
-            await updateStartupVariable(uuid, slotVar.envVariable, String(draft));
-            await mutate();
+            const next = await updateSlotConfig(uuid, draft);
+            setConfig(next);
+            setDraft(next.current_value);
             setSavedAt(Date.now());
             window.setTimeout(
                 () => setSavedAt((t) => (t && Date.now() - t > 1500 ? null : t)),
@@ -122,30 +91,24 @@ export const SlotManagerCard = () => {
         }
     };
 
-    return (
-        <div className={'panel rail-card'}>
-            <div className={'rail-title'} style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-                <Icon name={'users'} size={12} color={'var(--purple)'} />
-                <span>Slot Manager</span>
-            </div>
-
+    return renderShell(
+        <>
             <div style={{
                 fontSize: 11, color: 'var(--text-faint)',
                 fontFamily: "'JetBrains Mono', monospace", marginTop: -4, marginBottom: 10,
             }}>
-                {slotVar.envVariable} · effective on next restart
+                {config.env_variable
+                    ? `${config.env_variable} · effective on next restart`
+                    : 'slot variable not detected for this egg'}
             </div>
 
             <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                marginBottom: 10,
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
             }}>
                 <button
                     type={'button'}
                     className={'btn btn-sm'}
-                    disabled={!editable || saving || draft <= limits.min}
+                    disabled={!canEdit || saving || draft === null || draft <= config.min}
                     onClick={() => setDraft((v) => (v === null ? v : clamp(v - 1)))}
                     style={{ width: 28, padding: 0, justifyContent: 'center' }}
                     aria-label={'Decrease slots'}
@@ -154,11 +117,12 @@ export const SlotManagerCard = () => {
                 </button>
                 <input
                     type={'number'}
-                    min={limits.min}
-                    max={limits.max}
+                    min={config.min}
+                    max={config.max}
                     step={1}
-                    value={draft}
-                    disabled={!editable || saving}
+                    value={draft ?? ''}
+                    disabled={!canEdit || saving}
+                    placeholder={'—'}
                     onChange={(e) => {
                         const n = parseInt(e.currentTarget.value, 10);
                         if (Number.isFinite(n)) setDraft(clamp(n));
@@ -174,7 +138,7 @@ export const SlotManagerCard = () => {
                 <button
                     type={'button'}
                     className={'btn btn-sm'}
-                    disabled={!editable || saving || draft >= limits.max}
+                    disabled={!canEdit || saving || draft === null || draft >= config.max}
                     onClick={() => setDraft((v) => (v === null ? v : clamp(v + 1)))}
                     style={{ width: 28, padding: 0, justifyContent: 'center' }}
                     aria-label={'Increase slots'}
@@ -188,14 +152,14 @@ export const SlotManagerCard = () => {
                     fontSize: 10, color: 'var(--text-faint)',
                     fontFamily: "'JetBrains Mono', monospace",
                 }}>
-                    range {limits.min}–{limits.max}
+                    range {config.min}–{config.max}
                 </span>
                 <div style={{ flex: 1 }} />
                 <button
                     type={'button'}
                     className={dirty ? 'btn btn-primary btn-sm' : 'btn btn-sm'}
                     onClick={onCommit}
-                    disabled={!editable || !dirty || saving}
+                    disabled={!canEdit || !dirty || saving}
                 >
                     {saving
                         ? <><Icon name={'restart'} size={11} className={'spin'} />Saving</>
@@ -205,12 +169,12 @@ export const SlotManagerCard = () => {
                 </button>
             </div>
 
-            {!editable && (
+            {!canEdit && config.reason && (
                 <div style={{
                     fontSize: 10, color: 'var(--text-faint)', marginTop: 8,
                     fontFamily: "'JetBrains Mono', monospace",
                 }}>
-                    locked by panel admin
+                    {config.reason}
                 </div>
             )}
 
@@ -219,7 +183,7 @@ export const SlotManagerCard = () => {
                     {error}
                 </div>
             )}
-        </div>
+        </>
     );
 };
 

@@ -191,4 +191,11 @@ Route::group([
         Route::post('/', [Client\Servers\SubdomainController::class, 'store']);
         Route::delete('/{record}', [Client\Servers\SubdomainController::class, 'destroy']);
     });
+
+    // Slot Manager — universal slot config endpoint that respects the
+    // config('gynx.slot_manager.excluded_nests') gate. Frontend
+    // SlotManagerCard reads + writes the player-slots variable through
+    // here so the nest exclusion is enforced server-side.
+    Route::get('/slot-config', [Client\Servers\SlotConfigController::class, 'show']);
+    Route::patch('/slot-config', [Client\Servers\SlotConfigController::class, 'update']);
 });
