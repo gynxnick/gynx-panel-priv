@@ -122,8 +122,16 @@ class SlotConfigController extends ClientApiController
 
     private function isExcludedByNest(Server $server): bool
     {
-        $excluded = config('gynx.slot_manager.excluded_nests', []);
-        return in_array((int) $server->nest_id, array_map('intval', $excluded), true);
+        // The setting may arrive as an array (from config/gynx.php's env-var
+        // bootstrap) OR as a comma-separated string (when an admin saves the
+        // setting from the admin panel — SettingsServiceProvider overwrites
+        // the config key with the raw DB string). Normalize both shapes.
+        $raw = config('gynx.slot_manager.excluded_nests', []);
+        $excluded = is_array($raw)
+            ? array_map('intval', $raw)
+            : array_values(array_filter(array_map('intval', explode(',', (string) $raw))));
+
+        return in_array((int) $server->nest_id, $excluded, true);
     }
 
     private function findSlotVariable(Server $server): ?EggVariable

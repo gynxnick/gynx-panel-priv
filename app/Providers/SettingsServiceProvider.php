@@ -39,6 +39,10 @@ class SettingsServiceProvider extends ServiceProvider
         'services:gynx_ai:gemini:api_key',
         'services:gynx_ai:gemini:model',
         'services:gynx_ai:daily_cap_per_server',
+
+        // gynx panel settings — Slot Manager nest exclusion list. Stored
+        // as a comma-separated string of nest IDs. Empty = allow all.
+        'gynx:slot_manager:excluded_nests',
     ];
 
     /**
