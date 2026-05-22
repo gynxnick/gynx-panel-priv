@@ -98,22 +98,28 @@ class SettingsServiceProvider extends ServiceProvider
                 }
             }
 
-            switch (strtolower($value)) {
-                case 'true':
-                case '(true)':
-                    $value = true;
-                    break;
-                case 'false':
-                case '(false)':
-                    $value = false;
-                    break;
-                case 'empty':
-                case '(empty)':
-                    $value = '';
-                    break;
-                case 'null':
-                case '(null)':
-                    $value = null;
+            // strtolower() fatals on non-strings (e.g. an array-shaped
+            // config default). Skip the sentinel coercion for those —
+            // pass the value through untouched so a managed key with
+            // a non-string default can't take down the whole boot.
+            if (is_string($value)) {
+                switch (strtolower($value)) {
+                    case 'true':
+                    case '(true)':
+                        $value = true;
+                        break;
+                    case 'false':
+                    case '(false)':
+                        $value = false;
+                        break;
+                    case 'empty':
+                    case '(empty)':
+                        $value = '';
+                        break;
+                    case 'null':
+                    case '(null)':
+                        $value = null;
+                }
             }
 
             $config->set(str_replace(':', '.', $key), $value);
