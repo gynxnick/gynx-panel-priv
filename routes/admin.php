@@ -39,6 +39,20 @@ Route::group(['prefix' => 'branding'], function () {
 
 /*
 |--------------------------------------------------------------------------
+| Discord text / integration copy
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/discord
+|
+*/
+Route::group(['prefix' => 'discord'], function () {
+    Route::get('/',     [Admin\DiscordTextController::class, 'index'])->name('admin.discord.index');
+    Route::post('/',    [Admin\DiscordTextController::class, 'update'])->name('admin.discord.update');
+    Route::post('/reset', [Admin\DiscordTextController::class, 'reset'])->name('admin.discord.reset');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Integrations / third-party API keys
 |--------------------------------------------------------------------------
 |

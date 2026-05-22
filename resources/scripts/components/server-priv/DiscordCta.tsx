@@ -1,17 +1,20 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
+import { useStoreState } from 'easy-peasy';
+import { ApplicationStore } from '@/state';
+import { disc } from '@/state/settings';
 import { Icon } from './Icon';
 
-// Optional join-the-discord prompt next to the crash logs. Dismissable
-// with a localStorage flag so we don't keep nagging anyone who's already
-// in the server. Re-renders nothing when dismissed.
+// Join-the-discord prompt next to the crash logs. All copy + the invite
+// URL come from the admin-managed Discord settings (see backend
+// DiscordTextController + SiteConfiguration.discord). Dismissable with
+// a localStorage flag so we don't keep nagging anyone already in the
+// server, and silenced entirely when the admin disables the card.
 
 const STORAGE_KEY = 'gynx:discord-cta-dismissed-at';
 // If we ever change the invite or want to re-prompt previously-dismissed
 // users, bump this — values older than the cutoff are ignored.
 const DISMISS_CUTOFF = '2026-04-28';
-
-const DISCORD_INVITE = 'https://discord.gg/gynx';
 
 const DiscordIcon = ({ size = 14 }: { size?: number }) => (
     <svg width={size} height={size} viewBox={'0 0 24 24'} fill={'currentColor'} aria-hidden>
@@ -20,6 +23,7 @@ const DiscordIcon = ({ size = 14 }: { size?: number }) => (
 );
 
 export const DiscordCta = () => {
+    const discord = useStoreState((s: ApplicationStore) => disc(s.settings.data));
     const [dismissed, setDismissed] = useState(true); // start hidden until we read storage to avoid a flash
 
     useEffect(() => {
@@ -28,6 +32,8 @@ export const DiscordCta = () => {
         setDismissed(!isStale);
     }, []);
 
+    // Admin kill switch wins over the user's localStorage state.
+    if (!discord.ctaEnabled) return null;
     if (dismissed) return null;
 
     const onDismiss = () => {
@@ -59,21 +65,21 @@ export const DiscordCta = () => {
                     fontFamily: "'Space Grotesk', sans-serif",
                     fontSize: 13.5, fontWeight: 600, color: 'var(--text)',
                 }}>
-                    Join the gynx Discord
+                    {discord.ctaTitle}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 2 }}>
-                    Live support, mod recommendations, and the place we drop status updates first.
+                    {discord.ctaSubtitle}
                 </div>
             </div>
             <a
-                href={DISCORD_INVITE}
+                href={discord.inviteUrl}
                 target={'_blank'}
                 rel={'noopener noreferrer'}
                 className={'btn btn-primary'}
                 style={{ flexShrink: 0 }}
             >
                 <DiscordIcon size={12} />
-                Join
+                {discord.ctaButtonLabel}
             </a>
             <button
                 className={'icon-btn'}

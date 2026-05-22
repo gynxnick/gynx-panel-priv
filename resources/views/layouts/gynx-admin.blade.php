@@ -97,6 +97,9 @@
                 <a href="{{ route('admin.branding.index') }}" class="sidebar__link {{ starts_with($route, 'admin.branding') ? 'is-active' : '' }}">
                     <i class="fa fa-paint-brush"></i><span>Branding</span>
                 </a>
+                <a href="{{ route('admin.discord.index') }}" class="sidebar__link {{ starts_with($route, 'admin.discord') ? 'is-active' : '' }}">
+                    <i class="fa fa-comments"></i><span>Discord</span>
+                </a>
                 <a href="{{ route('admin.integrations.index') }}" class="sidebar__link {{ starts_with($route, 'admin.integrations') ? 'is-active' : '' }}">
                     <i class="fa fa-plug"></i><span>Integrations</span>
                 </a>

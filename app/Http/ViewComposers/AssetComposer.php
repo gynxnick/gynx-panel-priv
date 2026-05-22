@@ -5,6 +5,7 @@ namespace Pterodactyl\Http\ViewComposers;
 use Illuminate\View\View;
 use Pterodactyl\Contracts\Repository\SettingsRepositoryInterface;
 use Pterodactyl\Http\Controllers\Admin\BrandingController;
+use Pterodactyl\Http\Controllers\Admin\DiscordTextController;
 use Pterodactyl\Services\Helpers\AssetHashService;
 use Pterodactyl\Services\Licensing\LicenseClientService;
 
@@ -25,6 +26,13 @@ class AssetComposer
         $branding = [];
         foreach (BrandingController::KEYS as $key => $meta) {
             $branding[$key] = (string) $this->settings->get("settings::gynx:{$key}", $meta['default']);
+        }
+
+        // Discord copy / integration text. Same pattern as branding but
+        // namespaced under settings::gynx:discord:* — see DiscordTextController.
+        $discord = [];
+        foreach (DiscordTextController::KEYS as $key => $meta) {
+            $discord[$key] = (string) $this->settings->get("settings::gynx:discord:{$key}", $meta['default']);
         }
 
         // Prefer the admin-set Branding siteName, falling back to APP_NAME
@@ -59,6 +67,24 @@ class AssetComposer
                 'dashboardEmptyTitle' => $branding['dashboard_empty_title'] ?? null,
                 'dashboardEmptyBody' => $branding['dashboard_empty_body'] ?? null,
                 'modpackInstallWarning' => $branding['modpack_install_warning'] ?? null,
+            ],
+            // Discord text — drives DiscordCta and (eventually) any
+            // webhook/embed UIs. See DiscordTextController::KEYS for the
+            // canonical field list.
+            //
+            // NOTE: webhook_url is intentionally NOT shipped — webhook
+            // URLs are credentials (anyone with the URL can post to the
+            // channel). Only a boolean configured flag is exposed so the
+            // SPA can show whether a webhook is in place. The actual URL
+            // stays server-side and is only used by server-side senders.
+            'discord' => [
+                'ctaEnabled' => ($discord['cta_enabled'] ?? '1') === '1',
+                'ctaTitle' => $discord['cta_title'] ?? null,
+                'ctaSubtitle' => $discord['cta_subtitle'] ?? null,
+                'ctaButtonLabel' => $discord['cta_button_label'] ?? null,
+                'inviteUrl' => $discord['invite_url'] ?? null,
+                'webhookConfigured' => ($discord['webhook_url'] ?? '') !== '',
+                'noticeTemplate' => $discord['notice_template'] ?? null,
             ],
             // Surface license status to the React bundle so it can render a
             // warning banner / lockdown UI when the panel's license is

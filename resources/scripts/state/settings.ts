@@ -28,6 +28,21 @@ export interface LicenseSnapshot {
     reason?: string | null;
 }
 
+/**
+ * Editable Discord copy. Mirrors backend DiscordTextController::KEYS.
+ * Webhook URL is intentionally NOT exposed — only a boolean flag — so
+ * the credential never reaches the browser.
+ */
+export interface DiscordSettings {
+    ctaEnabled?: boolean;
+    ctaTitle?: string;
+    ctaSubtitle?: string;
+    ctaButtonLabel?: string;
+    inviteUrl?: string;
+    webhookConfigured?: boolean;
+    noticeTemplate?: string;
+}
+
 export interface SiteSettings {
     name: string;
     locale: string;
@@ -39,6 +54,8 @@ export interface SiteSettings {
     logoUrl?: string;
     /** Editable panel text / branding (admin-configured). */
     branding?: BrandingSettings;
+    /** Editable Discord copy (admin-configured). */
+    discord?: DiscordSettings;
     /** Cached gynx.gg license check result — drives the lockdown banner. */
     license?: LicenseSnapshot;
 }
@@ -92,5 +109,37 @@ export const brand = (s?: SiteSettings) => {
         dashboardEmptyTitle: b.dashboardEmptyTitle || DEFAULTS.dashboardEmptyTitle,
         dashboardEmptyBody: b.dashboardEmptyBody || DEFAULTS.dashboardEmptyBody,
         modpackInstallWarning: b.modpackInstallWarning || DEFAULTS.modpackInstallWarning,
+    };
+};
+
+/** Discord-text defaults — match DiscordTextController::KEYS server-side. */
+const DISCORD_DEFAULTS: Required<Omit<DiscordSettings, 'noticeTemplate' | 'webhookConfigured'>> & {
+    noticeTemplate: string;
+    webhookConfigured: boolean;
+} = {
+    ctaEnabled: true,
+    ctaTitle: 'Join the gynx Discord',
+    ctaSubtitle: 'Live support, mod recommendations, and the place we drop status updates first.',
+    ctaButtonLabel: 'Join',
+    inviteUrl: 'https://discord.gg/gynx',
+    webhookConfigured: false,
+    noticeTemplate: '',
+};
+
+/**
+ * Resolve Discord text with admin-set overrides layered on top of the
+ * built-in defaults. Mirrors brand(): one place to read so every
+ * consumer falls back uniformly when the admin hasn't customized.
+ */
+export const disc = (s?: SiteSettings) => {
+    const d = s?.discord ?? {};
+    return {
+        ctaEnabled: d.ctaEnabled ?? DISCORD_DEFAULTS.ctaEnabled,
+        ctaTitle: d.ctaTitle || DISCORD_DEFAULTS.ctaTitle,
+        ctaSubtitle: d.ctaSubtitle || DISCORD_DEFAULTS.ctaSubtitle,
+        ctaButtonLabel: d.ctaButtonLabel || DISCORD_DEFAULTS.ctaButtonLabel,
+        inviteUrl: d.inviteUrl || DISCORD_DEFAULTS.inviteUrl,
+        webhookConfigured: d.webhookConfigured ?? DISCORD_DEFAULTS.webhookConfigured,
+        noticeTemplate: d.noticeTemplate || DISCORD_DEFAULTS.noticeTemplate,
     };
 };
