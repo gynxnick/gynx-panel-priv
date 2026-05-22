@@ -9,6 +9,7 @@ import { Server as ServerData } from '@/api/server/getServer';
 import { httpErrorToHuman } from '@/api/http';
 import LogoMark from '@/components/gynx/LogoMark';
 import AlertBar from '@/components/gynx/AlertBar';
+import ImpersonationBanner from './ImpersonationBanner';
 import AlertBell from '@/components/gynx/AlertBell';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import GynxServerStyles from './styles';
@@ -591,6 +592,7 @@ export const ServerShell = ({ children }: Props) => {
                     <div className={'layer'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                         <Topbar serverName={name} currentId={serverId} />
                         <AlertBar />
+                        <ImpersonationBanner />
                         <ServerHeader
                             name={name}
                             statusLabel={statusLabel}

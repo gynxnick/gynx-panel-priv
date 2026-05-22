@@ -32,7 +32,10 @@
                     <a href="{{ route('admin.servers.view.delete', $server->id) }}">Delete</a>
                 </li>
                 <li class="tab-success">
-                    <a href="/server/{{ $server->uuidShort }}" target="_blank"><i class="fa fa-external-link"></i></a>
+                    <a href="/server/{{ $server->uuidShort }}" target="_blank"
+                       title="Open the client-side server view in a new tab. An impersonation banner will display while you're there.">
+                        <i class="fa fa-external-link"></i> View as user
+                    </a>
                 </li>
             </ul>
         </div>

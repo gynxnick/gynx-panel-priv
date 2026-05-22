@@ -11,6 +11,16 @@ export interface Allocation {
     isDefault: boolean;
 }
 
+/**
+ * Admin "view as user" context. Populated by the backend (in ServerController::index)
+ * only when the caller is a root admin viewing a server they don't own and aren't a
+ * subuser of. The frontend uses this to render the ImpersonationBanner.
+ */
+export interface ImpersonationContext {
+    ownerUsername: string;
+    ownerEmail: string;
+}
+
 export interface Server {
     id: string;
     internalId: number | string;
@@ -54,6 +64,9 @@ export interface Server {
     isTransferring: boolean;
     variables: ServerEggVariable[];
     allocations: Allocation[];
+    /** Present only when the current viewer is a root admin viewing a
+     *  server they don't own. Drives ImpersonationBanner. */
+    impersonation?: ImpersonationContext;
 }
 
 export const rawDataToServerObject = ({ attributes: data }: FractalResponseData): Server => ({
@@ -91,13 +104,21 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
 export default (uuid: string): Promise<[Server, string[]]> => {
     return new Promise((resolve, reject) => {
         http.get(`/api/client/servers/${uuid}`)
-            .then(({ data }) =>
+            .then(({ data }) => {
+                const server = rawDataToServerObject(data);
+                // eslint-disable-next-line camelcase
+                if (data.meta?.is_impersonating_owner) {
+                    server.impersonation = {
+                        ownerUsername: String(data.meta.owner_username ?? ''),
+                        ownerEmail: String(data.meta.owner_email ?? ''),
+                    };
+                }
                 resolve([
-                    rawDataToServerObject(data),
+                    server,
                     // eslint-disable-next-line camelcase
                     data.meta?.is_server_owner ? ['*'] : data.meta?.user_permissions || [],
-                ])
-            )
+                ]);
+            })
             .catch(reject);
     });
 };
