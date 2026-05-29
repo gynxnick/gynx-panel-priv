@@ -1242,6 +1242,10 @@ const css = `
 .gynx-server-priv .partner-foot { padding: 8px 12px 12px; }
 .gynx-server-priv .partner-install { width: 100%; justify-content: center; }
 
+/* Mobile-only "close details" handle on the detail bottom-sheet. Hidden
+   on desktop where the detail pane is a permanent right rail. */
+.gynx-server-priv .detail-close-mobile { display: none; }
+
 .gynx-server-priv .install-side {
   display: flex; flex-direction: column;
   gap: 10px;
@@ -1673,9 +1677,87 @@ const css = `
   }
   .gynx-server-priv .install-layout {
     grid-template-columns: 1fr !important;
+    gap: 12px;
   }
-  .gynx-server-priv .install-side { display: none; }
+
+  /* Sticky search bar so it stays reachable while scrolling a long
+     result list one-handed. */
+  .gynx-server-priv .search-lg {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--void, #0B0B0F);
+    padding: 8px 0;
+  }
+  .gynx-server-priv .search-lg input { font-size: 16px; } /* 16px = no iOS zoom-on-focus */
+
+  /* Source selector: instead of hiding it, collapse the sidebar into a
+     horizontal, touch-scrollable chip row pinned under the search. The
+     label + helper copy are desktop-only. */
+  .gynx-server-priv .install-side {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+  .gynx-server-priv .install-side .install-side-note { display: none; } /* desktop helper note */
+  .gynx-server-priv .side-section { flex-direction: row; gap: 8px; }
+  .gynx-server-priv .side-label { display: none; }
+  .gynx-server-priv .side-item {
+    flex: 0 0 auto;
+    padding: 10px 14px;          /* bigger tap target */
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    scroll-snap-align: start;
+  }
+  .gynx-server-priv .side-item.active {
+    box-shadow: inset 0 0 0 1px rgba(124,58,237,0.5);
+  }
+
+  /* Item cards: roomier padding for touch. */
+  .gynx-server-priv .item-card { padding: 16px; }
+
+  /* Detail pane → bottom sheet. Hidden until a card is tapped
+     (mobile-open), then slides up over the list. Scrollable, capped at
+     85vh, with a flush full-width install button at the bottom. */
   .gynx-server-priv .detail-panel { display: none; }
+  .gynx-server-priv .detail-panel.mobile-open {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 60;
+    max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+    border: 1px solid var(--edge, rgba(255,255,255,0.08));
+    border-bottom: none;
+    box-shadow: 0 -20px 60px -20px rgba(0,0,0,0.8);
+    background: var(--surface, #14141C);
+    animation: gynxSheetUp 0.22s ease;
+  }
+  @keyframes gynxSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .gynx-server-priv .detail-close-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-bottom: 1px solid var(--edge, rgba(255,255,255,0.07));
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Partner strip: single-column cards, tighter outer padding. */
+  .gynx-server-priv .partner-grid { grid-template-columns: 1fr; }
+  .gynx-server-priv .partner-strip { padding: 12px 12px 14px; }
 
   /* Crash-log row: stack the action buttons under the file name so
    * View / Copy / Download don't shrink to icon-only. */

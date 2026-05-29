@@ -162,6 +162,9 @@ export const InstallerPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedIdx, setSelectedIdx] = useState(0);
+    // On phones the detail pane is a bottom sheet opened by tapping a card
+    // (the desktop 3-pane has no room). Desktop ignores this flag.
+    const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
     const [installing, setInstalling] = useState<string | null>(null);
     const [installError, setInstallError] = useState<string | null>(null);
     const [justInstalledIds, setJustInstalledIds] = useState<Set<string>>(new Set());
@@ -435,6 +438,7 @@ export const InstallerPage = () => {
                     </div>
                     {visibleSources.length > 0 && (
                         <div
+                            className={'install-side-note'}
                             style={{
                                 marginTop: 8, padding: '8px 10px',
                                 fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.5,
@@ -492,7 +496,10 @@ export const InstallerPage = () => {
                                 <div
                                     key={`${it.source}-${it.external_id}`}
                                     className={`item-card ${i === selectedIdx ? 'selected' : ''}`}
-                                    onClick={() => setSelectedIdx(i)}
+                                    onClick={() => {
+                                        setSelectedIdx(i);
+                                        setMobileDetailOpen(true);
+                                    }}
                                 >
                                     <div className={'item-head'}>
                                         <div
@@ -551,7 +558,16 @@ export const InstallerPage = () => {
                     )}
                 </div>
 
-                <div className={'detail-panel'}>
+                <div className={`detail-panel ${mobileDetailOpen ? 'mobile-open' : ''}`}>
+                    <button
+                        type={'button'}
+                        className={'detail-close-mobile'}
+                        onClick={() => setMobileDetailOpen(false)}
+                        aria-label={'Close details'}
+                    >
+                        <Icon name={'chevron-down'} size={16} />
+                        Close
+                    </button>
                     {!sel ? (
                         <div
                             style={{
