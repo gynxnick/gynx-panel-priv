@@ -58,15 +58,24 @@ export const ImpersonationBanner = () => {
                     {' · actions are logged against your account'}
                 </div>
             </div>
-            <a
-                href={adminUrl}
-                className={'btn btn-sm'}
-                style={{ flexShrink: 0 }}
-                title={'Return to the admin server detail page'}
-            >
-                <Icon name={'chevron-right'} size={11} style={{ transform: 'rotate(180deg)' }} />
-                Back to admin
-            </a>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <a
+                    href={'/'}
+                    className={'btn btn-sm'}
+                    title={'Return to your own servers'}
+                >
+                    <Icon name={'chevron-right'} size={11} style={{ transform: 'rotate(180deg)' }} />
+                    My servers
+                </a>
+                <a
+                    href={adminUrl}
+                    className={'btn btn-sm'}
+                    title={'Return to the admin server detail page'}
+                >
+                    <Icon name={'shield'} size={11} />
+                    Back to admin
+                </a>
+            </div>
         </div>
     );
 };

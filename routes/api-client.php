@@ -19,6 +19,12 @@ use Pterodactyl\Http\Middleware\Api\Client\Server\AuthenticateServerAccess;
 Route::get('/', [Client\ClientController::class, 'index'])->name('api:client.index');
 Route::get('/permissions', [Client\ClientController::class, 'permissions']);
 
+// Admin "view as user" switcher — root-admin gated inside the controller.
+Route::prefix('/admin')->group(function () {
+    Route::get('/users', [Client\AdminAccessController::class, 'users'])->name('api:client.admin.users');
+    Route::get('/users/{user}/servers', [Client\AdminAccessController::class, 'servers'])->name('api:client.admin.user-servers');
+});
+
 Route::prefix('/alerts')->group(function () {
     Route::get('/active', [Client\AlertsController::class, 'active']);
     Route::post('/{alert}/dismiss', [Client\AlertsController::class, 'dismiss']);

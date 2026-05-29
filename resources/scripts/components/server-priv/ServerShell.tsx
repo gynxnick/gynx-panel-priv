@@ -10,6 +10,7 @@ import { httpErrorToHuman } from '@/api/http';
 import LogoMark from '@/components/gynx/LogoMark';
 import AlertBar from '@/components/gynx/AlertBar';
 import ImpersonationBanner from './ImpersonationBanner';
+import AdminViewAsSwitcher from '@/components/AdminViewAsSwitcher';
 import AlertBell from '@/components/gynx/AlertBell';
 import { useAlertPolling } from '@/components/gynx/useAlertPolling';
 import GynxServerStyles from './styles';
@@ -274,6 +275,7 @@ const Topbar = ({ serverName, currentId }: { serverName: string; currentId: stri
         const e = s.user.data?.email ?? '';
         return e ? e[0].toUpperCase() : '?';
     });
+    const rootAdmin = useStoreState((s: ApplicationStore) => s.user.data?.rootAdmin ?? false);
     const history = useHistory();
 
     // Picker open state lives here so both the pill (inside ServerPicker)
@@ -322,6 +324,7 @@ const Topbar = ({ serverName, currentId }: { serverName: string; currentId: stri
                 <span>Switch server, find files…</span>
                 <span className={'kbd'}>⌘K</span>
             </div>
+            {rootAdmin && <AdminViewAsSwitcher />}
             <AlertBell />
             <button
                 type={'button'}
