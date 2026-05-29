@@ -24,8 +24,10 @@ import {
     searchModpacks,
     listInstalledModpacks,
     installModpack,
+    listPartnerModpacks,
     InstalledModpack,
     ModpackSearchHit,
+    PartnerModpack,
 } from '@/api/server/modpacks';
 import { httpErrorToHuman } from '@/api/http';
 import Spinner from '@/components/elements/Spinner';
@@ -164,7 +166,43 @@ export const InstallerPage = () => {
     const [installError, setInstallError] = useState<string | null>(null);
     const [justInstalledIds, setJustInstalledIds] = useState<Set<string>>(new Set());
 
+    // Admin-curated featured modpacks — fetched once, shown atop the
+    // Modpacks tab. Install reuses the standard modpack pipeline.
+    const [partnerPacks, setPartnerPacks] = useState<PartnerModpack[]>([]);
+    const [partnerInstalling, setPartnerInstalling] = useState<number | null>(null);
+    const [partnerInstalledIds, setPartnerInstalledIds] = useState<Set<number>>(new Set());
+    const [partnerError, setPartnerError] = useState<string | null>(null);
+
     const api = APIS[tab];
+
+    useEffect(() => {
+        let alive = true;
+        listPartnerModpacks(uuid)
+            .then((packs) => alive && setPartnerPacks(packs))
+            .catch(() => alive && setPartnerPacks([]));
+        return () => {
+            alive = false;
+        };
+    }, [uuid]);
+
+    const handlePartnerInstall = async (pack: PartnerModpack) => {
+        if (partnerInstalling !== null) return;
+        setPartnerInstalling(pack.id);
+        setPartnerError(null);
+        try {
+            await installModpack(uuid, {
+                source: pack.source,
+                external_id: pack.externalId,
+                version_id: pack.versionId ?? undefined,
+                game_version: pack.gameVersion ?? undefined,
+            });
+            setPartnerInstalledIds((prev) => new Set(prev).add(pack.id));
+        } catch (e) {
+            setPartnerError(httpErrorToHuman(e as Error));
+        } finally {
+            setPartnerInstalling(null);
+        }
+    };
 
     // Fetch the source list whenever the tab changes; pick the first
     // available source as the active one.
@@ -285,6 +323,75 @@ export const InstallerPage = () => {
                     )}
                 </div>
             </div>
+
+            {tab === 'modpacks' && partnerPacks.length > 0 && (
+                <div className={'partner-strip'}>
+                    <div className={'partner-head'}>
+                        <Icon name={'sparkles'} size={14} color={'var(--purple)'} />
+                        <span className={'partner-title'}>Partner Modpacks</span>
+                        <span className={'partner-sub'}>Curated packs — one-click install</span>
+                    </div>
+                    {partnerError && (
+                        <div className={'notice warn'} style={{ marginBottom: 10 }}>
+                            <Icon name={'zap'} size={14} />
+                            {partnerError}
+                        </div>
+                    )}
+                    <div className={'partner-grid'}>
+                        {partnerPacks.map((p) => {
+                            const installed = partnerInstalledIds.has(p.id);
+                            const busy = partnerInstalling === p.id;
+                            const accent = p.accent || '#7C3AED';
+                            return (
+                                <div
+                                    key={p.id}
+                                    className={'partner-card'}
+                                    style={{ ['--pc-accent' as any]: accent }}
+                                >
+                                    <div
+                                        className={'partner-banner'}
+                                        style={
+                                            p.bannerUrl
+                                                ? { backgroundImage: `url(${p.bannerUrl})` }
+                                                : { background: `linear-gradient(135deg, ${accent}, #22d3ee)` }
+                                        }
+                                    >
+                                        {p.featured && <span className={'partner-badge'}>Featured</span>}
+                                        <span className={'partner-source'} title={SOURCE_LABEL[p.source]}>
+                                            {SOURCE_LABEL[p.source] ?? p.source}
+                                        </span>
+                                    </div>
+                                    <div className={'partner-body'}>
+                                        <div className={'partner-name'}>{p.title}</div>
+                                        {p.summary && <div className={'partner-desc'}>{p.summary}</div>}
+                                    </div>
+                                    <div className={'partner-foot'}>
+                                        <button
+                                            className={'btn btn-primary partner-install'}
+                                            onClick={() => handlePartnerInstall(p)}
+                                            disabled={busy || installed}
+                                        >
+                                            {busy ? (
+                                                <>
+                                                    <Icon name={'restart'} size={12} className={'spin'} /> Installing…
+                                                </>
+                                            ) : installed ? (
+                                                <>
+                                                    <Icon name={'check'} size={12} /> Installed
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Icon name={'download'} size={12} /> Install
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             <div className={'install-layout'}>
                 <div className={'install-side'}>

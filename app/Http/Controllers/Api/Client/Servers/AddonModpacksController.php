@@ -7,6 +7,7 @@ use Illuminate\Http\Response;
 use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\AddonModpack;
 use Pterodactyl\Models\Permission;
+use Pterodactyl\Models\PartnerModpack;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Addons\AddonSource;
 use Pterodactyl\Services\Addons\AddonSourceRegistry;
@@ -42,6 +43,51 @@ class AddonModpacksController extends ClientApiController
             } catch (\Throwable $e) {
                 report($e);
             }
+        }
+
+        return new JsonResponse(['data' => $data]);
+    }
+
+    /**
+     * Admin-curated featured "partner" modpacks shown at the top of the
+     * installer. Only visible packs whose provider both hosts modpacks
+     * and is available for this server's game are returned, so a pack
+     * can never appear on a server it can't install on.
+     */
+    public function partner(ClientApiRequest $request, Server $server): JsonResponse
+    {
+        $this->ensurePermission($request, $server, Permission::ACTION_ADDON_MODPACK_READ);
+
+        $packs = PartnerModpack::query()
+            ->where('is_visible', true)
+            ->orderByDesc('is_featured')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $data = [];
+        foreach ($packs as $pack) {
+            try {
+                $src = $this->sources->get($pack->source);
+                if ($src === null || !$src->supports(AddonSource::TYPE_MODPACK) || !$src->availableFor($server)) {
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            $data[] = [
+                'id' => $pack->id,
+                'title' => $pack->title,
+                'summary' => $pack->summary,
+                'banner_url' => $pack->banner_url,
+                'source' => $pack->source,
+                'external_id' => $pack->external_id,
+                'version_id' => $pack->version_id,
+                'game_version' => $pack->game_version,
+                'accent' => $pack->accent,
+                'featured' => (bool) $pack->is_featured,
+            ];
         }
 
         return new JsonResponse(['data' => $data]);

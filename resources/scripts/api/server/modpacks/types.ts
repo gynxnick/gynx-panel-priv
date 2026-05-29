@@ -24,3 +24,16 @@ export interface InstalledModpack {
     status: 'downloaded' | 'extracted' | 'failed';
     installedAt: string;
 }
+
+export interface PartnerModpack {
+    id: number;
+    title: string;
+    summary: string | null;
+    bannerUrl: string | null;
+    source: PluginSourceSlug;
+    externalId: string;
+    versionId: string | null;
+    gameVersion: string | null;
+    accent: string | null;
+    featured: boolean;
+}

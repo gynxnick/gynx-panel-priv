@@ -1165,6 +1165,83 @@ const css = `
   min-height: 0;
 }
 .gynx-server-priv .install-layout.no-detail { grid-template-columns: 220px 1fr; }
+
+/* ---- Partner Modpacks (featured strip atop the modpacks tab) ---- */
+.gynx-server-priv .partner-strip {
+  margin: 4px 0 14px;
+  padding: 14px 16px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(124,58,237,0.18);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(124,58,237,0.10), transparent 60%),
+    rgba(255,255,255,0.015);
+}
+.gynx-server-priv .partner-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.gynx-server-priv .partner-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600; font-size: 14px; color: var(--text);
+  letter-spacing: 0.01em;
+}
+.gynx-server-priv .partner-sub {
+  font-size: 11.5px; color: var(--text-faint); margin-left: 4px;
+}
+.gynx-server-priv .partner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+.gynx-server-priv .partner-card {
+  --pc-accent: #7C3AED;
+  display: flex; flex-direction: column;
+  border-radius: 12px; overflow: hidden;
+  background: var(--surface-2, #111827);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.gynx-server-priv .partner-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--pc-accent) 50%, transparent);
+  box-shadow: 0 12px 30px -14px var(--pc-accent);
+}
+.gynx-server-priv .partner-banner {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background-size: cover; background-position: center;
+  background-repeat: no-repeat;
+}
+.gynx-server-priv .partner-badge {
+  position: absolute; top: 8px; left: 8px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #fff;
+  background: rgba(11,11,15,0.55);
+  backdrop-filter: blur(4px);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+}
+.gynx-server-priv .partner-source {
+  position: absolute; bottom: 8px; right: 8px;
+  padding: 2px 7px; border-radius: 6px;
+  font-size: 10px; font-weight: 600; color: #fff;
+  background: rgba(11,11,15,0.5);
+  backdrop-filter: blur(4px);
+}
+.gynx-server-priv .partner-body { padding: 11px 12px 6px; flex: 1; }
+.gynx-server-priv .partner-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600; font-size: 14px; color: var(--text);
+  margin-bottom: 4px;
+}
+.gynx-server-priv .partner-desc {
+  font-size: 12px; line-height: 1.45; color: var(--text-soft);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gynx-server-priv .partner-foot { padding: 8px 12px 12px; }
+.gynx-server-priv .partner-install { width: 100%; justify-content: center; }
+
 .gynx-server-priv .install-side {
   display: flex; flex-direction: column;
   gap: 10px;

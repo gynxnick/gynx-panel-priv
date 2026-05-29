@@ -1,6 +1,24 @@
 import http from '@/api/http';
 import { PluginSourceInfo, PluginSourceSlug } from '@/api/server/plugins';
-import { InstalledModpack, ModpackSearchHit } from './types';
+import { InstalledModpack, ModpackSearchHit, PartnerModpack } from './types';
+
+export const listPartnerModpacks = async (uuid: string): Promise<PartnerModpack[]> => {
+    const { data } = await http.get(`/api/client/servers/${uuid}/addons/modpacks/partner`);
+    return ((data?.data ?? []) as any[]).map(
+        (p): PartnerModpack => ({
+            id: p.id,
+            title: p.title,
+            summary: p.summary ?? null,
+            bannerUrl: p.banner_url ?? null,
+            source: p.source,
+            externalId: p.external_id,
+            versionId: p.version_id ?? null,
+            gameVersion: p.game_version ?? null,
+            accent: p.accent ?? null,
+            featured: Boolean(p.featured),
+        }),
+    );
+};
 
 export const listModpackSources = async (uuid: string): Promise<PluginSourceInfo[]> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/addons/modpacks/sources`);

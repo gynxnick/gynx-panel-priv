@@ -175,6 +175,7 @@ Route::group([
 
     Route::group(['prefix' => '/addons/modpacks'], function () {
         Route::get('/sources', [Client\Servers\AddonModpacksController::class, 'sources']);
+        Route::get('/partner', [Client\Servers\AddonModpacksController::class, 'partner']);
         Route::get('/search', [Client\Servers\AddonModpacksController::class, 'search']);
         Route::get('/', [Client\Servers\AddonModpacksController::class, 'installed']);
         Route::post('/install', [Client\Servers\AddonModpacksController::class, 'install']);

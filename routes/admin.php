@@ -53,6 +53,21 @@ Route::group(['prefix' => 'discord'], function () {
 
 /*
 |--------------------------------------------------------------------------
+| Partner Modpacks — featured packs shown atop the installer
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/partner-modpacks
+|
+*/
+Route::group(['prefix' => 'partner-modpacks'], function () {
+    Route::get('/',                      [Admin\PartnerModpacksController::class, 'index'])->name('admin.partner-modpacks.index');
+    Route::post('/',                     [Admin\PartnerModpacksController::class, 'store'])->name('admin.partner-modpacks.store');
+    Route::post('/{partnerModpack}',     [Admin\PartnerModpacksController::class, 'update'])->name('admin.partner-modpacks.update');
+    Route::delete('/{partnerModpack}',   [Admin\PartnerModpacksController::class, 'destroy'])->name('admin.partner-modpacks.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Integrations / third-party API keys
 |--------------------------------------------------------------------------
 |

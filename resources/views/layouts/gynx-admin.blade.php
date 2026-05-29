@@ -91,6 +91,9 @@
                 <a href="{{ route('admin.addons.plugins') }}" class="sidebar__link {{ starts_with($route, 'admin.addons') ? 'is-active' : '' }}">
                     <i class="fa fa-puzzle-piece"></i><span>Add-ons</span>
                 </a>
+                <a href="{{ route('admin.partner-modpacks.index') }}" class="sidebar__link {{ starts_with($route, 'admin.partner-modpacks') ? 'is-active' : '' }}">
+                    <i class="fa fa-cubes"></i><span>Partner Modpacks</span>
+                </a>
                 <a href="{{ route('admin.alerts.index') }}" class="sidebar__link {{ starts_with($route, 'admin.alerts') ? 'is-active' : '' }}">
                     <i class="fa fa-bullhorn"></i><span>Alerts</span>
                 </a>
