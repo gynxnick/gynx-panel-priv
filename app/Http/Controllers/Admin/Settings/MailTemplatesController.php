@@ -6,7 +6,9 @@ use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\Factory as ViewFactory;
+use Illuminate\Support\Facades\Notification;
 use Pterodactyl\Http\Controllers\Controller;
+use Pterodactyl\Notifications\MailTemplatePreview;
 use Pterodactyl\Services\Mail\MailTemplateService;
 
 /**
@@ -41,6 +43,8 @@ class MailTemplatesController extends Controller
                 'placeholders' => $meta['placeholders'],
                 'defaults' => array_intersect_key($meta, array_flip(MailTemplateService::EDITABLE_PARTS)),
                 'current' => $current,
+                'enabled' => $this->templates->isEnabled($key),
+                'always_on' => in_array($key, MailTemplateService::ALWAYS_ON, true),
             ];
         }
 
@@ -83,6 +87,61 @@ class MailTemplatesController extends Controller
         }
 
         $this->templates->save($key, []);
+
+        return response('', 204);
+    }
+
+    /**
+     * Render the fully-branded HTML of a template (with synthetic sample
+     * tokens) through the live notification view, so the admin can see
+     * the actual email in an iframe. Reflects the currently-saved copy.
+     */
+    public function preview(string $key): Response
+    {
+        if (!in_array($key, MailTemplateService::templateKeys(), true)) {
+            return response('Unknown template key.', 404);
+        }
+
+        $message = $this->templates->build($key, $this->templates->sampleContext($key));
+        $html = $this->view->make('notifications::email', $message->data())->render();
+
+        return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    /**
+     * Send a real test email of this template to the authenticated admin
+     * so they can verify rendering in an actual inbox. Sent immediately
+     * (not queued) and bypasses the disabled-template kill-switch.
+     */
+    public function test(Request $request, string $key): Response
+    {
+        if (!in_array($key, MailTemplateService::templateKeys(), true)) {
+            return response('Unknown template key.', 404);
+        }
+
+        try {
+            Notification::route('mail', $request->user()->email)
+                ->notify(new MailTemplatePreview($key));
+        } catch (\Exception $exception) {
+            return response($exception->getMessage(), 500);
+        }
+
+        return response('', 204);
+    }
+
+    /**
+     * Enable or disable a template. ALWAYS_ON templates (password reset,
+     * account creation, mail test) ignore the request server-side so an
+     * admin can't accidentally strand users.
+     */
+    public function toggle(Request $request, string $key): Response
+    {
+        if (!in_array($key, MailTemplateService::templateKeys(), true)) {
+            return response('Unknown template key.', 404);
+        }
+
+        $data = $request->validate(['enabled' => 'required|boolean']);
+        $this->templates->setEnabled($key, (bool) $data['enabled']);
 
         return response('', 204);
     }

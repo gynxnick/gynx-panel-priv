@@ -101,6 +101,28 @@ class MailTemplateService
     /** The four parts an admin can override per template. */
     public const EDITABLE_PARTS = ['subject', 'greeting', 'lines', 'action_label', 'action_url'];
 
+    /**
+     * Maps the Notification class that produces each template to its key.
+     * Used by the kill-switch listener to cancel a disabled notification
+     * before it hits the mail transport.
+     */
+    public const NOTIFICATION_MAP = [
+        \Pterodactyl\Notifications\AccountCreated::class => 'account_created',
+        \Pterodactyl\Notifications\AddedToServer::class => 'added_to_server',
+        \Pterodactyl\Notifications\RemovedFromServer::class => 'removed_from_server',
+        \Pterodactyl\Notifications\ServerInstalled::class => 'server_installed',
+        \Pterodactyl\Notifications\SendPasswordReset::class => 'password_reset',
+        \Pterodactyl\Notifications\MailTested::class => 'mail_test',
+    ];
+
+    /**
+     * Templates that carry account-access tokens (or are the admin's own
+     * test) and therefore can NEVER be disabled from the UI — disabling
+     * them would lock users out of their accounts. The toggle is forced
+     * on and rendered read-only for these.
+     */
+    public const ALWAYS_ON = ['password_reset', 'account_created', 'mail_test'];
+
     /** In-process cache so the same template isn't deserialized twice in a request. */
     private array $loaded = [];
 
@@ -226,5 +248,65 @@ class MailTemplateService
         return preg_replace_callback('/\{(\w+)\}/', function ($m) use ($context) {
             return array_key_exists($m[1], $context) ? (string) $context[$m[1]] : $m[0];
         }, $template) ?? $template;
+    }
+
+    /**
+     * Whether a template is allowed to send. Defaults to enabled; an
+     * admin can disable non-critical templates. ALWAYS_ON templates can
+     * never be disabled. Fails open (returns true) if the settings table
+     * is unreachable — never silently drop a critical email.
+     */
+    public function isEnabled(string $key): bool
+    {
+        if (in_array($key, self::ALWAYS_ON, true)) {
+            return true;
+        }
+        try {
+            return (string) $this->settings->get('settings::mail_templates_enabled:' . $key, '1') !== '0';
+        } catch (QueryException $e) {
+            return true;
+        }
+    }
+
+    /**
+     * Persist the enabled flag. Enabling forgets the row (default is
+     * enabled) to keep storage clean; disabling stores '0'. No-op for
+     * ALWAYS_ON templates so the UI can't strand users.
+     */
+    public function setEnabled(string $key, bool $enabled): void
+    {
+        if (!isset(self::DEFAULTS[$key]) || in_array($key, self::ALWAYS_ON, true)) {
+            return;
+        }
+        $settingKey = 'settings::mail_templates_enabled:' . $key;
+        if ($enabled) {
+            $this->settings->forget($settingKey);
+        } else {
+            $this->settings->set($settingKey, '0');
+        }
+    }
+
+    /**
+     * Synthetic token values used by the admin Preview + Test-send so
+     * every placeholder resolves to something realistic and the action
+     * button renders even on templates whose button is token-gated.
+     */
+    public function sampleContext(string $key): array
+    {
+        $sample = [
+            'name' => 'Alex Rivera',
+            'username' => 'alexrivera',
+            'email' => 'alex@example.com',
+            'server_name' => 'Survival SMP',
+            'action_url' => rtrim((string) config('app.url', url('/')), '/') . '/auth/login?sample=1',
+        ];
+
+        // password_reset's URL is a reset link; keep the shape realistic.
+        if ($key === 'password_reset') {
+            $sample['action_url'] = rtrim((string) config('app.url', url('/')), '/')
+                . '/auth/password/reset/SAMPLE-TOKEN-0000?email=' . rawurlencode($sample['email']);
+        }
+
+        return $sample;
     }
 }

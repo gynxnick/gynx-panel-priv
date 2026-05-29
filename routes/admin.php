@@ -195,11 +195,13 @@ Route::group(['prefix' => 'settings'], function () {
     Route::get('/gynx-ai', [Admin\Settings\GynxAiController::class, 'index'])->name('admin.settings.gynx-ai');
     Route::get('/gynx', [Admin\Settings\GynxController::class, 'index'])->name('admin.settings.gynx');
     Route::get('/mail-templates', [Admin\Settings\MailTemplatesController::class, 'index'])->name('admin.settings.mail-templates');
+    Route::get('/mail-templates/{key}/preview', [Admin\Settings\MailTemplatesController::class, 'preview'])->name('admin.settings.mail-templates.preview');
     Route::get('/addon-games', [Admin\Settings\AddonGamesController::class, 'index'])->name('admin.settings.addon-games');
 
     Route::post('/mail/test', [Admin\Settings\MailController::class, 'test'])->name('admin.settings.mail.test');
     Route::post('/gynx-ai/test', [Admin\Settings\GynxAiController::class, 'test'])->name('admin.settings.gynx-ai.test');
     Route::post('/mail-templates/{key}/reset', [Admin\Settings\MailTemplatesController::class, 'reset']);
+    Route::post('/mail-templates/{key}/test', [Admin\Settings\MailTemplatesController::class, 'test'])->name('admin.settings.mail-templates.test');
     Route::post('/addon-games/diagnose', [Admin\Settings\AddonGamesController::class, 'diagnose']);
 
     Route::patch('/', [Admin\Settings\IndexController::class, 'update']);
@@ -208,6 +210,7 @@ Route::group(['prefix' => 'settings'], function () {
     Route::patch('/gynx-ai', [Admin\Settings\GynxAiController::class, 'update']);
     Route::patch('/gynx', [Admin\Settings\GynxController::class, 'update']);
     Route::patch('/mail-templates/{key}', [Admin\Settings\MailTemplatesController::class, 'update']);
+    Route::patch('/mail-templates/{key}/toggle', [Admin\Settings\MailTemplatesController::class, 'toggle'])->name('admin.settings.mail-templates.toggle');
     Route::patch('/addon-games', [Admin\Settings\AddonGamesController::class, 'update']);
     Route::patch('/addon-games/installable-eggs', [Admin\Settings\AddonGamesController::class, 'updateInstallableEggs']);
     Route::patch('/addon-games/hidden-tabs', [Admin\Settings\AddonGamesController::class, 'updateHiddenTabs']);

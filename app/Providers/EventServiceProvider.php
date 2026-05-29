@@ -11,8 +11,10 @@ use Pterodactyl\Observers\ServerObserver;
 use Pterodactyl\Observers\SubuserObserver;
 use Pterodactyl\Observers\EggVariableObserver;
 use Pterodactyl\Listeners\Auth\AuthenticationListener;
+use Illuminate\Notifications\Events\NotificationSending;
 use Pterodactyl\Events\Server\Installed as ServerInstalledEvent;
 use Pterodactyl\Notifications\ServerInstalled as ServerInstalledNotification;
+use Pterodactyl\Listeners\Notification\CancelDisabledMailTemplate;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 class EventServiceProvider extends ServiceProvider
@@ -22,6 +24,7 @@ class EventServiceProvider extends ServiceProvider
      */
     protected $listen = [
         ServerInstalledEvent::class => [ServerInstalledNotification::class],
+        NotificationSending::class => [CancelDisabledMailTemplate::class],
     ];
 
     protected $subscribe = [
