@@ -13,6 +13,8 @@ export const validate = (content: string, format: ConfigFormat): ValidationError
         case 'properties': return validateProperties(content);
         case 'yaml': return validateYamlLite(content);
         case 'toml': return validateTomlLite(content);
+        case 'ini': return validateIni(content);
+        case 'xml': return validateXmlLite(content);
         default: return [];
     }
 };
@@ -111,6 +113,70 @@ const validateTomlLite = (content: string): ValidationError[] => {
         }
     });
     return errors;
+};
+
+// ---- INI / CFG (ARK, Palworld, Unreal-style) ------------------------------
+// Lenient: INI files in the wild carry exotic value syntax (ARK's
+// OverrideNamedEngramEntries=(...), arrays, quoted blobs). We only flag the
+// genuinely-broken shape — a non-comment, non-section line with no '=' — and
+// only as a warning so a valid-but-unusual file never reads as "invalid".
+
+const validateIni = (content: string): ValidationError[] => {
+    const errors: ValidationError[] = [];
+    content.split(/\r?\n/).forEach((raw, i) => {
+        const line = raw.trim();
+        if (line === '' || line.startsWith(';') || line.startsWith('#')) return;
+        if (line.startsWith('[') && line.endsWith(']')) return; // [section]
+        if (!line.includes('=')) {
+            errors.push({
+                line: i + 1,
+                message: 'Expected a [section], key=value, or ; comment',
+                severity: 'warn',
+            });
+        }
+    });
+    return errors;
+};
+
+// ---- XML (7 Days to Die serverconfig.xml, etc.) ---------------------------
+// Lightweight well-formedness: strip comments/declarations/CDATA, then walk
+// the remaining tags keeping an open-tag stack. Reports unclosed or
+// mismatched tags. Not a full parser — enough to catch the typos that stop a
+// server booting without false-flagging valid markup.
+
+const validateXmlLite = (content: string): ValidationError[] => {
+    const errors: ValidationError[] = [];
+
+    // Blank out the bits that legitimately contain angle-brackets so they
+    // don't confuse the tag walk (keep length/newlines for line numbers).
+    const blank = (s: string) => s.replace(/[^\n]/g, ' ');
+    const cleaned = content
+        .replace(/<!--[\s\S]*?-->/g, blank)
+        .replace(/<!\[CDATA\[[\s\S]*?]]>/g, blank)
+        .replace(/<\?[\s\S]*?\?>/g, blank)
+        .replace(/<![^>]*>/g, blank);
+
+    const stack: { name: string; offset: number }[] = [];
+    const tagRe = /<(\/?)([a-zA-Z_][\w:.-]*)([^>]*?)(\/?)>/g;
+    let m: RegExpExecArray | null;
+    while ((m = tagRe.exec(cleaned)) !== null) {
+        const [, closing, name, , selfClose] = m;
+        if (closing) {
+            const top = stack.pop();
+            if (!top) {
+                errors.push({ line: offsetToLine(content, m.index), message: `Unexpected closing </${name}>`, severity: 'error' });
+            } else if (top.name !== name) {
+                errors.push({ line: offsetToLine(content, m.index), message: `Mismatched tag: expected </${top.name}>, found </${name}>`, severity: 'error' });
+            }
+        } else if (!selfClose) {
+            stack.push({ name, offset: m.index });
+        }
+    }
+    for (const open of stack) {
+        errors.push({ line: offsetToLine(content, open.offset), message: `Unclosed <${open.name}> tag`, severity: 'error' });
+    }
+
+    return errors.slice(0, 20);
 };
 
 // ---- helpers --------------------------------------------------------------

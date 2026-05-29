@@ -26,6 +26,7 @@ import {
     GROUP_LABELS,
     GROUP_ORDER,
     KNOWN_CONFIGS,
+    adHocEntry,
 } from './known-configs';
 import { validate, ValidationError } from './validators';
 
@@ -212,6 +213,27 @@ const ErrorRow = styled.div<{ $severity: 'error' | 'warn' }>`
     color: ${({ $severity }) => ($severity === 'error' ? '#F87171' : '#FCD34D')};
 `;
 
+const OpenForm = styled.form`
+    ${tw`flex items-center gap-2 px-3 py-3`};
+    border-top: 1px solid var(--gynx-edge);
+`;
+
+const PathInput = styled.input`
+    ${tw`flex-1 min-w-0 rounded-md px-2.5 py-2 text-xs`};
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--gynx-edge-2);
+    color: var(--gynx-text);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+
+    &::placeholder {
+        color: var(--gynx-text-mute);
+    }
+    &:focus {
+        outline: none;
+        border-color: rgba(124, 58, 237, 0.5);
+    }
+`;
+
 // ---- component ------------------------------------------------------------
 
 export default () => {
@@ -280,8 +302,9 @@ export default () => {
 
     // ---- load a file into the editor ----------------------------------------
 
-    const open = useCallback(async (entry: ConfigEntry) => {
-        if (!existing.has(entry.path)) return;
+    // Core loader — fetches a file into the editor regardless of whether it
+    // was a catalog entry or an arbitrary path the user typed.
+    const openEntry = useCallback(async (entry: ConfigEntry) => {
         clearFlashes('configs');
         setActive(entry);
         setEditing(true);
@@ -298,7 +321,24 @@ export default () => {
         } finally {
             setEditing(false);
         }
-    }, [uuid, existing]);
+    }, [uuid]);
+
+    // Catalog click — only opens files we've confirmed exist on disk.
+    const open = useCallback((entry: ConfigEntry) => {
+        if (!existing.has(entry.path)) return;
+        void openEntry(entry);
+    }, [existing, openEntry]);
+
+    // Escape hatch — open ANY file by path so the editor works on every
+    // server, including games whose configs live at per-server paths the
+    // catalog can't guess (Rust identity dirs, Project Zomboid, plugin
+    // configs, …). Format/highlighting is inferred from the extension.
+    const [pathInput, setPathInput] = useState('');
+    const openByPath = useCallback((raw: string) => {
+        const p = raw.trim();
+        if (!p) return;
+        void openEntry(adHocEntry(p));
+    }, [openEntry]);
 
     const onSave = useCallback(async () => {
         if (!active) return;
@@ -334,6 +374,25 @@ export default () => {
     );
     const isDirty = content !== initialContent;
 
+    const openByPathForm = (
+        <OpenForm
+            onSubmit={(e) => {
+                e.preventDefault();
+                openByPath(pathInput);
+            }}
+        >
+            <PathInput
+                value={pathInput}
+                onChange={(e) => setPathInput(e.currentTarget.value)}
+                placeholder={'open any file by path… e.g. /server.cfg'}
+                spellCheck={false}
+            />
+            <ActionButton type={'submit'} $primary $disabled={!pathInput.trim()}>
+                <FontAwesomeIcon icon={faFileAlt} /> open
+            </ActionButton>
+        </OpenForm>
+    );
+
     // ---- render --------------------------------------------------------------
 
     if (loading) {
@@ -351,15 +410,23 @@ export default () => {
             <FlashMessageRender byKey={'configs'} css={tw`mb-4`} />
 
             {!anyFound ? (
-                <EmptyState
-                    size={'page'}
-                    icon={<FontAwesomeIcon icon={faCog} />}
-                    title={'No known config files found'}
-                    body={
-                        'None of the well-known Minecraft config files were detected in / or /config. ' +
-                        'Use the File Manager to edit custom configs.'
-                    }
-                />
+                <div css={tw`max-w-xl mx-auto`}>
+                    <EmptyState
+                        size={'page'}
+                        icon={<FontAwesomeIcon icon={faCog} />}
+                        title={'No catalogued config files detected'}
+                        body={
+                            'We probed the common locations for this server type and found none of the ' +
+                            'catalogued configs. Open any file by its path below — or use the File Manager.'
+                        }
+                    />
+                    <div
+                        css={tw`mt-4 rounded-xl overflow-hidden`}
+                        style={{ background: 'var(--gynx-surface)', border: '1px solid var(--gynx-edge)' }}
+                    >
+                        {openByPathForm}
+                    </div>
+                </div>
             ) : (
                 <Layout>
                     <Rail>
@@ -393,6 +460,7 @@ export default () => {
                                 </div>
                             );
                         })}
+                        {openByPathForm}
                     </Rail>
 
                     <Panel>
