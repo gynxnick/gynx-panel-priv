@@ -15,6 +15,7 @@ import modes from '@/modes';
 import { KNOWN_CONFIGS, adHocEntry } from '@/components/server/configs/known-configs';
 import { validate, ValidationError } from '@/components/server/configs/validators';
 import SnapshotMenu from './files/SnapshotMenu';
+import TemplatePicker from './files/TemplatePicker';
 
 // Priv-styled file editor — replaces the legacy FileEditContainer that
 // rendered inside PageContentBlock. The legacy chrome collapsed inside
@@ -51,9 +52,10 @@ const FileEditPage = () => {
     const [newName, setNewName] = useState('');
     // Snapshots popover + remount key so Restore forces CodeMirror to re-read
     // initialContent (the editor only reads it at mount, so a key bump is the
-    // simplest way to swap the buffer).
+    // simplest way to swap the buffer). Templates popover shares the same key.
     const [snapshotsOpen, setSnapshotsOpen] = useState(false);
     const [snapshotRefresh, setSnapshotRefresh] = useState(0);
+    const [templatesOpen, setTemplatesOpen] = useState(false);
     const [editorKey, setEditorKey] = useState(0);
 
     let fetchEditorContent: null | (() => Promise<string>) = null;
@@ -250,26 +252,49 @@ const FileEditPage = () => {
                 </div>
                 <div style={{ flex: 1 }} />
                 {isEdit && (
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            type={'button'}
-                            className={'btn btn-sm'}
-                            onClick={() => setSnapshotsOpen((v) => !v)}
-                            title={'Browse and restore past versions of this file'}
-                        >
-                            <Icon name={'clock'} size={11} />
-                            Snapshots
-                        </button>
-                        {snapshotsOpen && (
-                            <SnapshotMenu
-                                uuid={uuid}
-                                path={path}
-                                refreshKey={snapshotRefresh}
-                                onRestore={onRestore}
-                                onClose={() => setSnapshotsOpen(false)}
-                            />
-                        )}
-                    </div>
+                    <>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                type={'button'}
+                                className={'btn btn-sm'}
+                                onClick={() => { setTemplatesOpen((v) => !v); setSnapshotsOpen(false); }}
+                                title={'Save or apply a per-server template for this file'}
+                            >
+                                <Icon name={'archive'} size={11} />
+                                Templates
+                            </button>
+                            {templatesOpen && (
+                                <TemplatePicker
+                                    uuid={uuid}
+                                    path={path}
+                                    format={entry.format}
+                                    currentContent={content}
+                                    onApply={onRestore}
+                                    onClose={() => setTemplatesOpen(false)}
+                                />
+                            )}
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                type={'button'}
+                                className={'btn btn-sm'}
+                                onClick={() => { setSnapshotsOpen((v) => !v); setTemplatesOpen(false); }}
+                                title={'Browse and restore past versions of this file'}
+                            >
+                                <Icon name={'clock'} size={11} />
+                                Snapshots
+                            </button>
+                            {snapshotsOpen && (
+                                <SnapshotMenu
+                                    uuid={uuid}
+                                    path={path}
+                                    refreshKey={snapshotRefresh}
+                                    onRestore={onRestore}
+                                    onClose={() => setSnapshotsOpen(false)}
+                                />
+                            )}
+                        </div>
+                    </>
                 )}
                 <button
                     className={'btn btn-primary'}

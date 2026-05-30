@@ -112,6 +112,15 @@ Route::group([
         Route::get('/upload', Client\Servers\FileUploadController::class);
     });
 
+    // Per-server "template" snippets — backs the editor's Save-as-template
+    // button + Templates picker.
+    Route::group(['prefix' => '/snippets'], function () {
+        Route::get('/', [Client\Servers\ServerSnippetsController::class, 'index']);
+        Route::post('/', [Client\Servers\ServerSnippetsController::class, 'store']);
+        Route::patch('/{snippet}', [Client\Servers\ServerSnippetsController::class, 'update']);
+        Route::delete('/{snippet}', [Client\Servers\ServerSnippetsController::class, 'destroy']);
+    });
+
     Route::group(['prefix' => '/schedules'], function () {
         Route::get('/', [Client\Servers\ScheduleController::class, 'index']);
         Route::post('/', [Client\Servers\ScheduleController::class, 'store']);
