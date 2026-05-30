@@ -96,7 +96,7 @@ const GYNX_THEME = 'gynx-dark';
 
 // Gynx-themed Monaco palette. Defines once; defineTheme is idempotent so
 // reload during dev hot-reload is fine.
-const defineGynxTheme = (monaco: typeof import('monaco-editor')) => {
+const defineGynxTheme = (monaco: any) => {
     monaco.editor.defineTheme(GYNX_THEME, {
         base: 'vs-dark',
         inherit: true,
@@ -149,7 +149,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Register the gynx theme + apply it whenever Monaco becomes available.
     useEffect(() => {
         if (!monacoApi) return;
-        defineGynxTheme(monacoApi as typeof import('monaco-editor'));
+        defineGynxTheme(monacoApi);
         monacoApi.editor.setTheme(GYNX_THEME);
     }, [monacoApi]);
 
@@ -166,7 +166,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         editorRef.current = editor;
 
         // Re-apply theme (covers the case where useMonaco hadn't fired yet).
-        defineGynxTheme(monaco as typeof import('monaco-editor'));
+        defineGynxTheme(monaco);
         monaco.editor.setTheme(GYNX_THEME);
 
         // Save shortcut — registers as an editor action so it shows up in
