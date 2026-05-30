@@ -8,12 +8,13 @@ import { ServerContext } from '@/state/server';
 import { httpErrorToHuman } from '@/api/http';
 import { encodePathSegments, hashToPath } from '@/helpers';
 import getFileContents from '@/api/server/files/getFileContents';
-import saveFileContents from '@/api/server/files/saveFileContents';
+import saveFileContentsVersioned from '@/api/server/files/saveFileContentsVersioned';
 import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
 import Spinner from '@/components/elements/Spinner';
 import modes from '@/modes';
 import { KNOWN_CONFIGS, adHocEntry } from '@/components/server/configs/known-configs';
 import { validate, ValidationError } from '@/components/server/configs/validators';
+import SnapshotMenu from './files/SnapshotMenu';
 
 // Priv-styled file editor — replaces the legacy FileEditContainer that
 // rendered inside PageContentBlock. The legacy chrome collapsed inside
@@ -48,6 +49,12 @@ const FileEditPage = () => {
     const [savedAt, setSavedAt] = useState<number | null>(null);
     const [mode, setMode] = useState('text/plain');
     const [newName, setNewName] = useState('');
+    // Snapshots popover + remount key so Restore forces CodeMirror to re-read
+    // initialContent (the editor only reads it at mount, so a key bump is the
+    // simplest way to swap the buffer).
+    const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+    const [snapshotRefresh, setSnapshotRefresh] = useState(0);
+    const [editorKey, setEditorKey] = useState(0);
 
     let fetchEditorContent: null | (() => Promise<string>) = null;
 
@@ -87,18 +94,30 @@ const FileEditPage = () => {
         setError(null);
         let savedContent = '';
         fetchEditorContent()
-            .then((c) => { savedContent = c; return saveFileContents(uuid, filename || path, c); })
+            .then((c) => { savedContent = c; return saveFileContentsVersioned(uuid, filename || path, c); })
             .then(() => {
                 setInitialContent(savedContent);
                 setContent(savedContent);
                 setSavedAt(Date.now());
                 window.setTimeout(() => setSavedAt((t) => (t && Date.now() - t > 2400 ? null : t)), 2600);
+                // Bump so an open Snapshots popover picks up the new version.
+                setSnapshotRefresh((k) => k + 1);
                 if (filename) {
                     history.push(`/server/${id}/files/edit#/${encodePathSegments(filename)}`);
                 }
             })
             .catch((e) => setError(httpErrorToHuman(e as Error)))
             .finally(() => setSaving(false));
+    };
+
+    // Pull a snapshot's bytes into the editor without saving them. We bump
+    // editorKey so CodeMirror remounts and reads the new content as its
+    // initialContent; `initialContent` (React state) intentionally STAYS at
+    // the on-disk bytes so isDirty flips true and the user has to hit Save
+    // to actually overwrite the live file.
+    const onRestore = (restored: string) => {
+        setContent(restored);
+        setEditorKey((k) => k + 1);
     };
 
     const onSave = () => {
@@ -191,10 +210,11 @@ const FileEditPage = () => {
                     }}
                 >
                     <CodemirrorEditor
+                        key={editorKey}
                         mode={mode}
                         filename={isEdit ? (path.split('/').pop() || '') : newName}
                         onModeChanged={setMode}
-                        initialContent={initialContent}
+                        initialContent={content}
                         fetchContent={(getter) => { fetchEditorContent = getter; }}
                         onContentSaved={onSave}
                         onChange={setContent}
@@ -229,6 +249,28 @@ const FileEditPage = () => {
                         : '⌘S / Ctrl-S to save'}
                 </div>
                 <div style={{ flex: 1 }} />
+                {isEdit && (
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            type={'button'}
+                            className={'btn btn-sm'}
+                            onClick={() => setSnapshotsOpen((v) => !v)}
+                            title={'Browse and restore past versions of this file'}
+                        >
+                            <Icon name={'clock'} size={11} />
+                            Snapshots
+                        </button>
+                        {snapshotsOpen && (
+                            <SnapshotMenu
+                                uuid={uuid}
+                                path={path}
+                                refreshKey={snapshotRefresh}
+                                onRestore={onRestore}
+                                onClose={() => setSnapshotsOpen(false)}
+                            />
+                        )}
+                    </div>
+                )}
                 <button
                     className={'btn btn-primary'}
                     onClick={onSave}
