@@ -9,7 +9,7 @@ import { httpErrorToHuman } from '@/api/http';
 import { encodePathSegments, hashToPath } from '@/helpers';
 import getFileContents from '@/api/server/files/getFileContents';
 import saveFileContentsVersioned from '@/api/server/files/saveFileContentsVersioned';
-import MonacoEditor from '@/components/elements/MonacoEditor';
+import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
 import Spinner from '@/components/elements/Spinner';
 import modes from '@/modes';
 import { KNOWN_CONFIGS, adHocEntry } from '@/components/server/configs/known-configs';
@@ -211,7 +211,7 @@ const FileEditPage = () => {
                         minHeight: 0, padding: 0, overflow: 'hidden',
                     }}
                 >
-                    <MonacoEditor
+                    <CodemirrorEditor
                         key={editorKey}
                         mode={mode}
                         filename={isEdit ? (path.split('/').pop() || '') : newName}
