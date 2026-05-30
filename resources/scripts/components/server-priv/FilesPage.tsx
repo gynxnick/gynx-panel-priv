@@ -7,7 +7,7 @@ import useFileManagerSwr from '@/plugins/useFileManagerSwr';
 import { hashToPath, encodePathSegments } from '@/helpers';
 import { bytesToString } from '@/lib/formatters';
 import { httpErrorToHuman } from '@/api/http';
-import { FileObject } from '@/api/server/files/loadDirectory';
+import loadDirectory, { FileObject } from '@/api/server/files/loadDirectory';
 import deleteFiles from '@/api/server/files/deleteFiles';
 import renameFiles from '@/api/server/files/renameFiles';
 import createDirectory from '@/api/server/files/createDirectory';
@@ -16,6 +16,12 @@ import decompressFiles from '@/api/server/files/decompressFiles';
 import compressFiles from '@/api/server/files/compressFiles';
 import Spinner from '@/components/elements/Spinner';
 import { Icon, IconName } from './Icon';
+import {
+    ConfigEntry,
+    GROUP_LABELS,
+    GROUP_ORDER,
+    KNOWN_CONFIGS,
+} from '@/components/server/configs/known-configs';
 
 // Files page — wireframe layout backed by real Pterodactyl files API.
 // Click folder → navigate. Click file → legacy editor. Per-row rename
@@ -129,6 +135,44 @@ export const FilesPage = () => {
     // overlay itself owns dragleave/drop so the closure stays fresh and we
     // don't capture stale uuid/directory values.
     const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+    // "Detected configs" rail surface — probes the unique parent dirs of
+    // every catalogued config (~6 dirs) once per uuid, then renders
+    // whatever's actually on disk grouped by the catalog's GROUP_ORDER.
+    // Replaces the standalone /configs page; one click → file editor with
+    // the validation pill + diagnostics layer.
+    const [detectedConfigs, setDetectedConfigs] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        let alive = true;
+        const dirs = Array.from(new Set(
+            KNOWN_CONFIGS.map((c) => c.path.substring(0, c.path.lastIndexOf('/')) || '/'),
+        ));
+        Promise.all(
+            dirs.map((dir) =>
+                loadDirectory(uuid, dir === '' ? '/' : dir)
+                    .then((entries) => ({ dir, names: entries.filter((e) => e.isFile).map((e) => e.name) }))
+                    .catch(() => ({ dir, names: [] as string[] })),
+            ),
+        ).then((results) => {
+            if (!alive) return;
+            const found = new Set<string>();
+            for (const r of results) {
+                const prefix = r.dir === '/' ? '' : r.dir;
+                for (const n of r.names) found.add(`${prefix}/${n}`);
+            }
+            setDetectedConfigs(found);
+        });
+        return () => { alive = false; };
+    }, [uuid]);
+
+    const configsByGroup = useMemo(() => {
+        const map: Record<string, ConfigEntry[]> = {};
+        for (const e of KNOWN_CONFIGS) {
+            if (!detectedConfigs.has(e.path)) continue;
+            (map[e.group] ||= []).push(e);
+        }
+        return map;
+    }, [detectedConfigs]);
 
     // Reset selection + filter when directory changes.
     useEffect(() => {
@@ -551,7 +595,49 @@ export const FilesPage = () => {
             )}
 
             <div className={'files-layout'}>
-                <div className={'panel'} style={{ padding: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div className={'panel'} style={{ padding: 6, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    {detectedConfigs.size > 0 && (
+                        <>
+                            <div className={'side-label'} style={{ padding: '8px 10px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Icon name={'settings'} size={11} color={'var(--purple)'} />
+                                Detected configs
+                                <span className={'ct'} style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: 'var(--text-faint)' }}>
+                                    {detectedConfigs.size}
+                                </span>
+                            </div>
+                            <div style={{ marginBottom: 6 }}>
+                                {GROUP_ORDER.map((group) => {
+                                    const items = configsByGroup[group] || [];
+                                    if (items.length === 0) return null;
+                                    return (
+                                        <div key={group}>
+                                            <div
+                                                className={'side-label'}
+                                                style={{ padding: '4px 10px 2px', fontSize: 9.5, opacity: 0.7 }}
+                                            >
+                                                {GROUP_LABELS[group]}
+                                            </div>
+                                            {items.map((e) => (
+                                                <NavLink
+                                                    key={e.path}
+                                                    className={'tree-node'}
+                                                    to={`${baseUrl}/edit#${encodePathSegments(e.path)}`}
+                                                    title={e.description + ' · ' + e.path}
+                                                >
+                                                    <Icon name={'settings'} size={11} color={'#C4B5FD'} />
+                                                    <Icon name={'folder'} size={13} color={'transparent'} />
+                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {e.label}
+                                                    </span>
+                                                </NavLink>
+                                            ))}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 8px 6px' }} />
+                        </>
+                    )}
                     <div className={'side-label'} style={{ padding: '8px 10px 4px' }}>
                         Folders here
                     </div>

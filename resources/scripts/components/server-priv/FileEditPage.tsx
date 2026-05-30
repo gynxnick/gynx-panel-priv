@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { useRouteMatch } from 'react-router-dom';
 import { dirname } from 'path';
@@ -12,6 +12,8 @@ import saveFileContents from '@/api/server/files/saveFileContents';
 import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
 import Spinner from '@/components/elements/Spinner';
 import modes from '@/modes';
+import { KNOWN_CONFIGS, adHocEntry } from '@/components/server/configs/known-configs';
+import { validate, ValidationError } from '@/components/server/configs/validators';
 
 // Priv-styled file editor — replaces the legacy FileEditContainer that
 // rendered inside PageContentBlock. The legacy chrome collapsed inside
@@ -42,10 +44,28 @@ const FileEditPage = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [content, setContent] = useState('');
+    const [initialContent, setInitialContent] = useState('');
+    const [savedAt, setSavedAt] = useState<number | null>(null);
     const [mode, setMode] = useState('text/plain');
     const [newName, setNewName] = useState('');
 
     let fetchEditorContent: null | (() => Promise<string>) = null;
+
+    // Config-awareness: resolve the catalog entry for this file (or build an
+    // ad-hoc one from the extension), then validate live as the user types.
+    // For new files we use the typed name; for unknown formats validate()
+    // returns an empty array, so the pill/diagnostics quietly stay hidden.
+    const entry = useMemo(() => {
+        const target = isEdit ? path : (newName.trim() ? `/${newName.trim().replace(/^\/+/, '')}` : '');
+        if (!target) return adHocEntry('untitled');
+        return KNOWN_CONFIGS.find((e) => e.path === target) ?? adHocEntry(target);
+    }, [isEdit, path, newName]);
+    const errors = useMemo<ValidationError[]>(
+        () => (entry.format === 'plain' ? [] : validate(content, entry.format)),
+        [content, entry.format],
+    );
+    const errorCount = errors.filter((e) => e.severity === 'error').length;
+    const isDirty = isEdit && content !== initialContent;
 
     useEffect(() => {
         if (!isEdit) return;
@@ -53,7 +73,10 @@ const FileEditPage = () => {
         setLoading(true);
         setDirectory(dirname(path));
         getFileContents(uuid, path)
-            .then(setContent)
+            .then((c) => {
+                setContent(c);
+                setInitialContent(c);
+            })
             .catch((e) => setError(httpErrorToHuman(e as Error)))
             .finally(() => setLoading(false));
     }, [isEdit, uuid, path]);
@@ -62,9 +85,14 @@ const FileEditPage = () => {
         if (!fetchEditorContent) return;
         setSaving(true);
         setError(null);
+        let savedContent = '';
         fetchEditorContent()
-            .then((c) => saveFileContents(uuid, filename || path, c))
+            .then((c) => { savedContent = c; return saveFileContents(uuid, filename || path, c); })
             .then(() => {
+                setInitialContent(savedContent);
+                setContent(savedContent);
+                setSavedAt(Date.now());
+                window.setTimeout(() => setSavedAt((t) => (t && Date.now() - t > 2400 ? null : t)), 2600);
                 if (filename) {
                     history.push(`/server/${id}/files/edit#/${encodePathSegments(filename)}`);
                 }
@@ -127,6 +155,9 @@ const FileEditPage = () => {
                 }}>
                     {fileName}
                 </div>
+                {entry.format !== 'plain' && (
+                    <ValidationPill format={entry.format} errors={errorCount} dirty={isDirty} saved={!!savedAt && Date.now() - (savedAt || 0) < 2400} />
+                )}
             </div>
 
             {!isEdit && (
@@ -163,12 +194,17 @@ const FileEditPage = () => {
                         mode={mode}
                         filename={isEdit ? (path.split('/').pop() || '') : newName}
                         onModeChanged={setMode}
-                        initialContent={content}
+                        initialContent={initialContent}
                         fetchContent={(getter) => { fetchEditorContent = getter; }}
                         onContentSaved={onSave}
+                        onChange={setContent}
                         style={{ height: '100%', minHeight: 0, borderRadius: 0, border: 'none' }}
                     />
                 </div>
+            )}
+
+            {entry.format !== 'plain' && !loading && (
+                <DiagnosticsStrip errors={errors} format={entry.format} />
             )}
 
             <div style={{
@@ -188,7 +224,9 @@ const FileEditPage = () => {
                     fontSize: 11, color: 'var(--text-faint)',
                     fontFamily: "'JetBrains Mono', monospace",
                 }}>
-                    ⌘S / Ctrl-S to save
+                    {entry.format !== 'plain'
+                        ? `${entry.format} · save then restart the server to apply`
+                        : '⌘S / Ctrl-S to save'}
                 </div>
                 <div style={{ flex: 1 }} />
                 <button
@@ -208,3 +246,95 @@ const FileEditPage = () => {
 };
 
 export default FileEditPage;
+
+// -- config-aware sub-components --------------------------------------------
+
+// Validation pill — three states (saved / dirty-or-issues / clean) port the
+// colour tokens from the standalone Configs editor so the file-editor header
+// reads identically to the old surface it replaces.
+
+const ValidationPill: React.FC<{ format: string; errors: number; dirty: boolean; saved: boolean }> = ({
+    format, errors, dirty, saved,
+}) => {
+    const ok = errors === 0;
+    const color = saved ? '#34D399' : dirty ? '#FCD34D' : ok ? '#34D399' : '#F87171';
+    const bg = saved
+        ? 'rgba(52,211,153,0.10)'
+        : dirty
+            ? 'rgba(252,211,77,0.10)'
+            : ok
+                ? 'rgba(52,211,153,0.10)'
+                : 'rgba(248,113,113,0.10)';
+    const border = saved
+        ? 'rgba(52,211,153,0.35)'
+        : dirty
+            ? 'rgba(252,211,77,0.35)'
+            : ok
+                ? 'rgba(52,211,153,0.35)'
+                : 'rgba(248,113,113,0.35)';
+    const label = saved
+        ? 'saved'
+        : dirty
+            ? 'unsaved'
+            : ok
+                ? `valid ${format}`
+                : `${errors} issue${errors === 1 ? '' : 's'}`;
+    const icon = saved || ok ? 'check' : 'zap';
+    return (
+        <span
+            style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                fontSize: 11, fontWeight: 600,
+                padding: '3px 9px', borderRadius: 999,
+                color, background: bg, border: `1px solid ${border}`,
+                fontFamily: "'Inter', sans-serif",
+                whiteSpace: 'nowrap',
+            }}
+        >
+            <Icon name={icon} size={11} color={color} />
+            {label}
+        </span>
+    );
+};
+
+// Diagnostics strip — one row per error/warning, scrollable, capped at 20
+// (validators.ts itself caps XML at 20; this just enforces the same on the
+// other formats so a runaway error list can't push the toolbar off-screen).
+
+const DiagnosticsStrip: React.FC<{ errors: ValidationError[]; format: string }> = ({ errors, format }) => {
+    const empty = errors.length === 0;
+    return (
+        <div
+            style={{
+                marginTop: 8,
+                padding: '8px 12px',
+                fontSize: 11,
+                fontFamily: "'JetBrains Mono', monospace",
+                color: empty ? 'var(--text-faint)' : 'var(--text)',
+                background: empty ? 'rgba(52,211,153,0.04)' : 'rgba(248,113,113,0.04)',
+                borderTop: `1px solid ${empty ? 'rgba(52,211,153,0.18)' : 'rgba(248,113,113,0.25)'}`,
+                borderRadius: 6,
+                maxHeight: 140,
+                overflowY: 'auto',
+            }}
+        >
+            {empty ? (
+                <span>no issues · {format} · ctrl/⌘+s to save</span>
+            ) : (
+                errors.slice(0, 20).map((err, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 8,
+                            padding: '2px 0',
+                            color: err.severity === 'error' ? '#F87171' : '#FCD34D',
+                        }}
+                    >
+                        <span style={{ width: 48, flexShrink: 0 }}>line {err.line}</span>
+                        <span style={{ flex: 1 }}>{err.message}</span>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+};

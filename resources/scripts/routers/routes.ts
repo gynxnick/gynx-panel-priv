@@ -14,7 +14,6 @@ import {
     faPuzzlePiece,
     faCubes,
     faBoxes,
-    faWrench,
     faGlobe,
     IconDefinition,
 } from '@fortawesome/free-solid-svg-icons';
@@ -36,7 +35,6 @@ import InstallerPage from '@/components/server-priv/InstallerPage';
 import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import SubdomainsContainer from '@/components/server-priv/SubdomainsPage';
-import ConfigEditorContainer from '@/components/server/configs/ConfigEditorContainer';
 import AccountOverviewContainer from '@/components/account-priv/AccountPage';
 import AccountApiContainer from '@/components/account-priv/ApiKeysPage';
 import AccountSSHContainer from '@/components/account-priv/SshKeysPage';
@@ -103,7 +101,6 @@ export default {
           compatible: (s) => getAddonCapabilities(s).mods },
         { path: '/modpacks',  permission: 'addon.modpack.*', name: 'Modpacks', icon: faBoxes, group: 'management', component: ModpacksContainer,
           compatible: (s) => getAddonCapabilities(s).modpacks },
-        { path: '/configs',   permission: 'file.*',          name: 'Configs',  icon: faWrench, group: 'management', component: ConfigEditorContainer },
         { path: '/domain',    permission: 'subdomain.*',     name: 'Domain',   icon: faGlobe, group: 'management', component: SubdomainsContainer },
 
         // Monitoring
