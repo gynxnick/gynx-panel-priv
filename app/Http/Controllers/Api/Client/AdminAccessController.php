@@ -53,9 +53,15 @@ class AdminAccessController extends ClientApiController
         ]);
     }
 
-    public function servers(Request $request, User $user): JsonResponse
+    public function servers(Request $request, int $user): JsonResponse
     {
         $this->ensureAdmin($request);
+
+        // Resolve manually — the route group opts out of SubstituteClientBindings
+        // (which assumes a {server} param) and that disables Laravel's auto
+        // model-binding for any param in the group, so {user} arrives as a raw
+        // int and we look it up here.
+        $user = User::findOrFail($user);
 
         $servers = Server::query()
             ->where('owner_id', $user->id)
