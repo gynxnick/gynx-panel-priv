@@ -20,10 +20,16 @@ Route::get('/', [Client\ClientController::class, 'index'])->name('api:client.ind
 Route::get('/permissions', [Client\ClientController::class, 'permissions']);
 
 // Admin "view as user" switcher — root-admin gated inside the controller.
-Route::prefix('/admin')->group(function () {
-    Route::get('/users', [Client\AdminAccessController::class, 'users'])->name('api:client.admin.users');
-    Route::get('/users/{user}/servers', [Client\AdminAccessController::class, 'servers'])->name('api:client.admin.user-servers');
-});
+// SubstituteClientBindings assumes a {server} route param and dereferences
+// $server->subusers() unconditionally; these routes are user-scoped (no
+// {server}), so opt them out of that middleware. The controller's own
+// root-admin check still gates access.
+Route::prefix('/admin')
+    ->withoutMiddleware(\Pterodactyl\Http\Middleware\Api\Client\SubstituteClientBindings::class)
+    ->group(function () {
+        Route::get('/users', [Client\AdminAccessController::class, 'users'])->name('api:client.admin.users');
+        Route::get('/users/{user}/servers', [Client\AdminAccessController::class, 'servers'])->name('api:client.admin.user-servers');
+    });
 
 Route::prefix('/alerts')->group(function () {
     Route::get('/active', [Client\AlertsController::class, 'active']);
