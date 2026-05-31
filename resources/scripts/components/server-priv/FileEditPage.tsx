@@ -50,13 +50,17 @@ const FileEditPage = () => {
     const [savedAt, setSavedAt] = useState<number | null>(null);
     const [mode, setMode] = useState('text/plain');
     const [newName, setNewName] = useState('');
-    // Snapshots popover + remount key so Restore forces CodeMirror to re-read
-    // initialContent (the editor only reads it at mount, so a key bump is the
-    // simplest way to swap the buffer). Templates popover shares the same key.
+    // Snapshots / Templates popovers.
     const [snapshotsOpen, setSnapshotsOpen] = useState(false);
     const [snapshotRefresh, setSnapshotRefresh] = useState(0);
     const [templatesOpen, setTemplatesOpen] = useState(false);
-    const [editorKey, setEditorKey] = useState(0);
+    // The bytes CodemirrorEditor should seed itself with. Decoupled from
+    // `content` so that ongoing typing (which updates `content` via the
+    // editor's onChange) doesn't re-trigger CodemirrorEditor's setValue
+    // effect — that effect runs on every initialContent change and resets
+    // the scroll position to line 1, which is the "jumps to top on every
+    // keystroke" bug. editorSeed only changes on file load and Restore.
+    const [editorSeed, setEditorSeed] = useState('');
 
     let fetchEditorContent: null | (() => Promise<string>) = null;
 
@@ -85,6 +89,7 @@ const FileEditPage = () => {
             .then((c) => {
                 setContent(c);
                 setInitialContent(c);
+                setEditorSeed(c);
             })
             .catch((e) => setError(httpErrorToHuman(e as Error)))
             .finally(() => setLoading(false));
@@ -112,14 +117,14 @@ const FileEditPage = () => {
             .finally(() => setSaving(false));
     };
 
-    // Pull a snapshot's bytes into the editor without saving them. We bump
-    // editorKey so CodeMirror remounts and reads the new content as its
-    // initialContent; `initialContent` (React state) intentionally STAYS at
-    // the on-disk bytes so isDirty flips true and the user has to hit Save
-    // to actually overwrite the live file.
+    // Pull a snapshot's bytes into the editor without saving them.
+    // Bumping editorSeed flips CodemirrorEditor's setValue effect, which
+    // replaces the buffer in place; `initialContent` (React state) STAYS
+    // at the on-disk bytes so isDirty flips true and the user has to hit
+    // Save to actually overwrite the live file.
     const onRestore = (restored: string) => {
         setContent(restored);
-        setEditorKey((k) => k + 1);
+        setEditorSeed(restored);
     };
 
     const onSave = () => {
@@ -212,11 +217,10 @@ const FileEditPage = () => {
                     }}
                 >
                     <CodemirrorEditor
-                        key={editorKey}
                         mode={mode}
                         filename={isEdit ? (path.split('/').pop() || '') : newName}
                         onModeChanged={setMode}
-                        initialContent={content}
+                        initialContent={editorSeed}
                         fetchContent={(getter) => { fetchEditorContent = getter; }}
                         onContentSaved={onSave}
                         onChange={setContent}
