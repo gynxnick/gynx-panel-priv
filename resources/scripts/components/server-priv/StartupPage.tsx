@@ -95,7 +95,14 @@ const VariableCard = ({
     const options = isOptions
         ? (variable.rules.find((r) => r.startsWith('in:')) ?? '').replace(/^in:/, '').split(',')
         : null;
-    const isNumeric = !isOptions && variable.rules.some((r) => /^(numeric|integer|min:\d|max:\d)/.test(r));
+    // Only treat as numeric when the rules SAY so. The previous heuristic
+    // also tripped on `min:`/`max:` rules, but in Laravel those apply to
+    // string length when paired with `string` — which is the case for
+    // every Minecraft-style "version" variable (rules like
+    // `required|string|max:20`). Forcing such fields into `<input
+    // type="number">` made the browser refuse the second dot in 1.20.1
+    // because numeric inputs can only have one decimal point.
+    const isNumeric = !isOptions && variable.rules.some((r) => /^(numeric|integer)$/.test(r));
 
     const inputStyle: React.CSSProperties = {
         width: '100%', height: 32,
@@ -109,11 +116,18 @@ const VariableCard = ({
 
     const commit = async () => {
         if (!variable.isEditable) return;
-        if (value === (variable.serverValue ?? variable.defaultValue ?? '')) return;
+        // Empty submission + an egg-provided default = "revert to default".
+        // Matches egg descriptions like "Leaving X will install X" which
+        // would otherwise be contradicted by the variable's own `required`
+        // rule throwing "The value field is required" at the user.
+        const effectiveValue = value === '' && variable.defaultValue
+            ? variable.defaultValue
+            : value;
+        if (effectiveValue === (variable.serverValue ?? variable.defaultValue ?? '')) return;
         setSaving(true);
         setError(null);
         try {
-            await onSave(value);
+            await onSave(effectiveValue);
             setSavedAt(Date.now());
         } catch (e) {
             setError(httpErrorToHuman(e as Error));
