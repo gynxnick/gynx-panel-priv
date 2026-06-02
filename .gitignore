@@ -34,3 +34,6 @@ resources/lang/locales.js
 /public/hot
 result
 docker-compose.yaml
+
+# Developer scratch space (one-off design tooling, screenshot dumps, etc.)
+_temp/

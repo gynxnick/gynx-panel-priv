@@ -114,17 +114,33 @@
                 <table role="presentation" class="gx-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#14141C; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,0.07);" bgcolor="#14141C">
 
                     <!-- Header band: aurora gradient -->
+                    {{--
+                        Two fallback layers stacked:
+                          1. <td bgcolor + gradient>  — what Outlook desktop and
+                             image-blocking clients see. Identical hue to frame
+                             1 of the GIF so the layout doesn't shift if the
+                             image never loads.
+                          2. <img src=header.gif>      — animated aurora + glow
+                             wordmark. Modern clients (Gmail web/iOS, Apple
+                             Mail, Outlook.com web) play it; Outlook desktop
+                             freezes on frame 1, which is also the brand still.
+                        Admin-uploaded custom logo (settings::gynx:logo_url)
+                        wins over the GIF — brand-owner override path.
+                    --}}
                     <tr>
                         <td class="gx-aurora gx-header-pad" align="center" valign="middle"
-                            style="padding:34px 40px; background-color:#6D28D9; background-image:{{ $headerGrad }}; text-align:center;"
+                            style="padding:0; background-color:#6D28D9; background-image:{{ $headerGrad }}; text-align:center; line-height:0; font-size:0;"
                             bgcolor="#6D28D9">
                             @if ($logoUrl !== '')
-                                <a href="{{ $panelUrl }}" target="_blank" style="text-decoration:none; border:0;">
+                                <a href="{{ $panelUrl }}" target="_blank" style="display:inline-block; text-decoration:none; border:0; padding:34px 40px; line-height:1;">
                                     <img src="{{ $logoUrl }}" alt="{{ $siteName }}" height="38" style="height:38px; max-height:38px; width:auto; display:inline-block; border:0;">
                                 </a>
                             @else
-                                <a href="{{ $panelUrl }}" target="_blank" style="{{ $fontDisplay }} font-size:26px; font-weight:700; letter-spacing:-0.02em; color:#FFFFFF; text-decoration:none; text-shadow:0 1px 2px rgba(0,0,0,0.25);">
-                                    {{ $siteName }}
+                                <a href="{{ $panelUrl }}" target="_blank" style="display:block; text-decoration:none; border:0; line-height:0; font-size:0;">
+                                    <img src="{{ $panelUrl }}/assets/email-gifs/header.gif"
+                                         alt="{{ $siteName }}"
+                                         width="600" height="100"
+                                         style="display:block; width:100%; max-width:600px; height:auto; border:0; outline:none; text-decoration:none;">
                                 </a>
                             @endif
                         </td>
