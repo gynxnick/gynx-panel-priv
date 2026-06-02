@@ -36,12 +36,30 @@ class AddonGameRegistry
             'curseforge_id' => 432,
             'thunderstore_community' => null,
             'supports' => [AddonSource::TYPE_PLUGIN, AddonSource::TYPE_MOD, AddonSource::TYPE_MODPACK],
+            // Default Pterodactyl MC eggs don't expose a panel variable for
+            // max players — the value lives in /server.properties.
+            'slot_source' => [
+                'type' => 'properties_file',
+                'path' => '/server.properties',
+                'key'  => 'max-players',
+                'min'  => 1,
+                'max'  => 1000,
+            ],
         ],
         'ark' => [
             'patterns' => ['ark'],
             'curseforge_id' => 83374,
             'thunderstore_community' => null,
             'supports' => [AddonSource::TYPE_MOD],
+            // ARK: Survival Evolved — Pterodactyl Linux layout.
+            'slot_source' => [
+                'type'    => 'ini_file',
+                'path'    => '/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini',
+                'section' => 'ServerSettings',
+                'key'     => 'MaxPlayers',
+                'min'     => 1,
+                'max'     => 200,
+            ],
         ],
         'stardew_valley' => [
             'patterns' => ['stardew'],
@@ -92,6 +110,12 @@ class AddonGameRegistry
             'thunderstore_community' => null,
             'umod_game' => 'rust',
             'supports' => [AddonSource::TYPE_MOD],
+            // Rust eggs do expose +maxplayers on the startup; the canonical
+            // panel variable name is MAX_PLAYERS on most published Rust eggs.
+            'slot_source' => [
+                'type'  => 'env_var',
+                'names' => ['MAX_PLAYERS', 'MAXPLAYERS', 'SERVER_MAXPLAYERS'],
+            ],
         ],
     ];
 
