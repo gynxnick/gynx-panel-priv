@@ -231,6 +231,8 @@ class UserControllerTest extends ApplicationApiIntegrationTestCase
                 'resource' => route('api.application.users.view', $user->id),
             ],
         ], true);
+
+        $this->assertActivityFor('user:user.create', $this->getApiUser(), $user);
     }
 
     /**
@@ -279,9 +281,8 @@ class UserControllerTest extends ApplicationApiIntegrationTestCase
     /**
      * Test that an API key without write permissions cannot create, update, or
      * delete a user model.
-     *
-     * @dataProvider userWriteEndpointsDataProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('userWriteEndpointsDataProvider')]
     public function testApiKeyWithoutWritePermissions(string $method, string $url)
     {
         $this->createNewDefaultApiKey($this->getApiUser(), ['r_users' => AdminAcl::READ]);

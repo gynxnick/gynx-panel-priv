@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import getFileContents from '@/api/server/files/getFileContents';
 import { httpErrorToHuman } from '@/api/http';
@@ -19,8 +19,10 @@ import useFlash from '@/plugins/useFlash';
 import { ServerContext } from '@/state/server';
 import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { encodePathSegments, hashToPath } from '@/helpers';
-import { dirname } from 'path';
+import { dirname } from 'pathe';
 import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
+
+const getNewFileDraftKey = (uuid: string, directory: string) => `pterodactyl:new-file:${uuid}:${directory}`;
 
 /**
  * Wrapper for the file edit page. CodemirrorEditor brings its own bordered
@@ -62,46 +64,80 @@ export default () => {
     const setDirectory = ServerContext.useStoreActions((actions) => actions.files.setDirectory);
     const { addError, clearFlashes } = useFlash();
 
+    const filePath = hashToPath(hash);
+    const directory = action === 'new' ? filePath : dirname(filePath);
+    const draftKey = action === 'new' ? getNewFileDraftKey(uuid, directory) : undefined;
+    const saveDraft = useCallback(
+        (value: string) => {
+            if (!draftKey) return;
+
+            if (value.length > 0) {
+                sessionStorage.setItem(draftKey, value);
+            } else {
+                sessionStorage.removeItem(draftKey);
+            }
+        },
+        [draftKey]
+    );
+
     let fetchFileContent: null | (() => Promise<string>) = null;
+
+    useEffect(() => {
+        setDirectory(directory);
+    }, [directory, setDirectory]);
+
+    useEffect(() => {
+        if (!draftKey) return;
+
+        setContent(sessionStorage.getItem(draftKey) || '');
+    }, [draftKey]);
 
     useEffect(() => {
         if (action === 'new') return;
 
         setError('');
         setLoading(true);
-        const path = hashToPath(hash);
-        setDirectory(dirname(path));
-        getFileContents(uuid, path)
+        getFileContents(uuid, filePath)
             .then(setContent)
             .catch((error) => {
                 console.error(error);
                 setError(httpErrorToHuman(error));
             })
             .then(() => setLoading(false));
-    }, [action, uuid, hash]);
+    }, [action, uuid, filePath]);
 
-    const save = (name?: string) => {
+    const save = async (name?: string) => {
         if (!fetchFileContent) {
             return;
         }
 
         setLoading(true);
         clearFlashes('files:view');
-        fetchFileContent()
-            .then((content) => saveFileContents(uuid, name || hashToPath(hash), content))
-            .then(() => {
-                if (name) {
-                    history.push(`/server/${id}/files/edit#/${encodePathSegments(name)}`);
-                    return;
+
+        let redirecting = false;
+
+        try {
+            const content = await fetchFileContent();
+
+            await saveFileContents(uuid, name || filePath, content);
+
+            if (name) {
+                if (draftKey) {
+                    sessionStorage.removeItem(draftKey);
                 }
 
-                return Promise.resolve();
-            })
-            .catch((error) => {
-                console.error(error);
-                addError({ message: httpErrorToHuman(error), key: 'files:view' });
-            })
-            .then(() => setLoading(false));
+                history.push(`/server/${id}/files/edit#/${encodePathSegments(name)}`);
+                redirecting = true;
+                return;
+            }
+        } catch (error) {
+            console.error(error);
+            addError({ message: httpErrorToHuman(error), key: 'files:view' });
+        } finally {
+            if (!redirecting) {
+                setLoading(false);
+            }
+        }
     };
 
     if (error) {
@@ -152,6 +188,7 @@ export default () => {
                             save();
                         }
                     }}
+                    onContentChanged={action === 'new' ? saveDraft : undefined}
                 />
             </EditorSurface>
             <div css={tw`flex justify-end mt-4`}>

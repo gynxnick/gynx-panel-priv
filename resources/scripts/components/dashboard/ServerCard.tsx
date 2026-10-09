@@ -20,8 +20,13 @@ const metricColor = {
     disk: '#F59E0B',     // amber — stays in the "warm" family, distinct from metrics
 };
 
-const statusVariant = (status: ServerPowerState | undefined, suspended: boolean): PillVariant => {
+const statusVariant = (
+    status: ServerPowerState | undefined,
+    suspended: boolean,
+    maintenance = false
+): PillVariant => {
     if (suspended) return 'err';
+    if (maintenance) return 'warn';
     if (!status || status === 'offline') return 'idle';
     if (status === 'running') return 'live';
     return 'warn';
@@ -225,8 +230,11 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
     // Subscribe to the module-level pump. The pump fires polls at a steady
     // cadence regardless of how many times this component remounts, so a
     // remount loop in the dashboard subtree no longer kills polling.
+    // Upstream v1.13: don't poll Wings for a node that is under maintenance.
+    const isNodeUnderMaintenance = server.isNodeUnderMaintenance;
+
     useEffect(() => {
-        if (isSuspended) return;
+        if (isSuspended || isNodeUnderMaintenance) return;
         const onStats = (data: ServerStats) => {
             setStats(data);
             if (data.isSuspended !== isSuspended) setIsSuspended(data.isSuspended);
@@ -235,7 +243,7 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
         };
         return subscribe(server.uuid, onStats);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [server.uuid, isSuspended]);
+    }, [server.uuid, isSuspended, isNodeUnderMaintenance]);
 
     const limits = server.limits;
     const cpuPct = stats?.cpuUsagePercent ?? 0;
@@ -250,6 +258,8 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
     const statusText =
         isSuspended
             ? 'suspended'
+            : isNodeUnderMaintenance
+            ? 'maintenance'
             : server.isTransferring
             ? 'transferring'
             : server.status === 'installing'
@@ -276,7 +286,7 @@ export const ServerCard: React.FC<Props> = ({ server }) => {
                         <Title>{server.name}</Title>
                         {!!server.description && <Description>{server.description}</Description>}
                     </TitleBlock>
-                    <Pill variant={statusVariant(stats?.status, isSuspended)}>{statusText}</Pill>
+                    <Pill variant={statusVariant(stats?.status, isSuspended, isNodeUnderMaintenance)}>{statusText}</Pill>
                 </Header>
 
                 <MetricStrip>

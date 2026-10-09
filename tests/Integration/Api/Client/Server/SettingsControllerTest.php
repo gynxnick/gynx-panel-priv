@@ -12,12 +12,11 @@ class SettingsControllerTest extends ClientApiIntegrationTestCase
 {
     /**
      * Test that the server's name can be changed.
-     *
-     * @dataProvider renamePermissionsDataProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('renamePermissionsDataProvider')]
     public function testServerNameCanBeChanged(array $permissions)
     {
-        /** @var \Pterodactyl\Models\Server $server */
+        /** @var Server $server */
         [$user, $server] = $this->generateTestAccount($permissions);
         $originalName = $server->name;
         $originalDescription = $server->description;
@@ -68,12 +67,11 @@ class SettingsControllerTest extends ClientApiIntegrationTestCase
     /**
      * Test that a server can be reinstalled. Honestly this test doesn't do much of anything other
      * than make sure the endpoint works since.
-     *
-     * @dataProvider reinstallPermissionsDataProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('reinstallPermissionsDataProvider')]
     public function testServerCanBeReinstalled(array $permissions)
     {
-        /** @var \Pterodactyl\Models\Server $server */
+        /** @var Server $server */
         [$user, $server] = $this->generateTestAccount($permissions);
         $this->assertTrue($server->isInstalled());
 
@@ -110,6 +108,48 @@ class SettingsControllerTest extends ClientApiIntegrationTestCase
 
         $server = $server->refresh();
         $this->assertTrue($server->isInstalled());
+    }
+
+    /**
+     * Test that a server configured to skip its egg's install script cannot be reinstalled.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('reinstallPermissionsDataProvider')]
+    public function testServerCannotBeReinstalledIfConfiguredToSkipScripts(array $permissions)
+    {
+        [$user, $server] = $this->generateTestAccount($permissions);
+        $server->update(['skip_scripts' => true]);
+
+        $service = \Mockery::mock(DaemonServerRepository::class);
+        $this->app->instance(DaemonServerRepository::class, $service);
+
+        $service->expects('setServer')->never();
+
+        $this->actingAs($user)
+            ->postJson("/api/client/servers/$server->uuid/settings/reinstall")
+            ->assertStatus(Response::HTTP_BAD_REQUEST)
+            ->assertJsonPath('errors.0.detail', trans('admin/server.exceptions.skipping_install_script'));
+
+        $this->assertNull($server->refresh()->status);
+    }
+
+    /**
+     * Test that the "skip scripts" state is exposed to the client API.
+     */
+    public function testSkipScriptsStateIsExposedToClient()
+    {
+        [$user, $server] = $this->generateTestAccount([Permission::ACTION_SETTINGS_REINSTALL]);
+
+        $this->actingAs($user)
+            ->getJson("/api/client/servers/$server->uuid")
+            ->assertOk()
+            ->assertJsonPath('attributes.skip_scripts', false);
+
+        $server->update(['skip_scripts' => true]);
+
+        $this->actingAs($user)
+            ->getJson("/api/client/servers/$server->uuid")
+            ->assertOk()
+            ->assertJsonPath('attributes.skip_scripts', true);
     }
 
     public static function renamePermissionsDataProvider(): array

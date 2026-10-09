@@ -5,6 +5,7 @@ namespace Pterodactyl\Models;
 use Illuminate\Container\Container;
 use Znck\Eloquent\Traits\BelongsToThrough;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Pterodactyl\Contracts\Extensions\HashidsInterface;
 
 /**
@@ -19,11 +20,13 @@ use Pterodactyl\Contracts\Extensions\HashidsInterface;
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property string $hashid
- * @property \Pterodactyl\Models\Schedule $schedule
- * @property \Pterodactyl\Models\Server $server
+ * @property Schedule $schedule
+ * @property Server $server
  */
 class Task extends Model
 {
+    /** @use HasFactory<\Database\Factories\TaskFactory> */
+    use HasFactory;
     use BelongsToThrough;
 
     /**
@@ -38,6 +41,7 @@ class Task extends Model
     public const ACTION_POWER = 'power';
     public const ACTION_COMMAND = 'command';
     public const ACTION_BACKUP = 'backup';
+    public const POWER_ACTIONS = ['start', 'stop', 'restart', 'kill'];
 
     /**
      * The table associated with the model.
@@ -93,9 +97,28 @@ class Task extends Model
         'continue_on_failure' => 'boolean',
     ];
 
-    /**
-     * {@inheritDoc}
-     */
+    public static function permissionForAction(string $action, ?string $payload = null): ?string
+    {
+        switch ($action) {
+            case self::ACTION_COMMAND:
+                return Permission::ACTION_CONTROL_CONSOLE;
+            case self::ACTION_BACKUP:
+                return Permission::ACTION_BACKUP_CREATE;
+            case self::ACTION_POWER:
+                switch (trim((string) $payload)) {
+                    case 'start':
+                        return Permission::ACTION_CONTROL_START;
+                    case 'stop':
+                    case 'kill':
+                        return Permission::ACTION_CONTROL_STOP;
+                    case 'restart':
+                        return Permission::ACTION_CONTROL_RESTART;
+                }
+        }
+
+        return null;
+    }
+
     public function getRouteKeyName(): string
     {
         return $this->getKeyName();
@@ -111,6 +134,8 @@ class Task extends Model
 
     /**
      * Return the schedule that a task belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\Pterodactyl\Models\Schedule, $this>
      */
     public function schedule(): BelongsTo
     {
@@ -119,9 +144,11 @@ class Task extends Model
 
     /**
      * Return the server a task is assigned to, acts as a belongsToThrough.
+     *
+     * @return \Znck\Eloquent\Relations\BelongsToThrough<\Pterodactyl\Models\Server, \Pterodactyl\Models\Schedule>
      */
     public function server(): \Znck\Eloquent\Relations\BelongsToThrough
     {
-        return $this->belongsToThrough(Server::class, Schedule::class);
+        return $this->belongsToThrough(Server::class, Schedule::class); // @phpstan-ignore return.type
     }
 }

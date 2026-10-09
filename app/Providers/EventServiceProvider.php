@@ -9,8 +9,10 @@ use Pterodactyl\Models\EggVariable;
 use Pterodactyl\Observers\UserObserver;
 use Pterodactyl\Observers\ServerObserver;
 use Pterodactyl\Observers\SubuserObserver;
+use Pterodactyl\Listeners\TwoFactorListener;
+use Pterodactyl\Listeners\RevocationListener;
 use Pterodactyl\Observers\EggVariableObserver;
-use Pterodactyl\Listeners\Auth\AuthenticationListener;
+use Pterodactyl\Listeners\AuthenticationListener;
 use Illuminate\Notifications\Events\NotificationSending;
 use Pterodactyl\Events\Server\Installed as ServerInstalledEvent;
 use Pterodactyl\Notifications\ServerInstalled as ServerInstalledNotification;
@@ -29,7 +31,11 @@ class EventServiceProvider extends ServiceProvider
 
     protected $subscribe = [
         AuthenticationListener::class,
+        RevocationListener::class,
+        TwoFactorListener::class,
     ];
+
+    protected static $shouldDiscoverEvents = false;
 
     /**
      * Register any events for your application.

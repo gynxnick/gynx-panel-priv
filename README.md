@@ -57,10 +57,11 @@ yarn install
 yarn build:production
 ```
 
-The `NODE_OPTIONS=--openssl-legacy-provider` flag is now baked into every
-webpack script via `cross-env`, so Node 18 / 20 hosts build cleanly out of
-the box. (Webpack 4 uses MD4 for chunk hashing and OpenSSL 3 removed that
-provider — the legacy flag restores it.)
+Requires **Node 22+** (upstream's minimum since Pterodactyl v1.12.0). The
+build runs on webpack 5, so the old `NODE_OPTIONS=--openssl-legacy-provider`
+workaround is no longer needed and has been removed from the scripts. Raster
+images (e.g. the gynx logo) go through webpack's built-in `asset/resource`
+module rather than `file-loader`, which still hashed with MD4.
 
 Output lands in `public/assets/` (the webpack manifest plus hashed bundle files). That directory is what the installer ships to the live panel.
 
@@ -114,8 +115,13 @@ git remote add upstream https://github.com/pterodactyl/panel.git
 
 # periodic: pull new tags / security patches
 git fetch upstream
-git merge upstream/v1.11.x       # or cherry-pick specific fixes
+git merge <tag>                  # e.g. v1.15.1 — merge a stable release tag, not a develop branch
 ```
+
+Currently synced with **Pterodactyl Panel v1.15.1** (stable). Upstream's `2.0-develop` branch is
+unreleased and is not a supported target. Note upstream's 1.x release history is cherry-picked,
+so `git merge <tag>` uses an old merge-base; review the result carefully, and deploy with
+`php artisan migrate --force`.
 
 Merge conflicts will be concentrated in the files we've rewritten. The design system (`tailwind.config.js`, `tailwind.css`, everything under `resources/scripts/components/gynx/`) should never conflict — those are net-new. The conflict risk is the files we modified in place: `DashboardRouter.tsx`, `ServerRouter.tsx`, `SubNavigation.tsx`, `PageContentBlock.tsx`, `ServerConsoleContainer.tsx`, `StatBlock.tsx`, `ChartBlock.tsx`, `style.module.css`, `button/style.module.css`.
 

@@ -126,8 +126,10 @@ export interface Props {
     onModeChanged: (mode: string) => void;
     fetchContent: (callback: () => Promise<string>) => void;
     onContentSaved: () => void;
-    /** Fires on every keystroke with the current buffer. Optional. */
+    /** Fires on every keystroke with the current buffer. Optional (gynx config editor). */
     onChange?: (value: string) => void;
+    /** Upstream: fires on every change with the current buffer. Used for new-file drafts. */
+    onContentChanged?: (content: string) => void;
 }
 
 const findModeByFilename = (filename: string) => {
@@ -158,7 +160,17 @@ const findModeByFilename = (filename: string) => {
     return undefined;
 };
 
-export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged, onChange }: Props) => {
+export default ({
+    style,
+    initialContent,
+    filename,
+    mode,
+    fetchContent,
+    onContentSaved,
+    onModeChanged,
+    onChange,
+    onContentChanged,
+}: Props) => {
     const [editor, setEditor] = useState<CodeMirror.Editor>();
 
     const ref = useCallback((node) => {
@@ -206,8 +218,23 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
     }, [editor, mode]);
 
     useEffect(() => {
-        editor && editor.setValue(initialContent || '');
+        if (editor) {
+            editor.setValue(initialContent || '');
+            // Reset the history so that "Ctrl+Z" doesn't delete the intial content
+            // we just set above.
+            editor.setHistory({ done: [], undone: [] });
+        }
     }, [editor, initialContent]);
+
+    useEffect(() => {
+        if (!editor || !onContentChanged) return;
+
+        const handler = () => onContentChanged(editor.getValue());
+
+        editor.on('change', handler);
+
+        return () => editor.off('change', handler);
+    }, [editor, onContentChanged]);
 
     useEffect(() => {
         if (!editor) {

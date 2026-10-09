@@ -4,7 +4,7 @@ import { Form, Formik, FormikHelpers } from 'formik';
 import { object, string } from 'yup';
 import Field from '@/components/elements/Field';
 import { ServerContext } from '@/state/server';
-import { join } from 'path';
+import { join } from 'pathe';
 import tw from 'twin.macro';
 import Button from '@/components/elements/Button';
 
@@ -49,7 +49,7 @@ export default ({ onFileNamed, onDismissed, ...props }: Props) => {
                             autoFocus
                         />
                         <div css={tw`mt-6 text-right`}>
-                            <Button>Create File</Button>
+                            <Button type={'submit'}>Create File</Button>
                         </div>
                     </Form>
                 </Modal>

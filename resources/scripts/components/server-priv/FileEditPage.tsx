@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { useRouteMatch } from 'react-router-dom';
-import { dirname } from 'path';
+import { dirname } from 'pathe';
 import { Icon } from './Icon';
 import { ServerContext } from '@/state/server';
 import { httpErrorToHuman } from '@/api/http';
