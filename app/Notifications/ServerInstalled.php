@@ -23,6 +23,12 @@ class ServerInstalled extends Notification implements ShouldQueue, ReceivesEvent
 
     public User $user;
 
+    /**
+     * Handle a direct call to this notification from the server installed event. This is configured
+     * in the event service provider.
+     *
+     * @phpstan-param Installed $event
+     */
     public function handle(Event|Installed $event): void
     {
         $event->server->loadMissing('user');

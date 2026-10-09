@@ -156,7 +156,7 @@
                 @foreach (Alert::getMessages() as $type => $messages)
                     @foreach ($messages as $message)
                         @php $cls = in_array($type, ['success','info','warning','danger']) ? $type : 'info'; @endphp
-                        <div class="alert alert--{{ $cls }}">{!! $message !!}</div>
+                        <div class="alert alert--{{ $cls }}">{{ $message }}</div>
                     @endforeach
                 @endforeach
 

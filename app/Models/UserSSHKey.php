@@ -4,6 +4,7 @@ namespace Pterodactyl\Models;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * \Pterodactyl\Models\UserSSHKey.
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
- * @property \Pterodactyl\Models\User $user
+ * @property User $user
  *
  * @method static \Illuminate\Database\Eloquent\Builder|UserSSHKey newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|UserSSHKey newQuery()
@@ -32,16 +33,31 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder|UserSSHKey whereUserId($value)
  * @method static \Illuminate\Database\Query\Builder|UserSSHKey withTrashed()
  * @method static \Illuminate\Database\Query\Builder|UserSSHKey withoutTrashed()
+ * @method static \Database\Factories\UserSSHKeyFactory factory(...$parameters)
  *
  * @mixin \Eloquent
- *
- * @method static \Database\Factories\UserSSHKeyFactory factory(...$parameters)
  */
 class UserSSHKey extends Model
 {
+    /** @use HasFactory<\Database\Factories\UserSSHKeyFactory> */
+    use HasFactory;
     use SoftDeletes;
 
     public const RESOURCE_NAME = 'ssh_key';
+    public const PUBLIC_KEY_MAX_LENGTH = 16384;
+
+    protected const PUBLIC_KEY_PREFIXES = [
+        'ssh-rsa ',
+        'ssh-ed25519 ',
+        'ecdsa-sha2-',
+        'sk-ssh-ed25519@openssh.com ',
+        'sk-ecdsa-sha2-nistp256@openssh.com ',
+        '-----BEGIN PUBLIC KEY-----',
+        '-----BEGIN RSA PUBLIC KEY-----',
+        '-----BEGIN EC PUBLIC KEY-----',
+        '-----BEGIN DSA PUBLIC KEY-----',
+        '---- BEGIN SSH2 PUBLIC KEY ----',
+    ];
 
     protected $table = 'user_ssh_keys';
 
@@ -54,9 +70,29 @@ class UserSSHKey extends Model
     public static array $validationRules = [
         'name' => ['required', 'string'],
         'fingerprint' => ['required', 'string'],
-        'public_key' => ['required', 'string'],
+        'public_key' => ['required', 'string', 'max:' . self::PUBLIC_KEY_MAX_LENGTH],
     ];
 
+    public static function isSupportedPublicKeyMaterial(string $value): bool
+    {
+        $value = trim($value);
+
+        if ($value === '' || strlen($value) > self::PUBLIC_KEY_MAX_LENGTH || str_contains($value, "\0")) {
+            return false;
+        }
+
+        foreach (self::PUBLIC_KEY_PREFIXES as $prefix) {
+            if (str_starts_with($value, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\Pterodactyl\Models\User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

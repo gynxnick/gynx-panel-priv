@@ -25,6 +25,7 @@ use Pterodactyl\Services\Databases\DatabasePasswordService;
 use Pterodactyl\Services\Servers\DetailsModificationService;
 use Pterodactyl\Services\Servers\StartupModificationService;
 use Pterodactyl\Contracts\Repository\NestRepositoryInterface;
+use Pterodactyl\Http\Requests\Admin\ServerDetailsFormRequest;
 use Pterodactyl\Repositories\Eloquent\DatabaseHostRepository;
 use Pterodactyl\Services\Databases\DatabaseManagementService;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
@@ -57,19 +58,19 @@ class ServersController extends Controller
         protected NestRepositoryInterface $nestRepository,
         protected ServerConfigurationStructureService $serverConfigurationStructureService,
         protected StartupModificationService $startupModificationService,
-        protected SuspensionService $suspensionService
+        protected SuspensionService $suspensionService,
     ) {
     }
 
     /**
      * Update the details for a server.
      *
-     * @throws \Pterodactyl\Exceptions\Model\DataValidationException
+     * @throws DataValidationException
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
      */
-    public function setDetails(Request $request, Server $server): RedirectResponse
+    public function setDetails(ServerDetailsFormRequest $request, Server $server): RedirectResponse
     {
-        $this->detailsModificationService->handle($server, $request->only([
+        $this->detailsModificationService->handle($server, $request->normalize([
             'owner_id', 'external_id', 'name', 'description',
         ]));
 
@@ -81,8 +82,8 @@ class ServersController extends Controller
     /**
      * Toggles the installation status for a server.
      *
-     * @throws \Pterodactyl\Exceptions\DisplayException
-     * @throws \Pterodactyl\Exceptions\Model\DataValidationException
+     * @throws DisplayException
+     * @throws DataValidationException
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
      */
     public function toggleInstall(Server $server): RedirectResponse
@@ -103,8 +104,8 @@ class ServersController extends Controller
     /**
      * Reinstalls the server with the currently assigned service.
      *
-     * @throws \Pterodactyl\Exceptions\DisplayException
-     * @throws \Pterodactyl\Exceptions\Model\DataValidationException
+     * @throws DisplayException
+     * @throws DataValidationException
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
      */
     public function reinstallServer(Server $server): RedirectResponse
@@ -118,8 +119,8 @@ class ServersController extends Controller
     /**
      * Manage the suspension status for a server.
      *
-     * @throws \Pterodactyl\Exceptions\DisplayException
-     * @throws \Pterodactyl\Exceptions\Model\DataValidationException
+     * @throws DisplayException
+     * @throws DataValidationException
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
      */
     public function manageSuspension(Request $request, Server $server): RedirectResponse
@@ -135,9 +136,9 @@ class ServersController extends Controller
     /**
      * Update the build configuration for a server.
      *
-     * @throws \Pterodactyl\Exceptions\DisplayException
+     * @throws DisplayException
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
     public function updateBuild(Request $request, Server $server): RedirectResponse
     {
@@ -159,7 +160,7 @@ class ServersController extends Controller
     /**
      * Start the server deletion process.
      *
-     * @throws \Pterodactyl\Exceptions\DisplayException
+     * @throws DisplayException
      * @throws \Throwable
      */
     public function delete(Request $request, Server $server): RedirectResponse
@@ -173,7 +174,7 @@ class ServersController extends Controller
     /**
      * Update the startup command as well as variables.
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
     public function saveStartup(Request $request, Server $server): RedirectResponse
     {
@@ -220,7 +221,7 @@ class ServersController extends Controller
      */
     public function resetDatabasePassword(Request $request, Server $server): Response
     {
-        /** @var \Pterodactyl\Models\Database $database */
+        /** @var Database $database */
         $database = $server->databases()->findOrFail($request->input('database'));
 
         $this->databasePasswordService->handle($database);
